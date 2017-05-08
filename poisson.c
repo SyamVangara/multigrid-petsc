@@ -1,5 +1,6 @@
 #include "header.h"
 #include <time.h>
+#include "petscksp.h"
 
 #define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
@@ -19,19 +20,28 @@ int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
+Mat matrixA(double *As, int n, int levels);
+Vec vecb(double **f, int n, int levels);
+void GetSol(double **u, double *px, int *n);
 
-int main() {
+int main(int argc, char *argv[]) {
 	
-	double weight=(2.0/3.0);
-	int    n[DIMENSION], ierr=0, levels, numIter;
-	double **coord, h[DIMENSION], bounds[DIMENSION*2];
-	double **f, **u, **r, *rnorm, error[3], As[5];// ,**r;
-	FILE   *solData, *resData, *errData;
+	//double	weight=(2.0/3.0);
+	int	n[DIMENSION], ierr=0, levels, numIter;
+	double	**coord, h[DIMENSION], bounds[DIMENSION*2];
+	double	**f, **u, **r, error[3], As[5], *px;//,*rnorm ,**r;
+	FILE	*solData, *errData;//, *resData;
+
+	KSP	solver;
+	Mat	A;
+	Vec	b, x;
+	int	iters;
 	
 	freopen("poisson.in", "r", stdin);
-	freopen("poisson.out", "w", stdout);
+	//freopen("poisson.out", "w", stdout);
 	freopen("poisson.err", "w", stderr);
-	// Inputs
+	
+	PetscInitialize(&argc, &argv, 0, 0);
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n); // unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -50,10 +60,11 @@ int main() {
 	}
 	
 	// Memory allocation of RHS, solution and residual
-	//ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
-	ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
+	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
+	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
-	rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
+	//rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
+	//px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
 
 	clock_t memT = clock();
 	// Meshing
@@ -74,8 +85,31 @@ int main() {
 	// Solver
 	//Jacobi(u,f,r,As,weight,rnorm,numIter,n); // Weighted Jacobi
 	//Multigrid(u,f,r,As,weight,rnorm,levels,n,numIter); // Multigrid V-cycle
-	PMultigrid(u,f,r,As,weight,rnorm,levels,n,numIter);
+	//PMultigrid(u,f,r,As,weight,rnorm,levels,n,numIter);
 	//AsyncMultigrid(u,f,r,As,weight,rnorm,n,numIter);
+	A = matrixA(As,(n[0]-2),levels);
+	b = vecb(f,(n[0]-2),levels);
+	VecDuplicate(b, &x);
+	KSPCreate(PETSC_COMM_WORLD, &solver);
+	KSPSetOperators(solver, A, A);
+	KSPSetTolerances(solver, 1.e-15, 1.e-50, PETSC_DEFAULT, PETSC_DEFAULT);
+	KSPSetFromOptions(solver);
+	KSPSolve(solver, b, x);
+	KSPGetIterationNumber(solver, &iters);
+	VecGetArray(x,&px);
+	GetSol(u,px,n);
+/*
+	r=0;
+	for (int i=1;i<n[1]-1;i++) {
+		for (int j=1;j<n[0]-1;j++) {
+			VecGetValues(x,1,r,u[i][j])
+			r = r+1;
+		}
+	}
+*/
+	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
+	KSPDestroy(&solver);
+	PetscFinalize();
 
 	clock_t solverT = clock();
 	
@@ -84,7 +118,7 @@ int main() {
 	
 	// Output
 	solData = fopen("uData.dat","w");
-	resData = fopen("rData.dat","w");
+	//resData = fopen("rData.dat","w");
 	errData = fopen("eData.dat","w");
 
 	for(int i=0;i<3;i++){
@@ -98,12 +132,12 @@ int main() {
 		}
 		fprintf(solData,"\n");
 	}
-
+/*
 	for (int i=0;i<numIter+1;i++) {
 		fprintf(resData,"%.16e ",rnorm[i]);
 	}
 	fprintf(resData,"\n");
-
+*/
 	clock_t ppT = clock();
 	
 	printf("Total time:             %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
@@ -114,12 +148,13 @@ int main() {
 	printf("Post processing time:   %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
 	
 	fclose(solData);
-	fclose(resData);
+	//fclose(resData);
 	fclose(errData);
 	free2dArray(&coord);
 	free2dArray(&f);
 	free2dArray(&u);
-	free(rnorm);
+	//free(rnorm);
+	//free(px);
 	
 	return 0;
 }
@@ -280,5 +315,108 @@ int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int level
 	}
 	free(m);
 	return ierr;
+}
+/*
+double func(double x, double y) {
+	return -2.0*PI*PI*sin(PI*x)*sin(PI*y);
+}
+*/
+Mat matrixA(double *As, int n, int levels) {
+	Mat	A;
+	int	r, localr, rowStart, rowEnd, TotalRows, scale;
+
+	//double	h, invh2;
+
+	//h	= 1.0/(n+1);
+	//invh2	= 1.0/(h*h);
+	TotalRows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+	printf("TotalRows = %d\n",TotalRows);
+
+	MatCreate(PETSC_COMM_WORLD, &A);
+	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, TotalRows, TotalRows);
+	MatSetFromOptions(A);
+	MatSetUp(A);
+	//MatMPIAIJSetPreallocation(A,5,NULL,5,NULL);
+	MatGetOwnershipRange(A, &rowStart, &rowEnd);
+	scale = 1;
+	r = 0;
+	for (int l=0;l<levels;l++) {
+		rowEnd = n*n;
+		for (localr=0; localr<rowEnd; localr++) {
+			//i = r%n; j = r/n;
+			if (localr-n>=0) {
+				MatSetValue(A, r, r-n, As[0]/scale, INSERT_VALUES);
+			}
+			if (localr-1>=0 && localr%n!=0) {
+				MatSetValue(A, r, r-1, As[1]/scale, INSERT_VALUES); 
+			}
+			MatSetValue(A, r, r, As[2]/scale, INSERT_VALUES);
+			if (localr+1<=n*n-1 && (localr+1)%n!=0) {
+				MatSetValue(A, r, r+1, As[3]/scale, INSERT_VALUES);
+			}
+			if (localr+n<=n*n-1) {
+				MatSetValue(A, r, r+n, As[4]/scale, INSERT_VALUES);
+			}
+			r = r+1;
+		}
+		//rowStart = rowEnd;
+		n = (n-1)/2;
+		scale = scale*4;
+	}
+	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+	//MatView(A,PETSC_VIEWER_STDOUT_WORLD);
+	return A;
+}
+
+Vec vecb(double **f, int n, int levels) {
+	Vec	V;
+	//int	r;
+	int	r, rowStart, rowEnd, TotalRows;//, i, j;
+	int	skip;
+	//double	h;
+
+	TotalRows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+	
+	VecCreate(PETSC_COMM_WORLD, &V);
+	VecSetSizes(V, PETSC_DECIDE, TotalRows);
+	VecSetFromOptions(V);
+	VecGetOwnershipRange(V, &rowStart, &rowEnd);
+	r=0;
+	skip = 1;
+	for (int l=0;l<levels;l++) {
+		for (int i=skip;i<n+1;i=i+skip) {
+			for (int j=skip;j<n+1;j=j+skip) {
+				VecSetValue(V, r, f[i][j], INSERT_VALUES);
+				r = r+1;
+			}
+		}
+		skip = skip*2;
+	}
+/*
+	for (r=rowStart; r<rowEnd; r++) {
+		j = (r%(n[]))+1;
+		i = (r/n)+1;
+		VecSetValue(V, r, f[i][j], INSERT_VALUES);
+	}
+*/
+	VecAssemblyBegin(V);
+	VecAssemblyEnd(V);
+	//VecView(V,PETSC_VIEWER_STDOUT_WORLD);
+
+	return V;
+}
+
+void GetSol(double **u, double *px, int *n) {
+	
+	int	r;
+	r = 0;
+	for (int i=1;i<n[1]-1;i++) {
+		for (int j=1;j<n[0]-1;j++) {
+			u[i][j] = px[r];
+			r = r+1;
+		}
+	}
+
 }
 
