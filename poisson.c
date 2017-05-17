@@ -369,6 +369,42 @@ Mat matrixA(double *As, int n, int levels) {
 	return A;
 }
 
+Mat matrixIH2h(double **Is, int m, int nh, int nH) {
+//	Is - stencil wise grid transfer operator of size m*m
+//	nh - number of unknowns per dimension in fine grid "h"
+//	nH - number of unknowns per dimension in coarse grid "H"
+	
+	Mat	IH2h;
+	int	rowStart, rowEnd, colStart, colEnd;
+
+	MatCreate(PETSC_COMM_WORLD, &IH2h);
+	MatSetSizes(IH2h, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
+	MatSetFromOptions(IH2h);
+	MatSetUp(IH2h);
+	//MatMPIAIJSetPreallocation(A,5,NULL,5,NULL);
+	//MatGetOwnershipRange(A, &rowStart, &rowEnd);
+	for (int bj=0;bj<nH;bj++) {
+		colStart = bj*nH;
+		colEnd   = colStart+nH;
+		rowStart = (bj*nh)*((m+1)/2);
+		for (int bi=0;bi<m;bi++) {
+			for (int j=colStart;j<colEnd;j++) {
+				rowEnd  = rowStart + m;
+				for (int i=rowStart;i<rowEnd;i++) {
+					MatSetValue(IH2h, i, j, Is[bi][i-rowStart], INSERT_VALUES);
+				}
+				rowStart = rowStart + ((m+1)/2);
+			}
+			rowStart = rowEnd;
+		}
+	}
+	
+	MatAssemblyBegin(IH2h, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(IH2h, MAT_FINAL_ASSEMBLY);
+	MatView(IH2h, PETSC_VIEWER_STDOUT_WORLD);
+	return IH2h;
+}
+
 Vec vecb(double **f, int n, int levels) {
 	Vec	V;
 	//int	r;
@@ -393,16 +429,8 @@ Vec vecb(double **f, int n, int levels) {
 		}
 		skip = skip*2;
 	}
-/*
-	for (r=rowStart; r<rowEnd; r++) {
-		j = (r%(n[]))+1;
-		i = (r/n)+1;
-		VecSetValue(V, r, f[i][j], INSERT_VALUES);
-	}
-*/
 	VecAssemblyBegin(V);
 	VecAssemblyEnd(V);
-	//VecView(V,PETSC_VIEWER_STDOUT_WORLD);
 
 	return V;
 }
