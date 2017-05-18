@@ -20,6 +20,7 @@ int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
+Mat matrixIH2h(double **Is, int m, int nh, int nH);
 Mat matrixA(double *As, int n, int levels);
 Vec vecb(double **f, int n, int levels);
 void GetSol(double **u, double *px, int *n);
