@@ -323,16 +323,27 @@ double func(double x, double y) {
 }
 */
 Mat matrixA(double *As, int n, int levels) {
-	Mat	A;
+	Mat	A, IH2h;
 	int	r, localr, rowStart, rowEnd, TotalRows, scale;
+	double	**opIH2h;
+	int	m = 3, ierr;
 
 	//double	h, invh2;
 
 	//h	= 1.0/(n+1);
 	//invh2	= 1.0/(h*h);
+	ierr = malloc2d(&opIH2h,m,m); CHKERR_PRNT("malloc failed");
+	for (int lj=0;lj<3;lj++) {
+ 		opIH2h[0][lj]= 0.5 - 0.25*fabs(1-lj);
+ 		opIH2h[1][lj]= 1.0 - 0.5*fabs(1-lj);
+ 		opIH2h[2][lj]= 0.5 - 0.25*fabs(1-lj);
+	}
+
+
 	TotalRows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
 	printf("TotalRows = %d\n",TotalRows);
 
+	IH2h =  matrixIH2h(opIH2h, 3, n, (n-1)/2);
 	MatCreate(PETSC_COMM_WORLD, &A);
 	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, TotalRows, TotalRows);
 	MatSetFromOptions(A);
@@ -366,6 +377,9 @@ Mat matrixA(double *As, int n, int levels) {
 	}
 	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+	MatDestroy(&IH2h);
+
+	free2dArray(&opIH2h);	
 	//MatView(A,PETSC_VIEWER_STDOUT_WORLD);
 	return A;
 }
