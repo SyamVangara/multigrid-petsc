@@ -21,6 +21,7 @@ int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 Mat matrixIH2h(double **Is, int m, int nh, int nH);
+Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag);
 Mat matrixA(double *As, int n, int levels);
 Vec vecb(double **f, int n, int levels);
 void GetSol(double **u, double *px, int *n);
@@ -343,7 +344,8 @@ Mat matrixA(double *As, int n, int levels) {
 	TotalRows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
 	printf("TotalRows = %d\n",TotalRows);
 
-	IH2h =  matrixIH2h(opIH2h, 3, n, (n-1)/2);
+	//IH2h =  matrixIH2h(opIH2h, 3, n, (n-1)/2);
+	IH2h =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, 0);
 	MatCreate(PETSC_COMM_WORLD, &A);
 	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, TotalRows, TotalRows);
 	MatSetFromOptions(A);
@@ -418,6 +420,51 @@ Mat matrixIH2h(double **Is, int m, int nh, int nH) {
 	MatAssemblyEnd(IH2h, MAT_FINAL_ASSEMBLY);
 	MatView(IH2h, PETSC_VIEWER_STDOUT_WORLD);
 	return IH2h;
+}
+
+Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag) {
+//	Is	- stencil wise grid transfer operator of size m*m
+//	nh	- number of unknowns per dimension in fine grid "h"
+//	nH	- number of unknowns per dimension in coarse grid "H"
+//	flag	- "0" for "Restriction"; "non-zero" for "Interpolation/Prolongation"
+	
+	Mat	matI;
+	int	rowStart, rowEnd, colStart, colEnd;
+
+	MatCreate(PETSC_COMM_WORLD, &matI);
+	if (flag == 0) {
+		MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
+	} else {
+		MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
+	}
+	MatSetFromOptions(matI);
+	MatSetUp(matI);
+	//MatMPIAIJSetPreallocation(A,5,NULL,5,NULL);
+	//MatGetOwnershipRange(A, &rowStart, &rowEnd);
+	for (int bj=0;bj<nH;bj++) {
+		colStart = bj*nH;
+		colEnd   = colStart+nH;
+		rowStart = (bj*nh)*((m+1)/2);
+		for (int bi=0;bi<m;bi++) {
+			for (int j=colStart;j<colEnd;j++) {
+				rowEnd  = rowStart + m;
+				for (int i=rowStart;i<rowEnd;i++) {
+					if (flag ==0) {
+						MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
+					} else {
+						MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
+					}
+				}
+				rowStart = rowStart + ((m+1)/2);
+			}
+			rowStart = rowEnd;
+		}
+	}
+	
+	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
+	MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
+	return matI;
 }
 
 Vec vecb(double **f, int n, int levels) {
