@@ -20,6 +20,7 @@ int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
+void CreateArrayOfIS(int n, int levels, IS *idx);
 Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag);
 Mat matrixA(double *As, int n, int levels);
 Vec vecb(double **f, int n, int levels);
@@ -322,16 +323,31 @@ double func(double x, double y) {
 	return -2.0*PI*PI*sin(PI*x)*sin(PI*y);
 }
 */
+void CreateArrayOfIS(int n, int levels, IS *idx) {
+	int first;
+
+	first = 0;
+	for (int i=0;i<levels;i++) {
+		ISCreateStride(PETSC_COMM_SELF,n,first,1,&(idx[i]));
+		first	= n;
+		n	= (n-1)/2;
+	}
+}
+
 Mat matrixA(double *As, int n, int levels) {
 	Mat	A, IH2h, Ih2H;
 	int	r, localr, rowStart, rowEnd, TotalRows, scale;
 	double	**opIH2h, **opIh2H;
 	int	m = 3, ierr;
+	IS	isRowIdx[levels], isColIdx[levels];
 
 	//double	h, invh2;
 
 	//h	= 1.0/(n+1);
 	//invh2	= 1.0/(h*h);
+	CreateArrayOfIS(n,levels,isRowIdx);
+	ISView(isRowIdx[1],PETSC_VIEWER_STDOUT_SELF);
+
 	ierr = malloc2d(&opIH2h,m,m); CHKERR_PRNT("malloc failed");
 	ierr = malloc2d(&opIh2H,m,m); CHKERR_PRNT("malloc failed");
 	for (int lj=0;lj<3;lj++) {
