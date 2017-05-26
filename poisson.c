@@ -438,6 +438,86 @@ Mat matrixA(double *As, int n, int levels) {
 	return A;
 }
 
+Mat matrixA(double *As, int n, int levels) {
+	Mat	A, subA[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
+	int	r, localr, rowStart, rowEnd, TotalRows, scale;
+	double	**opIH2h, **opIh2H;
+	int	m = 3, ierr;
+	IS	isRowIdx[levels], isColIdx[levels];
+
+	//double	h, invh2;
+
+	//h	= 1.0/(n+1);
+	//invh2	= 1.0/(h*h);
+	CreateArrayOfIS(n,levels,isRowIdx);
+	ISView(isRowIdx[1],PETSC_VIEWER_STDOUT_SELF);
+	
+	CreateArrayOfIS(n,levels,isColIdx);
+	ISView(isColIdx[1],PETSC_VIEWER_STDOUT_SELF);
+
+	ierr = malloc2d(&opIH2h,m,m); CHKERR_PRNT("malloc failed");
+	ierr = malloc2d(&opIh2H,m,m); CHKERR_PRNT("malloc failed");
+	for (int lj=0;lj<3;lj++) {
+ 		opIH2h[0][lj]= 0.5 - 0.25*fabs(1-lj);
+ 		opIH2h[1][lj]= 1.0 - 0.5*fabs(1-lj);
+ 		opIH2h[2][lj]= 0.5 - 0.25*fabs(1-lj);
+	}
+
+
+	for (int lj=0;lj<3;lj++) {
+ 		opIh2H[0][lj]= 0.0;
+ 		opIh2H[1][lj]= 0.0;
+ 		opIh2H[2][lj]= 0.0;
+	}
+	opIh2H[1][1] = 1.0;
+
+	TotalRows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+	printf("TotalRows = %d\n",TotalRows);
+
+	restrictMatrix[0] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, 0);
+	prolongMatrix[0]  =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, 1);
+	MatCreate(PETSC_COMM_WORLD, &A);
+	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, TotalRows, TotalRows);
+	MatSetFromOptions(A);
+	MatSetUp(A);
+	//MatMPIAIJSetPreallocation(A,5,NULL,5,NULL);
+	MatGetOwnershipRange(A, &rowStart, &rowEnd);
+	scale = 1;
+	r = 0;
+	for (int l=0;l<levels;l++) {
+		rowEnd = n*n;
+		for (localr=0; localr<rowEnd; localr++) {
+			//i = r%n; j = r/n;
+			if (localr-n>=0) {
+				MatSetValue(A, r, r-n, As[0]/scale, INSERT_VALUES);
+			}
+			if (localr-1>=0 && localr%n!=0) {
+				MatSetValue(A, r, r-1, As[1]/scale, INSERT_VALUES); 
+			}
+			MatSetValue(A, r, r, As[2]/scale, INSERT_VALUES);
+			if (localr+1<=n*n-1 && (localr+1)%n!=0) {
+				MatSetValue(A, r, r+1, As[3]/scale, INSERT_VALUES);
+			}
+			if (localr+n<=n*n-1) {
+				MatSetValue(A, r, r+n, As[4]/scale, INSERT_VALUES);
+			}
+			r = r+1;
+		}
+		//rowStart = rowEnd;
+		n = (n-1)/2;
+		scale = scale*4;
+	}
+	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+	MatDestroy(&(restrictMatrix[0]));
+	MatDestroy(&(prolongMatrix[0]));
+
+	free2dArray(&opIH2h);	
+	free2dArray(&opIh2H);	
+	//MatView(A,PETSC_VIEWER_STDOUT_WORLD);
+	return A;
+}
+
 //Mat matrixA(double *As, int n, int levels) {
 //	Mat	A, IH2h, Ih2H;
 //	int	r, localr, rowStart, rowEnd, TotalRows, scale;
