@@ -21,6 +21,7 @@ int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 void CreateArrayOfIS(int n, int levels, IS *idx);
+void insertSubMatValues(Mat *subA, int nrows, Mat *A, int supi, int supj);
 Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag);
 Mat matrixA(double *As, int n, int levels);
 Vec vecb(double **f, int n, int levels);
@@ -336,8 +337,32 @@ void CreateArrayOfIS(int n, int levels, IS *idx) {
 	}
 }
 
+void insertSubMatValues(Mat *subA, int nrows, Mat *A, int supi, int supj) {
+	//Insert values of sub matrix "subA" in "A"
+	//
+	//nrows	- number of rows in "subA"
+	//
+	//A(i+supi, j+supj) = subA(i,j)
+	
+	const	int	*colNum;
+	const	double	*vals;
+		int	ncols;
+	
+	for (int i=0; i<nrows; i++) {
+	MatGetRow(*subA,i,&ncols,&colNum,&vals);
+	//if (ncols == 1)	printf("colNum = %d\n",colNum);
+	//ISGetIndices(isRowIdx[l],&rowIndx);
+	//ISGetIndices(isColIdx[l],&colIndx);
+		for (int j=0; j<ncols; j++) {
+			MatSetValue(*A,i+supi,colNum[j]+supj,vals[j],INSERT_VALUES);
+		}
+	MatRestoreRow(*subA,i,&ncols,&colNum,&vals);
+	}
+}
+
 Mat matrixA(double *As, int n, int levels) {
 		Mat	A, subA[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
+		Mat	C[levels-1];
 		int	rows, cols, scale, ncols;
 	const	int	*colNum;
 	const	double	*vals;
@@ -375,11 +400,11 @@ Mat matrixA(double *As, int n, int levels) {
 
 	rows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
 	cols = rows;
-	printf("rows = %d\n",rows);
-
+	//printf("rows = %d\n",rows);
+/*
 	restrictMatrix[0] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, 0);
 	prolongMatrix[0] =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, 1);
-
+*/
 	MatCreate(PETSC_COMM_WORLD, &A);
 	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, rows, cols);
 	MatSetFromOptions(A);
@@ -419,17 +444,15 @@ Mat matrixA(double *As, int n, int levels) {
 		}
 		MatAssemblyBegin(subA[l],MAT_FINAL_ASSEMBLY);
 		MatAssemblyEnd(subA[l],MAT_FINAL_ASSEMBLY);
-		MatView(subA[l],PETSC_VIEWER_STDOUT_WORLD);
-		for (int i=0; i<rows; i++) {
-			MatGetRow(subA[l],i,&ncols,&colNum,&vals);
-			//if (ncols == 1)	printf("colNum = %d\n",colNum);
-			//ISGetIndices(isRowIdx[l],&rowIndx);
-			//ISGetIndices(isColIdx[l],&colIndx);
-			for (int j=0; j<ncols; j++) {
-				MatSetValue(A,i+blockRowStart,colNum[j]+blockColStart,vals[j],INSERT_VALUES);
-			}
-			MatRestoreRow(subA[l],i,&ncols,&colNum,&vals);
+		//MatView(subA[l],PETSC_VIEWER_STDOUT_WORLD);
+		if (l<levels-1) {
+			restrictMatrix[l] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, 0);
+			prolongMatrix[l] =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, 1);
+			MatView(prolongMatrix[l],PETSC_VIEWER_STDOUT_WORLD);
+			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(C[l]));
+			MatView(C[l],PETSC_VIEWER_STDOUT_WORLD);
 		}
+		insertSubMatValues(&(subA[l]), rows, &A, blockRowStart, blockColStart);
 		MatDestroy(&(subA[l]));
 		//rowStart = rowEnd;
 		blockRowStart += rows;
@@ -446,7 +469,7 @@ Mat matrixA(double *As, int n, int levels) {
 
 	free2dArray(&opIH2h);	
 	free2dArray(&opIh2H);	
-	MatView(A,PETSC_VIEWER_STDOUT_WORLD);
+	//MatView(A,PETSC_VIEWER_STDOUT_WORLD);
 	return A;
 }
 
