@@ -1,5 +1,6 @@
 #include "header.h"
 #include <time.h>
+#include <string.h>
 #include "petscksp.h"
 
 #define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
@@ -21,8 +22,10 @@ int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 void CreateArrayOfIS(int n, int levels, IS *idx);
-void insertSubMatValues(Mat *subA, int nrows, Mat *A, int supi, int supj);
-Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag);
+void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
+Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type);
+Mat restrictionMatrix(double **Is, int m, int nh, int nH);
+Mat prolongationMatrix(double **Is, int m, int nh, int nH);
 Mat matrixA(double *As, int n, int levels);
 Vec vecb(double **f, int n, int levels);
 void GetSol(double **u, double *px, int *n);
@@ -337,26 +340,24 @@ void CreateArrayOfIS(int n, int levels, IS *idx) {
 	}
 }
 
-void insertSubMatValues(Mat *subA, int nrows, Mat *A, int supi, int supj) {
+void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
 	//Insert values of sub matrix "subA" in "A"
 	//
 	//nrows	- number of rows in "subA"
+	//ncols - number of columns in "subA"
 	//
-	//A(i+supi, j+supj) = subA(i,j)
+	//A(i0+subi, j0+subj) = subA(subi,subj)
 	
-	const	int	*colNum;
+	const	int	*subj;
 	const	double	*vals;
 		int	ncols;
 	
-	for (int i=0; i<nrows; i++) {
-	MatGetRow(*subA,i,&ncols,&colNum,&vals);
-	//if (ncols == 1)	printf("colNum = %d\n",colNum);
-	//ISGetIndices(isRowIdx[l],&rowIndx);
-	//ISGetIndices(isColIdx[l],&colIndx);
-		for (int j=0; j<ncols; j++) {
-			MatSetValue(*A,i+supi,colNum[j]+supj,vals[j],INSERT_VALUES);
+	for (int subi=0; subi<nrows; subi++) {
+		MatGetRow(*subA, subi, &ncols, &subj, &vals);
+		for (int jcol=0; jcol<ncols; jcol++) {
+			MatSetValue(*A, i0+subi, j0+subj[jcol], vals[jcol], INSERT_VALUES);
 		}
-	MatRestoreRow(*subA,i,&ncols,&colNum,&vals);
+		MatRestoreRow(*subA, subi, &ncols, &subj, &vals);
 	}
 }
 
@@ -369,17 +370,17 @@ Mat matrixA(double *As, int n, int levels) {
 		int	rowStart, rowEnd, blockRowStart, blockColStart;
 		double	**opIH2h, **opIh2H;
 		int	m = 3, ierr;
-		IS	isRowIdx[levels], isColIdx[levels];
+		//IS	isRowIdx[levels], isColIdx[levels];
 		int	*rowIndx, *colIndx;
 
 	//double	h, invh2;
 
 	//h	= 1.0/(n+1);
 	//invh2	= 1.0/(h*h);
-	CreateArrayOfIS(n,levels,isRowIdx);
+	//CreateArrayOfIS(n,levels,isRowIdx);
 	//ISView(isRowIdx[1],PETSC_VIEWER_STDOUT_SELF);
 	
-	CreateArrayOfIS(n,levels,isColIdx);
+	//CreateArrayOfIS(n,levels,isColIdx);
 	//ISView(isColIdx[1],PETSC_VIEWER_STDOUT_SELF);
 
 	ierr = malloc2d(&opIH2h,m,m); CHKERR_PRNT("malloc failed");
@@ -446,8 +447,10 @@ Mat matrixA(double *As, int n, int levels) {
 		MatAssemblyEnd(subA[l],MAT_FINAL_ASSEMBLY);
 		//MatView(subA[l],PETSC_VIEWER_STDOUT_WORLD);
 		if (l<levels-1) {
-			restrictMatrix[l] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, 0);
-			prolongMatrix[l] =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, 1);
+		//	restrictMatrix[l] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, "Restriction");
+		//	prolongMatrix[l] =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, "Prolongation");
+			restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n, (n-1)/2);
+			prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n, (n-1)/2);
 			MatView(prolongMatrix[l],PETSC_VIEWER_STDOUT_WORLD);
 			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(C[l]));
 			MatView(C[l],PETSC_VIEWER_STDOUT_WORLD);
@@ -553,20 +556,27 @@ Mat matrixA(double *As, int n, int levels) {
 //	return A;
 //}
 
-Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag) {
-//	Is	- stencil wise grid transfer operator of size m*m
-//	nh	- number of unknowns per dimension in fine grid "h"
-//	nH	- number of unknowns per dimension in coarse grid "H"
-//	flag	- "0" for "Restriction"; "non-zero" for "Interpolation/Prolongation"
+Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type) {
+	// Is	- stencil wise grid transfer operator of size m*m
+	// nh	- number of unknowns per dimension in fine grid "h"
+	// nH	- number of unknowns per dimension in coarse grid "H"
+	// type	- "Restriction" or "Prolongation"
 	
 	Mat	matI;
 	int	rowStart, rowEnd, colStart, colEnd;
+	char	res[15] = "Restriction", pro[15] = "Prolongation";
+	int	flag;
 
 	MatCreate(PETSC_COMM_WORLD, &matI);
-	if (flag == 0) {
+	if (strcmp(type, res)) {
+		flag = 0;
 		MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
-	} else {
+	} else if (strcmp(type, pro)) {
+		flag = 1;
 		MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
+	} else {
+		printf("'%s' is not a valid grid transfer operation; use '%s' or '%s'\n",type,res,pro);
+		return matI;
 	}
 	MatSetFromOptions(matI);
 	MatSetUp(matI);
@@ -580,11 +590,79 @@ Mat GridTransferMatrix(double **Is, int m, int nh, int nH, int flag) {
 			for (int j=colStart;j<colEnd;j++) {
 				rowEnd  = rowStart + m;
 				for (int i=rowStart;i<rowEnd;i++) {
-					if (flag==0 && Is[bi][i-rowStart]!=0.0) {
+					if (flag == 0 && Is[bi][i-rowStart]!=0.0) {
 						MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
 					} else if (Is[bi][i-rowStart]!=0.0) {
 						MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
 					}
+				}
+				rowStart = rowStart + ((m+1)/2);
+			}
+			rowStart = rowEnd;
+		}
+	}
+	
+	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
+	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
+	return matI;
+}
+
+Mat restrictionMatrix(double **Is, int m, int nh, int nH) {
+	// Is	- stencil wise grid transfer operator of size m*m
+	// nh	- number of unknowns per dimension in fine grid "h"
+	// nH	- number of unknowns per dimension in coarse grid "H"
+	
+	Mat	matI;
+	int	rowStart, rowEnd, colStart, colEnd;
+
+	MatCreate(PETSC_COMM_WORLD, &matI);
+	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
+	MatSetFromOptions(matI);
+	MatSetUp(matI);
+	for (int bj=0;bj<nH;bj++) {
+		colStart = bj*nH;
+		colEnd   = colStart+nH;
+		rowStart = (bj*nh)*((m+1)/2);
+		for (int bi=0;bi<m;bi++) {
+			for (int j=colStart;j<colEnd;j++) {
+				rowEnd  = rowStart + m;
+				for (int i=rowStart;i<rowEnd;i++) {
+					MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
+				}
+				rowStart = rowStart + ((m+1)/2);
+			}
+			rowStart = rowEnd;
+		}
+	}
+	
+	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
+	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
+	return matI;
+}
+
+Mat prolongationMatrix(double **Is, int m, int nh, int nH) {
+	// Is	- stencil wise grid transfer operator of size m*m
+	// nh	- number of unknowns per dimension in fine grid "h"
+	// nH	- number of unknowns per dimension in coarse grid "H"
+	
+	Mat	matI;
+	int	rowStart, rowEnd, colStart, colEnd;
+
+	MatCreate(PETSC_COMM_WORLD, &matI);
+	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
+	MatSetFromOptions(matI);
+	MatSetUp(matI);
+	for (int bj=0;bj<nH;bj++) {
+		colStart = bj*nH;
+		colEnd   = colStart+nH;
+		rowStart = (bj*nh)*((m+1)/2);
+		for (int bi=0;bi<m;bi++) {
+			for (int j=colStart;j<colEnd;j++) {
+				rowEnd  = rowStart + m;
+				for (int i=rowStart;i<rowEnd;i++) {
+					MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
 				}
 				rowStart = rowStart + ((m+1)/2);
 			}
