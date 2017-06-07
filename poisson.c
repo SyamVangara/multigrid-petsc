@@ -456,6 +456,7 @@ Mat matrixA(double *As, int n, int levels) {
 			MatView(C[l],PETSC_VIEWER_STDOUT_WORLD);
 		}
 		insertSubMatValues(&(subA[l]), rows, &A, blockRowStart, blockColStart);
+		insertSubMatValues(&(C[l]), rows, &A, blockRowStart, blockColStart);
 		MatDestroy(&(subA[l]));
 		//rowStart = rowEnd;
 		blockRowStart += rows;
@@ -468,6 +469,7 @@ Mat matrixA(double *As, int n, int levels) {
 	for (int i=0;i<levels-1;i++) {
 		MatDestroy(&(prolongMatrix[i]));
 		MatDestroy(&(restrictMatrix[i]));
+		MatDestroy(&(C[i]));
 	}
 
 	free2dArray(&opIH2h);	
