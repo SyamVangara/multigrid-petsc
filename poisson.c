@@ -361,9 +361,10 @@ void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
 	}
 }
 
-Mat matrixA(double *As, int n, int levels) {
+Mat matrixA(double *As, int n0, int levels) {
 		Mat	A, subA[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
-		Mat	C[levels-1];
+		Mat	UB[levels-1], LB[levels-1];
+		int	n[levels];
 		int	rows, cols, scale, ncols;
 	const	int	*colNum;
 	const	double	*vals;
@@ -399,13 +400,20 @@ Mat matrixA(double *As, int n, int levels) {
 	}
 	opIh2H[1][1] = 1.0;
 
-	rows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+	rows = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
 	cols = rows;
 	//printf("rows = %d\n",rows);
 /*
 	restrictMatrix[0] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, 0);
 	prolongMatrix[0] =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, 1);
-*/
+*/	
+	n[0] = n0;
+	for (int l=0;l<levels-1;l++) {
+		n[l+1] = (n[l]-1)/2;
+		restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
+		prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n[l], n[l+1]);
+	}
+	
 	MatCreate(PETSC_COMM_WORLD, &A);
 	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, rows, cols);
 	MatSetFromOptions(A);
@@ -417,7 +425,7 @@ Mat matrixA(double *As, int n, int levels) {
 	blockColStart = 0;
 	//r = 0;
 	for (int l=0;l<levels;l++) {
-		rows = n*n;
+		rows = n[l]*n[l];
 		cols = rows;
 		MatCreate(PETSC_COMM_WORLD, &(subA[l]));
 		MatSetSizes(subA[l], PETSC_DECIDE, PETSC_DECIDE, rows, cols);
@@ -428,40 +436,46 @@ Mat matrixA(double *As, int n, int levels) {
 		//rowEnd = n*n;
 		for (int i=rowStart; i<rowEnd; i++) {
 			//i = r%n; j = r/n;
-			if (i-n>=0) {
-				MatSetValue(subA[l], i, i-n, As[0]/scale, INSERT_VALUES);
+			if (i-n[l]>=0) {
+				MatSetValue(subA[l], i, i-n[l], As[0]/scale, INSERT_VALUES);
 			}
-			if (i-1>=0 && i%n!=0) {
+			if (i-1>=0 && i%n[l]!=0) {
 				MatSetValue(subA[l], i, i-1, As[1]/scale, INSERT_VALUES); 
 			}
 			MatSetValue(subA[l], i, i, As[2]/scale, INSERT_VALUES);
-			if (i+1<=rows-1 && (i+1)%n!=0) {
+			if (i+1<=rows-1 && (i+1)%n[l]!=0) {
 				MatSetValue(subA[l], i, i+1, As[3]/scale, INSERT_VALUES);
 			}
-			if (i+n<=rows-1) {
-				MatSetValue(subA[l], i, i+n, As[4]/scale, INSERT_VALUES);
+			if (i+n[l]<=rows-1) {
+				MatSetValue(subA[l], i, i+n[l], As[4]/scale, INSERT_VALUES);
 			}
 			//i = i+1;
 		}
 		MatAssemblyBegin(subA[l],MAT_FINAL_ASSEMBLY);
 		MatAssemblyEnd(subA[l],MAT_FINAL_ASSEMBLY);
 		//MatView(subA[l],PETSC_VIEWER_STDOUT_WORLD);
-		if (l<levels-1) {
+		for (int b=0;b<levels-1;b++) {
 		//	restrictMatrix[l] =  GridTransferMatrix(opIh2H, 3, n, (n-1)/2, "Restriction");
 		//	prolongMatrix[l] =  GridTransferMatrix(opIH2h, 3, n, (n-1)/2, "Prolongation");
-			restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n, (n-1)/2);
-			prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n, (n-1)/2);
+		//	restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n, (n-1)/2);
+		//	prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n, (n-1)/2);
+			
+			printf("========================= %d - Prolong ==========================\n",l);	
 			MatView(prolongMatrix[l],PETSC_VIEWER_STDOUT_WORLD);
-			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(C[l]));
-			MatView(C[l],PETSC_VIEWER_STDOUT_WORLD);
+			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(UB[l]));
+			MatView(UB[l],PETSC_VIEWER_STDOUT_WORLD);
+			printf("========================= %d - Restrict =========================\n",l);	
+			MatView(restrictMatrix[l],PETSC_VIEWER_STDOUT_WORLD);
+			MatMatMult(restrictMatrix[l], subA[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(LB[l]));
+			MatView(LB[l],PETSC_VIEWER_STDOUT_WORLD);
 		}
 		insertSubMatValues(&(subA[l]), rows, &A, blockRowStart, blockColStart);
-		insertSubMatValues(&(C[l]), rows, &A, blockRowStart, blockColStart);
+		//insertSubMatValues(&(C[l]), rows, &A, blockRowStart, blockColStart);
 		MatDestroy(&(subA[l]));
 		//rowStart = rowEnd;
 		blockRowStart += rows;
 		blockColStart += cols;
-		n = (n-1)/2;
+		//n = (n-1)/2;
 		scale = scale*4;
 	}
 	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
@@ -469,7 +483,8 @@ Mat matrixA(double *As, int n, int levels) {
 	for (int i=0;i<levels-1;i++) {
 		MatDestroy(&(prolongMatrix[i]));
 		MatDestroy(&(restrictMatrix[i]));
-		MatDestroy(&(C[i]));
+		MatDestroy(&(UB[i]));
+		MatDestroy(&(LB[i]));
 	}
 
 	free2dArray(&opIH2h);	
@@ -630,7 +645,7 @@ Mat restrictionMatrix(double **Is, int m, int nh, int nH) {
 			for (int j=colStart;j<colEnd;j++) {
 				rowEnd  = rowStart + m;
 				for (int i=rowStart;i<rowEnd;i++) {
-					MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
+					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
 				}
 				rowStart = rowStart + ((m+1)/2);
 			}
@@ -664,7 +679,7 @@ Mat prolongationMatrix(double **Is, int m, int nh, int nH) {
 			for (int j=colStart;j<colEnd;j++) {
 				rowEnd  = rowStart + m;
 				for (int i=rowStart;i<rowEnd;i++) {
-					MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
+					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
 				}
 				rowStart = rowStart + ((m+1)/2);
 			}
