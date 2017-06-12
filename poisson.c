@@ -49,11 +49,13 @@ int main(int argc, char *argv[]) {
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 	//printf("Enter the no .of points in each dimension = ");
-	scanf("%d",n); // unTotal is used temporarily
+	scanf("%d",n);	// unTotal is used temporarily
+	printf("Size:			%d^2\n",n[0]);
 	//printf("Enter the no .of iterations = ");
 	scanf("%d",&numIter);
 	//printf("Enter the no .of Multigrid levels = ");
 	scanf("%d",&levels);
+	printf("Number of levels:	%d\n",levels);
 	
 	clock_t begin = clock();
 
@@ -100,7 +102,13 @@ int main(int argc, char *argv[]) {
 	KSPSetOperators(solver, A, A);
 	KSPSetTolerances(solver, 1.e-15, 1.e-50, PETSC_DEFAULT, PETSC_DEFAULT);
 	KSPSetFromOptions(solver);
+
+	clock_t solverInitT = clock();
+
 	KSPSolve(solver, b, x);
+	
+	clock_t solverT = clock();
+	
 	KSPGetIterationNumber(solver, &iters);
 	VecGetArray(x,&px);
 	GetSol(u,px,n);
@@ -117,7 +125,7 @@ int main(int argc, char *argv[]) {
 	KSPDestroy(&solver);
 	PetscFinalize();
 
-	clock_t solverT = clock();
+	clock_t solverFinalizeT = clock();
 	
 	// Error computation
 	GetError(coord,n,u,error);
@@ -146,12 +154,14 @@ int main(int argc, char *argv[]) {
 */
 	clock_t ppT = clock();
 	
-	printf("Total time:             %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
-	printf("Memory allocation time: %lf\n",(double)(memT-begin)/CLOCKS_PER_SEC);
-	printf("Meshing time:           %lf\n",(double)(meshT-memT)/CLOCKS_PER_SEC);
-	printf("Initialization time:    %lf\n",(double)(initT-meshT)/CLOCKS_PER_SEC);
-	printf("Solver time:            %lf\n",(double)(solverT-initT)/CLOCKS_PER_SEC);
-	printf("Post processing time:   %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
+	printf("Total time:                 %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
+	printf("Memory allocation time:     %lf\n",(double)(memT-begin)/CLOCKS_PER_SEC);
+	printf("Meshing time:               %lf\n",(double)(meshT-memT)/CLOCKS_PER_SEC);
+	printf("Initialization time:        %lf\n",(double)(initT-meshT)/CLOCKS_PER_SEC);
+	printf("Solver Initialization time: %lf\n",(double)(solverInitT-initT)/CLOCKS_PER_SEC);
+	printf("Solver time:                %lf\n",(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	printf("Solver Finalization time:   %lf\n",(double)(solverFinalizeT-solverT)/CLOCKS_PER_SEC);
+	printf("Post processing time:       %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
 	
 	fclose(solData);
 	//fclose(resData);
@@ -523,7 +533,7 @@ Mat matrixA(double *As, int n0, int levels) {
 
 	free2dArray(&opIH2h);	
 	free2dArray(&opIh2H);	
-	printf("========================= A =========================\n");	
+	//printf("========================= A =========================\n");	
 	//MatView(A,PETSC_VIEWER_DRAW_WORLD);
 	return A;
 }
