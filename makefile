@@ -6,13 +6,13 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 
 CC = gcc
-CFLAGS  = -Wall -std=c99
+CFLAGS  = -std=c99 -Wall
 
 # External libraries:
 LIBS = -lm
 
 # Pre-defined macros for conditional compilation
-DEFS = -DDEBUG_FLAG -DEXPERIMENTAL=0
+DEFS = #-DDEBUG_FLAG -DEXPERIMENTAL=0
 
 BIN = poisson
 
