@@ -27,6 +27,7 @@ Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type);
 Mat restrictionMatrix(double **Is, int m, int nh, int nH);
 Mat prolongationMatrix(double **Is, int m, int nh, int nH);
 Mat matrixA(double *As, int n, int levels);
+Mat matrixA1(double *As, int n, int levels);
 Vec vecb(double **f, int n, int levels);
 void GetSol(double **u, double *px, int *n);
 
