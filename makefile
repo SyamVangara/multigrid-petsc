@@ -5,7 +5,7 @@
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 
-CC = gcc
+CC = gcc -O
 CFLAGS  = -std=c99 -Wall
 
 # External libraries:

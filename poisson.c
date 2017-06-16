@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 	VecDuplicate(b, &x);
 	KSPCreate(PETSC_COMM_WORLD, &solver);
 	KSPSetOperators(solver, A, A);
-	KSPSetTolerances(solver, 1.e-15, 1.e-50, PETSC_DEFAULT, PETSC_DEFAULT);
+	KSPSetTolerances(solver, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);
 	KSPSetFromOptions(solver);
 
 	clock_t solverInitT = clock();
