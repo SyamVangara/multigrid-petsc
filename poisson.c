@@ -36,8 +36,9 @@ int main(int argc, char *argv[]) {
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
 	double	**coord, h[DIMENSION], bounds[DIMENSION*2];
-	double	**f, **u, **r, error[3], As[5], *px;//,*rnorm ,**r;
+	double	**f, **u, **r, error[3], As[5], *px;//, *rnorm;
 	FILE	*solData, *errData;//, *resData;
+	PetscViewer	viewer;
 
 	KSP	solver;
 	Mat	A;
@@ -46,19 +47,16 @@ int main(int argc, char *argv[]) {
 	
 	freopen("poisson.in", "r", stdin);
 	//freopen("poisson.out", "w", stdout);
+	//freopen("petsc.dat", "w", stdout);
 	freopen("poisson.err", "w", stderr);
 	
 	PetscInitialize(&argc, &argv, 0, 0);
-	printf("=============================================================\n");
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
-	printf("Size:			%d^2\n",n[0]);
 	//printf("Enter the no .of iterations = ");
 	scanf("%d",&numIter);
 	//printf("Enter the no .of Multigrid levels = ");
 	scanf("%d",&levels);
-	printf("Number of levels:	%d\n",levels);
-	printf("=============================================================\n");
 	
 	clock_t begin = clock();
 
@@ -109,8 +107,10 @@ int main(int argc, char *argv[]) {
 	VecDuplicate(b, &x);
 	KSPCreate(PETSC_COMM_WORLD, &solver);
 	KSPSetOperators(solver, A, A);
-	KSPSetTolerances(solver, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);
+	KSPSetTolerances(solver, 1.e-16, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
 	KSPSetFromOptions(solver);
+	//PetscViewerASCIIOpen(PETSC_COMM_WORLD, "petsc.data", &viewer);
+	//KSPSetResidualHistory(solver, rnorm, numIter, PETSC_TRUE);
 
 	clock_t solverInitT = clock();
 
@@ -118,6 +118,9 @@ int main(int argc, char *argv[]) {
 	
 	clock_t solverT = clock();
 	
+	//KSPGetResidualHistory(solver, &rnorm, &numIter);
+	//KSPView(solver, viewer);
+	VecView(x,PETSC_VIEWER_STDOUT_WORLD);
 	KSPGetIterationNumber(solver, &iters);
 	VecGetArray(x,&px);
 	GetSol(u,px,n);
@@ -165,7 +168,11 @@ int main(int argc, char *argv[]) {
 	printf("Solver time:                %lf\n",(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	printf("Solver Finalization time:   %lf\n",(double)(solverFinalizeT-solverT)/CLOCKS_PER_SEC);
 	printf("Post processing time:       %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
-	
+
+	printf("=============================================================\n");
+	printf("Size:			%d^2\n",n[0]);
+	printf("Number of levels:	%d\n",levels);
+	printf("=============================================================\n");
 	fclose(solData);
 	//fclose(resData);
 	fclose(errData);
