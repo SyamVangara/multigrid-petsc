@@ -26,8 +26,10 @@ void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
 Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type);
 Mat restrictionMatrix(double **Is, int m, int nh, int nH);
 Mat prolongationMatrix(double **Is, int m, int nh, int nH);
-double** prolongStencil2D(int m, int n);
-double** restrictStencil2D(int m, int n);
+void	prolongStencil2D(double ***IH2h, int m, int n);
+//double** prolongStencil2D(int m, int n);
+void	restrictStencil2D(double ***Ih2H, int m, int n);
+//double** restrictStencil2D(int m, int n);
 Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels);
 //Mat matrixA(double *As, int n, int levels);
 //Mat matrixA1(double *As, int n, int levels);
@@ -51,7 +53,7 @@ int main(int argc, char *argv[]) {
 	
 	freopen("poisson.in", "r", stdin);
 	//freopen("poisson.out", "w", stdout);
-	//freopen("petsc.dat", "w", stdout);
+	freopen("petsc.dat", "w", stdout);
 	freopen("poisson.err", "w", stderr);
 	
 	PetscInitialize(&argc, &argv, 0, 0);
@@ -100,8 +102,8 @@ int main(int argc, char *argv[]) {
 	//Multigrid(u,f,r,As,weight,rnorm,levels,n,numIter); // Multigrid V-cycle
 	//PMultigrid(u,f,r,As,weight,rnorm,levels,n,numIter);
 	//AsyncMultigrid(u,f,r,As,weight,rnorm,n,numIter);
-	opIH2h = prolongStencil2D(3,3);
-	opIh2H = restrictStencil2D(3,3);
+	prolongStencil2D(&opIH2h, 3, 3);
+	restrictStencil2D(&opIh2H, 3, 3);
 	A = matrixA(As, opIH2h, opIh2H, (n[0]-2), levels);
 	//A = matrixA(As,(n[0]-2),levels);
 
@@ -189,6 +191,8 @@ int main(int argc, char *argv[]) {
 	//free(rnorm);
 	//free(px);
 	
+	free2dArray(&opIH2h);	
+	free2dArray(&opIh2H);	
 	return 0;
 }
 
@@ -388,40 +392,41 @@ void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
 	}
 }
 
-double** prolongStencil2D(int m, int n){
-	// Builds prolongation 2D stencilwise operator
+void	prolongStencil2D(double ***IH2h, int m, int n){
+	// Builds prolongation 2D stencilwise operator (*IH2h)
 	// Stencil size: m x n
 	
-	double	**IH2h;
+	//double	**IH2h;
 	int	ierr;
 
-	ierr = malloc2d(&IH2h,m,m); CHKERR_PRNT("malloc failed");
+	ierr = malloc2d(IH2h,m,n); CHKERR_PRNT("malloc failed");
 	for (int lj=0;lj<3;lj++) {
- 		IH2h[0][lj]= 0.5 - 0.25*fabs(1-lj);
- 		IH2h[1][lj]= 1.0 - 0.5*fabs(1-lj);
- 		IH2h[2][lj]= 0.5 - 0.25*fabs(1-lj);
+ 		(*IH2h)[0][lj]= 0.5 - 0.25*fabs(1-lj);
+ 		(*IH2h)[1][lj]= 1.0 - 0.5*fabs(1-lj);
+ 		(*IH2h)[2][lj]= 0.5 - 0.25*fabs(1-lj);
 	}
-	return IH2h;
+	//return IH2h;
 }
 
-double** restrictStencil2D(int m, int n){
+void	restrictStencil2D(double ***Ih2H, int m, int n){
 	// Builds prolongation 2D stencilwise operator
 	// Stencil size: m x n
 	
-	double **Ih2H;
+	//double **Ih2H;
 	int	ierr;
 
-	ierr = malloc2d(&Ih2H,m,m); CHKERR_PRNT("malloc failed");
+	ierr = malloc2d(Ih2H,m,n); CHKERR_PRNT("malloc failed");
 	for (int lj=0;lj<3;lj++) {
- 		Ih2H[0][lj]= 0.0;
- 		Ih2H[1][lj]= 0.0;
- 		Ih2H[2][lj]= 0.0;
+ 		(*Ih2H)[0][lj]= 0.0;
+ 		(*Ih2H)[1][lj]= 0.0;
+ 		(*Ih2H)[2][lj]= 0.0;
 	}
-	Ih2H[1][1] = 1.0;
-	return Ih2H;
+	(*Ih2H)[1][1] = 1.0;
+	//return Ih2H;
 }
 
 Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels) {
+//Mat matrixA(double *As, Mat prolongMatrix[], Mat restrictMatrix[], int n0, int levels) {
 	// Builds matrix "A" for implicit multigrid correction method
 	// As		- Stencilwise differenctial operator
 	// opIH2h	- Stencilwise prolongation operator
@@ -529,8 +534,6 @@ Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels) {
 	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
 
-	free2dArray(&opIH2h);	
-	free2dArray(&opIh2H);	
 	return A;
 }
 
@@ -871,20 +874,25 @@ Vec vecb(double **f, int n, int levels) {
 	return V;
 }
 
-//Vec vecb(double **f, int n, int levels) {
+//Vec vecb(double **f, double **opIh2H, int n, int levels) {
 //	// Build vector "b" for the implicit multigrid correction method
 //	// f		- 2D array containing right hand side values at each grid point
-//	//  	- Stencilwise restriction operator
+//	// opIh2H 	- Stencilwise restriction operator
 //	// n		- Number of unknowns per dimension on finest grid
 //	// levels	- Number of levels
 //	
-//	Vec	b;
+//	Vec	b, subb[levels], restrictMatrix[levels-1];
 //	//int	r;
 //	int	r, rowStart, rowEnd, TotalRows;//, i, j;
-//	int	skip;
+//	//int	skip;
 //	//double	h;
 //
 //	TotalRows = ((n+1)*(n+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+//	
+//	VecCreate(PETSC_COMM_WORLD, &b);
+//	VecSetSizes(b, PETSC_DECIDE, TotalRows);
+//	VecSetFromOptions(b);
+//	VecGetOwnershipRange(b, &rowStart, &rowEnd);
 //	
 //	VecCreate(PETSC_COMM_WORLD, &b);
 //	VecSetSizes(b, PETSC_DECIDE, TotalRows);
@@ -903,9 +911,30 @@ Vec vecb(double **f, int n, int levels) {
 //	}
 //	VecAssemblyBegin(b);
 //	VecAssemblyEnd(b);
+//	
+//	for () {
+//	VecCreate(PETSC_COMM_WORLD, &b);
+//	VecSetSizes(b, PETSC_DECIDE, TotalRows);
+//	VecSetFromOptions(b);
+//	VecGetOwnershipRange(b, &rowStart, &rowEnd);
+//	r=0;
+//	skip = 1;
+//	for (int l=0;l<levels;l++) {
+//		for (int i=skip;i<n+1;i=i+skip) {
+//			for (int j=skip;j<n+1;j=j+skip) {
+//				VecSetValue(b, r, f[i][j], INSERT_VALUES);
+//				r = r+1;
+//			}
+//		}
+//		skip = skip*2;
+//	}
+//	VecAssemblyBegin(b);
+//	VecAssemblyEnd(b);
+//	}
 //
 //	return b;
 //}
+
 void GetSol(double **u, double *px, int *n) {
 	
 	int	r;
