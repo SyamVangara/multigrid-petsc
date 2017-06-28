@@ -4,6 +4,7 @@
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
 #define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
 #define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define PI 3.14159265358979323846
 
 int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension) {
 	
@@ -13,14 +14,57 @@ int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimensi
 	ierr = malloc2dY(pcoord,dimension,n); CHKERR_RETURN("malloc failed");
 	//Compute uniform grid in each dimension
 	for(int i=0;i<dimension;i++){
+		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
 		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
 		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
-		//IFERR_PRNT((n[i]==1),"warning: Division by 0");
-		if (n[i]<2) {ierr=1; ERROR_RETURN("invalid number of intervals");}
+		
 		h[i] = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
-		//printf("h = %lf\n",h);
 		for(int j=1;j<n[i]-1;j++){
 			(*pcoord)[i][j] = (*pcoord)[i][j-1] + h[i];
+		}
+	}
+
+	return ierr;
+}
+
+int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dimension, double (*Transform)(double *bounds, double range, double s) ) {
+	
+	int	ierr = 0;
+	double	range;
+	
+	//Assign memory
+	ierr = malloc2dY(pcoord,dimension,n); CHKERR_RETURN("malloc failed");
+	//Compute uniform grid in each dimension
+	for(int i=0;i<1;i++){
+		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
+		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
+		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		
+		*h = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
+		for(int j=1;j<n[i]-1;j++){
+			(*pcoord)[i][j] = (*pcoord)[i][j-1] + *h;
+		}
+	}
+
+	for(int i=1;i<2;i++){
+		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
+		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
+		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		
+		range = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0]);
+		for(int j=1;j<n[i]-1;j++){
+			(*pcoord)[i][j] = (*Transform)(&(bounds[i*2]), range, j/(double)(n[i]-1));
+		}
+	}
+
+	for(int i=2;i<dimension;i++){
+		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
+		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
+		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		
+		*h = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
+		for(int j=1;j<n[i]-1;j++){
+			(*pcoord)[i][j] = (*pcoord)[i][j-1] + *h;
 		}
 	}
 

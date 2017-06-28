@@ -13,4 +13,6 @@
 
 extern int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension);
 
+extern int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dimension, double (*Transform)(double *bounds, double range, double s) );
+
 #endif

@@ -32,6 +32,7 @@ Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels);
 void insertSubVecValues(Vec *subV, Vec *V, int i0);
 Vec vecb(double **f, double **opIh2H, int n0, int levels);
 void GetSol(double **u, double *px, int *n);
+double Transform(double *bounds, double range, double s);
 
 int main(int argc, char *argv[]) {
 	
@@ -53,7 +54,7 @@ int main(int argc, char *argv[]) {
 	//freopen("petsc.dat", "w", stdout);
 	//freopen("poisson.err", "w", stderr);
 	
-	PetscInitialize(&argc, &argv, 0, 0);
+//	PetscInitialize(&argc, &argv, 0, 0);
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -80,8 +81,16 @@ int main(int argc, char *argv[]) {
 
 	clock_t memT = clock();
 	// Meshing
-	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
-	
+//	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
+	ierr = NonUniformMeshY(&coord,n,bounds,h,DIMENSION,&Transform); CHKERR_PRNT("meshing failed");
+	for (int i=0;i<DIMENSION;i++) {
+		printf("%d: ",i);
+		for (int j=0;j<n[i];j++) {
+			printf("-%f-",coord[i][j]);
+		}
+		printf("\n");
+	}
+	return 0;	
 	clock_t meshT = clock();
 	
 	// f values
@@ -194,6 +203,13 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+double Transform(double *bounds, double range, double s) {
+	//Transforms a coordinate from computational to physical space
+	
+	double val;
+	val = bounds[1]-range*(cos(PI*0.5*s));
+	return val;
+}
 
 void GetFuncValues2d(double **coord, int *n, double **f) {
 
