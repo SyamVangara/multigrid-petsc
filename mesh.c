@@ -30,7 +30,7 @@ int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimensi
 int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dimension, double (*Transform)(double *bounds, double range, double s) ) {
 	
 	int	ierr = 0;
-	double	range;
+	double	range, d[dimension];
 	
 	//Assign memory
 	ierr = malloc2dY(pcoord,dimension,n); CHKERR_RETURN("malloc failed");
@@ -40,9 +40,9 @@ int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dim
 		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
 		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
-		*h = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
+		d[i] = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
 		for(int j=1;j<n[i]-1;j++){
-			(*pcoord)[i][j] = (*pcoord)[i][j-1] + *h;
+			(*pcoord)[i][j] = (*pcoord)[i][j-1] + d[i];
 		}
 	}
 
@@ -52,9 +52,12 @@ int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dim
 		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
 		range = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0]);
+		d[i] = 0.0;
 		for(int j=1;j<n[i]-1;j++){
 			(*pcoord)[i][j] = (*Transform)(&(bounds[i*2]), range, j/(double)(n[i]-1));
+			d[i] = fmax(d[i],fabs((*pcoord)[i][j]-(*pcoord)[i][j-1])); 
 		}
+		d[i] = fmax(d[i],fabs((*pcoord)[i][n[i]-2]-(*pcoord)[i][n[i]-1])); 
 	}
 
 	for(int i=2;i<dimension;i++){
@@ -62,11 +65,17 @@ int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dim
 		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
 		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
-		*h = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
+		d[i] = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
 		for(int j=1;j<n[i]-1;j++){
-			(*pcoord)[i][j] = (*pcoord)[i][j-1] + *h;
+			(*pcoord)[i][j] = (*pcoord)[i][j-1] + d[i];
 		}
 	}
+	
+	*h = 0.0;
+	for (int i=0;i<dimension;i++){
+		*h = *h + d[i]*d[i];
+	}
+	*h = sqrt(*h);
 
 	return ierr;
 }

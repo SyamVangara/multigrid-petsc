@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 	
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
-	double	**coord, h[DIMENSION], bounds[DIMENSION*2];
+	double	**coord, h, bounds[DIMENSION*2];
 	double	**f, **u, **r, error[3], As[5], *px;//, *rnorm;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData;//, *resData;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 	clock_t memT = clock();
 	// Meshing
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
-	ierr = NonUniformMeshY(&coord,n,bounds,h,DIMENSION,&Transform); CHKERR_PRNT("meshing failed");
+	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&Transform); CHKERR_PRNT("meshing failed");
 	for (int i=0;i<DIMENSION;i++) {
 		printf("%d: ",i);
 		for (int j=0;j<n[i];j++) {
@@ -90,6 +90,7 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 	}
+	printf("h = %f\n",h);
 	return 0;	
 	clock_t meshT = clock();
 	
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]) {
 	GetFuncValues2d(coord,n,f);
 	
 	// Stencil operator coefficients
-	OpA(As,h);
+//	OpA(As,h);
 	
 	// Update 'u' with boundary conditions
 	UpdateBC(coord,u,n);
@@ -140,6 +141,7 @@ int main(int argc, char *argv[]) {
 	KSPGetIterationNumber(solver, &iters);
 	VecGetArray(x,&px);
 	GetSol(u,px,n);
+	VecRestoreArray(x,&px);
 	
 	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
 	KSPDestroy(&solver);
@@ -260,6 +262,8 @@ void UpdateBC(double **coord, double **u, int *n) {
 	}
 	
 }
+
+
 
 void OpA(double *A, double *h) {
 	
