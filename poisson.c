@@ -32,13 +32,14 @@ Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels);
 void insertSubVecValues(Vec *subV, Vec *V, int i0);
 Vec vecb(double **f, double **opIh2H, int n0, int levels);
 void GetSol(double **u, double *px, int *n);
-double Transform(double *bounds, double range, double s);
+double TransformFunc(double *bounds, double length, double xi);
+void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
 
 int main(int argc, char *argv[]) {
 	
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
-	double	**coord, h, bounds[DIMENSION*2];
+	double	**coord, h, bounds[DIMENSION*2], ***metrics;
 	double	**f, **u, **r, error[3], As[5], *px;//, *rnorm;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData;//, *resData;
@@ -82,15 +83,16 @@ int main(int argc, char *argv[]) {
 	clock_t memT = clock();
 	// Meshing
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
-	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&Transform); CHKERR_PRNT("meshing failed");
-	for (int i=0;i<DIMENSION;i++) {
-		printf("%d: ",i);
-		for (int j=0;j<n[i];j++) {
-			printf("-%f-",coord[i][j]);
+	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
+	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
+	for (int i=0;i<n[0]-2;i++) {
+		//printf("%d: ",i);
+		for (int j=0;j<n[1]-2;j++) {
+			printf("(%d, %d): %f-%f-%f-%f-%f\n",i,j,metrics[i][j][0],metrics[i][j][1],metrics[i][j][2],metrics[i][j][3],metrics[i][j][4]);
 		}
-		printf("\n");
+		//printf("\n");
 	}
-	printf("h = %f\n",h);
+	//printf("h = %f\n",h);
 	return 0;	
 	clock_t meshT = clock();
 	
@@ -195,6 +197,7 @@ int main(int argc, char *argv[]) {
 	//fclose(resData);
 	fclose(errData);
 	free2dArray(&coord);
+	free3dArray(&metrics);
 	free2dArray(&f);
 	free2dArray(&u);
 	//free(rnorm);
@@ -205,12 +208,43 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
-double Transform(double *bounds, double range, double s) {
-	//Transforms a coordinate from computational to physical space
+double TransformFunc(double *bounds, double length, double xi) {
+	//Transformation function from computational to physical space
+	//
+	//bounds - lower and upper bounds of physical coordinate
+	//length = (bounds[1]-bounds[0])
+	//
+	//x or y = T(xi)
 	
 	double val;
-	val = bounds[1]-range*(cos(PI*0.5*s));
+	val = bounds[1]-length*(cos(PI*0.5*xi));
 	return val;
+}
+
+void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y) {
+	//Computes following metrics at (x,y)
+	//
+	//metrics[0] = (xi_x)^2 + (xi_y)^2
+	//metrics[1] = (eta_x)^2 + (eta_y)^2
+	//metrics[2] = (xi_xx) + (xi_yy)
+	//metrics[3] = (eta_xx) + (eta_yy)
+	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+	//
+	//bounds[0] - Lower bound of "x"
+	//bounds[1] - Upper bound of "x"
+	//bounds[2] - Lower bound of "y"
+	//bounds[3] - Upper bound of "y"
+	//
+	//lengths[0] = bounds[1] - bounds[0]
+	//lengths[1] = bounds[3] - bounds[2]
+	double temp;
+
+	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
+	metrics[1] = 4.0/(PI*PI*temp);
+	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
+	metrics[0] = 1.0;
+	metrics[2] = 0.0;
+	metrics[4] = 0.0;
 }
 
 void GetFuncValues2d(double **coord, int *n, double **f) {
