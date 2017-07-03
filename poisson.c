@@ -43,6 +43,8 @@ int main(int argc, char *argv[]) {
 	double	**f, **u, **r, error[3], As[5], *px;//, *rnorm;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData;//, *resData;
+
+	PetscLogStage	stage;
 	//PetscViewer	viewer;
 
 	KSP	solver;
@@ -56,6 +58,8 @@ int main(int argc, char *argv[]) {
 	freopen("poisson.err", "w", stderr);
 	
 	PetscInitialize(&argc, &argv, 0, 0);
+
+	PetscLogStageRegister("Setup A", &stage);
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -105,7 +109,10 @@ int main(int argc, char *argv[]) {
 	//AsyncMultigrid(u,f,r,As,weight,rnorm,n,numIter);
 	prolongStencil2D(&opIH2h, 3, 3);
 	restrictStencil2D(&opIh2H, 3, 3);
+
+	PetscLogStagePush(stage);
 	A = matrixA(metrics, opIH2h, opIh2H, (n[0]-2), levels);
+	PetscLogStagePop();
 //	MatView(A, PETSC_VIEWER_STDOUT_WORLD);
 	//A = matrixA(As,(n[0]-2),levels);
 
@@ -120,7 +127,7 @@ int main(int argc, char *argv[]) {
 	VecDuplicate(b, &x);
 	KSPCreate(PETSC_COMM_WORLD, &solver);
 	KSPSetOperators(solver, A, A);
-	KSPSetTolerances(solver, 1.e-16, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
+	KSPSetTolerances(solver, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
 	KSPSetFromOptions(solver);
 	//PetscViewerASCIIOpen(PETSC_COMM_WORLD, "petsc.data", &viewer);
 	//KSPSetResidualHistory(solver, rnorm, numIter, PETSC_TRUE);
@@ -494,12 +501,17 @@ Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int lev
 	int	rows[levels], cols[levels];//, ncols;
 	int	rowStart, rowEnd, blockRowStart[levels], blockColStart[levels];
 	double	As[5], h[2];
+
+	clock_t insideAbeginT, beginsubAT, endsubAT, insertsubAT, insertOffsubT;
 	
 	n[0] = n0;
 	blockRowStart[0] = 0;
 	blockColStart[0] = 0;
 	rows[0] = n[0]*n[0];
 	cols[0] = rows[0];
+
+	insideAbeginT = clock();
+
 	for (int l=0;l<levels-1;l++) {
 		blockRowStart[l+1] = blockRowStart[l] + rows[l];
 		blockColStart[l+1] = blockRowStart[l+1];
@@ -509,19 +521,34 @@ Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int lev
 		restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
 		prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n[l], n[l+1]);
 	}
-	MatCreate(PETSC_COMM_WORLD, &A);
-	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, blockRowStart[levels-1]+rows[levels-1], blockColStart[levels-1]+cols[levels-1]);
-	MatSetFromOptions(A);
-	MatSetUp(A);
+
+	printf("Building grid transfer matrices: %lf\n",(double)(insideAbeginT-clock())/CLOCKS_PER_SEC);
+
+	printf("--------------------------------------\n");
+	MatCreateSeqAIJ(PETSC_COMM_WORLD, blockRowStart[levels-1]+rows[levels-1], blockColStart[levels-1]+cols[levels-1], 11, NULL, &A);
+//	MatCreate(PETSC_COMM_WORLD, &A);
+//	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, blockRowStart[levels-1]+rows[levels-1], blockColStart[levels-1]+cols[levels-1]);
+//	MatSetFromOptions(A);
+//	MatSetUp(A);
+	printf("--------------------------------------\n");
+	
 	for (int l=0;l<levels;l++) {
+
+		printf("--------------------------------------\n");
+		printf("level: %d\n",l);
+		printf("--------------------------------------\n");
 
 		h[0] = 1.0/(n[l]+1);
 		h[1] = h[0];
+		
+		beginsubAT = clock();
 
-		MatCreate(PETSC_COMM_WORLD, &(subA[l]));
-		MatSetSizes(subA[l], PETSC_DECIDE, PETSC_DECIDE, rows[l], cols[l]);
-		MatSetFromOptions(subA[l]);
-		MatSetUp(subA[l]);
+		printf("--------------------------------------\n");
+		MatCreateSeqAIJ(PETSC_COMM_WORLD, rows[l], cols[l], 5, NULL, &(subA[l]));
+//		MatCreate(PETSC_COMM_WORLD, &(subA[l]));
+//		MatSetSizes(subA[l], PETSC_DECIDE, PETSC_DECIDE, rows[l], cols[l]);
+//		MatSetFromOptions(subA[l]);
+//		MatSetUp(subA[l]);
 		MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
 	//	printf("level: %d\n",l);
 		for (int i=rowStart; i<rowEnd; i++) {
@@ -544,12 +571,21 @@ Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int lev
 		}
 		MatAssemblyBegin(subA[l],MAT_FINAL_ASSEMBLY);
 		MatAssemblyEnd(subA[l],MAT_FINAL_ASSEMBLY);
+		printf("--------------------------------------\n");
+		
+		endsubAT = clock();
+		
 		//MatView(subA[l], PETSC_VIEWER_STDOUT_WORLD);
 		insertSubMatValues(&(subA[l]), rows[l], &A, blockRowStart[l], blockColStart[l]);
 		
+		insertsubAT = clock();
+		
 		if (l!=levels-1) {
-			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(UB[l]));
-			MatMatMult(restrictMatrix[l], subA[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(LB[l]));
+			printf("--------------------------------------\n");
+			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, 1.0, &(UB[l]));
+			printf("--------------------------------------\n");
+			MatMatMult(restrictMatrix[l], subA[l], MAT_INITIAL_MATRIX, 1.0, &(LB[l]));
+			printf("--------------------------------------\n");
 			
 			insertSubMatValues(&(UB[l]), rows[l], &A, blockRowStart[l], blockColStart[l+1]);
 			insertSubMatValues(&(LB[l]), rows[l+1], &A, blockRowStart[l+1], blockColStart[l]);
@@ -570,9 +606,18 @@ Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int lev
 			MatDestroy(&(restrictMatrix[l]));
 		}
 		MatDestroy(&(subA[l]));
+
+		insertOffsubT = clock();
+
+		printf("Building subA:			%lf\n",(double)(beginsubAT-endsubAT)/CLOCKS_PER_SEC);
+		printf("Inserting subA:			%lf\n",(double)(endsubAT-insertsubAT)/CLOCKS_PER_SEC);
+		printf("Inserting/Building Off-subAs:	%lf\n",(double)(insertsubAT-insertOffsubT)/CLOCKS_PER_SEC);
+
 	}
+	printf("--------------------------------------\n");
 	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+	printf("--------------------------------------\n");
 	return A;
 }
 
@@ -634,10 +679,13 @@ Mat restrictionMatrix(double **Is, int m, int nh, int nH) {
 	Mat	matI;
 	int	rowStart, rowEnd, colStart, colEnd;
 
-	MatCreate(PETSC_COMM_WORLD, &matI);
-	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
-	MatSetFromOptions(matI);
-	MatSetUp(matI);
+	//MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh, &matI);
+	MatCreateSeqAIJ(PETSC_COMM_WORLD, nH*nH, nh*nh, 1, NULL, &matI);
+//	MatCreate(PETSC_COMM_WORLD, &matI);
+//	MatSetType(matI,MATMPIAIJ);
+//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
+//	MatSetFromOptions(matI);
+//	MatSetUp(matI);
 	for (int bj=0;bj<nH;bj++) {
 		colStart = bj*nH;
 		colEnd   = colStart+nH;
@@ -668,10 +716,11 @@ Mat prolongationMatrix(double **Is, int m, int nh, int nH) {
 	Mat	matI;
 	int	rowStart, rowEnd, colStart, colEnd;
 
-	MatCreate(PETSC_COMM_WORLD, &matI);
-	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
-	MatSetFromOptions(matI);
-	MatSetUp(matI);
+	MatCreateSeqAIJ(PETSC_COMM_WORLD, nh*nh, nH*nH, 4, NULL, &matI);
+//	MatCreate(PETSC_COMM_WORLD, &matI);
+//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
+//	MatSetFromOptions(matI);
+//	MatSetUp(matI);
 	for (int bj=0;bj<nH;bj++) {
 		colStart = bj*nH;
 		colEnd   = colStart+nH;
