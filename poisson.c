@@ -16,7 +16,8 @@
 void GetFuncValues2d(double **coord, int *n, double **f);
 void GetError(double **coord, int *n, double **u, double *error);
 void UpdateBC(double **coord, double **u, int *n);
-void OpA(double *A, double *h);
+void OpA(double *A, double *metrics, double *h);
+//void OpA(double *A, double *h);
 int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
@@ -28,7 +29,7 @@ Mat restrictionMatrix(double **Is, int m, int nh, int nH);
 Mat prolongationMatrix(double **Is, int m, int nh, int nH);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
-Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels);
+Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 void insertSubVecValues(Vec *subV, Vec *V, int i0);
 Vec vecb(double **f, double **opIh2H, int n0, int levels);
 void GetSol(double **u, double *px, int *n);
@@ -52,10 +53,10 @@ int main(int argc, char *argv[]) {
 	
 	freopen("poisson.in", "r", stdin);
 	//freopen("poisson.out", "w", stdout);
-	//freopen("petsc.dat", "w", stdout);
-	//freopen("poisson.err", "w", stderr);
+	freopen("petsc.dat", "w", stdout);
+	freopen("poisson.err", "w", stderr);
 	
-//	PetscInitialize(&argc, &argv, 0, 0);
+	PetscInitialize(&argc, &argv, 0, 0);
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -85,15 +86,21 @@ int main(int argc, char *argv[]) {
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
-	for (int i=0;i<n[0]-2;i++) {
-		//printf("%d: ",i);
-		for (int j=0;j<n[1]-2;j++) {
-			printf("(%d, %d): %f-%f-%f-%f-%f\n",i,j,metrics[i][j][0],metrics[i][j][1],metrics[i][j][2],metrics[i][j][3],metrics[i][j][4]);
-		}
-		//printf("\n");
-	}
+//	for (int i=0;i<DIMENSION;i++) {
+//		printf("%d: ",i);
+//		for (int j=0;j<n[i];j++) {
+//			printf("-%f",coord[i][j]);
+//		}
+//		printf("\n");
+//	}
 	//printf("h = %f\n",h);
-	return 0;	
+//	for (int i=0;i<n[1]-2;i++) {
+//		for (int j=0;j<n[0]-2;j++) {
+//			printf("(%d,%d): %f-%f-%f-%f-%f\n",i,j,metrics[i][j][0],metrics[i][j][1],metrics[i][j][2],metrics[i][j][3],metrics[i][j][4]);
+//		}
+//	}
+      //printf("h = %f\n",h);
+//	return 0;	
 	clock_t meshT = clock();
 	
 	// f values
@@ -113,12 +120,14 @@ int main(int argc, char *argv[]) {
 	//AsyncMultigrid(u,f,r,As,weight,rnorm,n,numIter);
 	prolongStencil2D(&opIH2h, 3, 3);
 	restrictStencil2D(&opIh2H, 3, 3);
-	A = matrixA(As, opIH2h, opIh2H, (n[0]-2), levels);
+	A = matrixA(metrics, opIH2h, opIh2H, (n[0]-2), levels);
+//	MatView(A, PETSC_VIEWER_STDOUT_WORLD);
 	//A = matrixA(As,(n[0]-2),levels);
 
 	clock_t constrA = clock();
 
 	b = vecb(f, opIh2H, (n[0]-2), levels);
+//	VecView(b, PETSC_VIEWER_STDOUT_WORLD);
 	//b = vecb(f,(n[0]-2),levels);
 
 	clock_t constrb = clock();
@@ -218,6 +227,7 @@ double TransformFunc(double *bounds, double length, double xi) {
 	
 	double val;
 	val = bounds[1]-length*(cos(PI*0.5*xi));
+	//val = xi;
 	return val;
 }
 
@@ -240,11 +250,16 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 	double temp;
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-	metrics[1] = 4.0/(PI*PI*temp);
-	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 	metrics[0] = 1.0;
+	metrics[1] = 4.0/(PI*PI*temp);
 	metrics[2] = 0.0;
+	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 	metrics[4] = 0.0;
+//	metrics[0] = 1.0;
+//	metrics[1] = 1.0;
+//	metrics[2] = 0.0;
+//	metrics[3] = 0.0; 
+//	metrics[4] = 0.0;
 }
 
 void GetFuncValues2d(double **coord, int *n, double **f) {
@@ -299,18 +314,22 @@ void UpdateBC(double **coord, double **u, int *n) {
 
 
 
-void OpA(double *A, double *h) {
+void OpA(double *A, double *metrics, double *h) {
+	//Computes the coefficients
+	//A[0]*u(i,j-1) + A[1]*u(i-1,j) + A[2]*u(i,j) + A[3]*u(i+1,j) + A[4]*u(i,j+1) = f(i,j)
+	//
+	//metrics[5]	- metrics at a point
+	//h[2]		- mesh width in computational domain in each direction
 	
 	double hy2, hx2;
 	
 	hx2 = h[0]*h[0];
 	hy2 = h[1]*h[1];
-	A[0] = 1/hy2;
-	A[1] = 1/hx2;
-	A[2] = -2*((1/hx2)+(1/hy2));
-	A[3] = 1/hx2;
-	A[4] = 1/hy2;
-
+	A[0] = (metrics[1]/hy2) - (metrics[3]/(2*h[1]));
+	A[1] = (metrics[0]/hx2) - (metrics[2]/(2*h[0]));
+	A[2] = -2.0*((metrics[0]/hx2) + (metrics[1]/hy2));
+	A[3] = (metrics[0]/hx2) + (metrics[2]/(2*h[0]));
+	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
 }
 
 int ipow(int base, int exp) {
@@ -476,9 +495,9 @@ void restrictStencil2D(double ***Ih2H, int m, int n){
 	(*Ih2H)[1][1] = 1.0;
 }
 
-Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels) {
+Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
 	// Builds matrix "A" for implicit multigrid correction method
-	// As		- Stencilwise differenctial operator
+	// metrics	- metric terms
 	// opIH2h	- Stencilwise prolongation operator
 	// opIh2H	- Stencilwise restriction operator
 	// n0		- Number of unknowns per dimension
@@ -487,8 +506,9 @@ Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels) {
 	Mat	A, subA[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
 	Mat	UB[levels-1], LB[levels-1];
 	int	n[levels];
-	int	rows[levels], cols[levels], scale;//, ncols;
+	int	rows[levels], cols[levels];//, ncols;
 	int	rowStart, rowEnd, blockRowStart[levels], blockColStart[levels];
+	double	As[5], h[2];
 	
 	n[0] = n0;
 	blockRowStart[0] = 0;
@@ -504,35 +524,43 @@ Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels) {
 		restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
 		prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n[l], n[l+1]);
 	}
-	
 	MatCreate(PETSC_COMM_WORLD, &A);
 	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, blockRowStart[levels-1]+rows[levels-1], blockColStart[levels-1]+cols[levels-1]);
 	MatSetFromOptions(A);
 	MatSetUp(A);
-	scale = 1;
 	for (int l=0;l<levels;l++) {
+
+		h[0] = 1.0/(n[l]+1);
+		h[1] = h[0];
+
 		MatCreate(PETSC_COMM_WORLD, &(subA[l]));
 		MatSetSizes(subA[l], PETSC_DECIDE, PETSC_DECIDE, rows[l], cols[l]);
 		MatSetFromOptions(subA[l]);
 		MatSetUp(subA[l]);
 		MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
+//		printf("\nrowStart = %d",rowStart);
+//		printf("\nrowEnd = %d",rowEnd);
 		for (int i=rowStart; i<rowEnd; i++) {
+		//	printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*i%n[l],ipow(2,l)*i/n[l]);	
+			OpA(As,metrics[ipow(2,l)*i/n[l]][ipow(2,l)*i%n[l]],h);
+		//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
 			if (i-n[l]>=0) {
-				MatSetValue(subA[l], i, i-n[l], As[0]/scale, INSERT_VALUES);
+				MatSetValue(subA[l], i, i-n[l], As[0], INSERT_VALUES);
 			}
 			if (i-1>=0 && i%n[l]!=0) {
-				MatSetValue(subA[l], i, i-1, As[1]/scale, INSERT_VALUES); 
+				MatSetValue(subA[l], i, i-1, As[1], INSERT_VALUES); 
 			}
-			MatSetValue(subA[l], i, i, As[2]/scale, INSERT_VALUES);
+			MatSetValue(subA[l], i, i, As[2], INSERT_VALUES);
 			if (i+1<=rows[l]-1 && (i+1)%n[l]!=0) {
-				MatSetValue(subA[l], i, i+1, As[3]/scale, INSERT_VALUES);
+				MatSetValue(subA[l], i, i+1, As[3], INSERT_VALUES);
 			}
 			if (i+n[l]<=rows[l]-1) {
-				MatSetValue(subA[l], i, i+n[l], As[4]/scale, INSERT_VALUES);
+				MatSetValue(subA[l], i, i+n[l], As[4], INSERT_VALUES);
 			}
 		}
 		MatAssemblyBegin(subA[l],MAT_FINAL_ASSEMBLY);
 		MatAssemblyEnd(subA[l],MAT_FINAL_ASSEMBLY);
+		//MatView(subA[l], PETSC_VIEWER_STDOUT_WORLD);
 		insertSubMatValues(&(subA[l]), rows[l], &A, blockRowStart[l], blockColStart[l]);
 		
 		if (l!=levels-1) {
@@ -558,11 +586,9 @@ Mat matrixA(double *As, double **opIH2h, double **opIh2H, int n0, int levels) {
 			MatDestroy(&(restrictMatrix[l]));
 		}
 		MatDestroy(&(subA[l]));
-		scale = scale*4;
 	}
 	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-
 	return A;
 }
 

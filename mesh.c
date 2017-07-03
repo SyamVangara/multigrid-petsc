@@ -98,7 +98,7 @@ int MetricCoefficients2D(double ****metrics, double **coord, int *n, double *bou
 	double	lengths[dimension];
 	int	ierr = 0;
 
-	ierr = malloc3d(metrics, n[0]-2, n[1]-2, 5); CHKERR_RETURN("malloc failed");
+	ierr = malloc3d(metrics, n[1]-2, n[0]-2, 5); CHKERR_RETURN("malloc failed");
 
 	for(int i=0;i<dimension;i++) {
 		lengths[i] = bounds[i*2+1] - bounds[i*2];
