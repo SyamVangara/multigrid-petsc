@@ -17,7 +17,6 @@ void GetFuncValues2d(double **coord, int *n, double **f);
 void GetError(double **coord, int *n, double **u, double *error);
 void UpdateBC(double **coord, double **u, int *n);
 void OpA(double *A, double *metrics, double *h);
-//void OpA(double *A, double *h);
 int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
@@ -86,21 +85,7 @@ int main(int argc, char *argv[]) {
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
-//	for (int i=0;i<DIMENSION;i++) {
-//		printf("%d: ",i);
-//		for (int j=0;j<n[i];j++) {
-//			printf("-%f",coord[i][j]);
-//		}
-//		printf("\n");
-//	}
-	//printf("h = %f\n",h);
-//	for (int i=0;i<n[1]-2;i++) {
-//		for (int j=0;j<n[0]-2;j++) {
-//			printf("(%d,%d): %f-%f-%f-%f-%f\n",i,j,metrics[i][j][0],metrics[i][j][1],metrics[i][j][2],metrics[i][j][3],metrics[i][j][4]);
-//		}
-//	}
-      //printf("h = %f\n",h);
-//	return 0;	
+	
 	clock_t meshT = clock();
 	
 	// f values
@@ -538,11 +523,10 @@ Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int lev
 		MatSetFromOptions(subA[l]);
 		MatSetUp(subA[l]);
 		MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
-//		printf("\nrowStart = %d",rowStart);
-//		printf("\nrowEnd = %d",rowEnd);
+	//	printf("level: %d\n",l);
 		for (int i=rowStart; i<rowEnd; i++) {
-		//	printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*i%n[l],ipow(2,l)*i/n[l]);	
-			OpA(As,metrics[ipow(2,l)*i/n[l]][ipow(2,l)*i%n[l]],h);
+	//		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
+			OpA(As,metrics[ipow(2,l)*((i/n[l])+1)-1][ipow(2,l)*((i%n[l])+1)-1],h);
 		//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
 			if (i-n[l]>=0) {
 				MatSetValue(subA[l], i, i-n[l], As[0], INSERT_VALUES);
