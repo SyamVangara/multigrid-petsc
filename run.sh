@@ -3,7 +3,7 @@
 name=$(sed -n "6 p" poisson.in)
 #echo -n "Write data to folder > "
 #read name
-./poisson -pc_type ilu -ksp_type gmres -ksp_monitor_max -log_view #-mat_view ::ascii_matlab
+#./poisson -pc_type ilu -ksp_type gmres -ksp_monitor_max -log_view #-mat_view ::ascii_matlab
 #./poisson -pc_type ilu -ksp_type gmres -info #-mat_view ::ascii_matlab
 #./poisson -pc_type ilu -ksp_type gmres -ksp_monitor_max #-mat_view ::ascii_matlab
 #./poisson -pc_type none -ksp_type gmres -ksp_monitor_max #-mat_view ::ascii_matlab
@@ -12,6 +12,10 @@ name=$(sed -n "6 p" poisson.in)
 #./poisson -pc_type jacobi -ksp_type gmres -ksp_monitor_max #-mat_view ::ascii_matlab
 #./poisson -ksp_type bicg -ksp_monitor_max #-mat_view ::ascii_matlab
 #./poisson -ksp_type bcgs -ksp_monitor_max #-mat_view ::ascii_matlab
+#./poisson -pc_type ilu -ksp_type gmres -ksp_monitor_draw #-mat_view ::ascii_matlab
+
+
+mpiexec -n 4 ./poisson -ksp_type gmres -ksp_monitor_max -log_view #-mat_view ::ascii_matlab
 mkdir -p data/$name
 mv -v *.out data/$name/
 cp -r *.in data/$name/
