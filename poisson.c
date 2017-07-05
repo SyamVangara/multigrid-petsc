@@ -23,14 +23,9 @@ int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 void CreateArrayOfIS(int n, int levels, IS *idx);
 void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
-Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type);
-Mat restrictionMatrix(double **Is, int m, int nh, int nH);
-Mat prolongationMatrix(double **Is, int m, int nh, int nH);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
-Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 void insertSubVecValues(Vec *subV, Vec *V, int i0);
-void vecb(Vec *b, double **f, double **opIh2H, int n0, int levels);
 void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 //void GetSol(double **u, double *px, int *n);
 double TransformFunc(double *bounds, double length, double xi);
@@ -50,19 +45,25 @@ int main(int argc, char *argv[]) {
 	
 	const 	int	*ranges;
 	
-	PetscLogStage	stage;
+	PetscLogStage	stage, stageSolve;
 	//PetscViewer	viewer;
 
 	KSP	solver;
+	PC	pc;
 	Mat	A;
 	Vec	b, x;
 	int	iters;
 	
+	PetscInitialize(&argc, &argv, 0, 0);
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	if (rank==0) {
 	freopen("poisson.in", "r", stdin);
 	//freopen("poisson.out", "w", stdout);
-	//freopen("petsc.dat", "w", stdout);
-	//freopen("poisson.err", "w", stderr);
-	
+//	freopen("petsc.dat", "w", stdout);
+//	freopen("poisson.err", "w", stderr);
+//	}
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
 	//printf("Enter the no .of Multigrid levels = ");
 	scanf("%d",&levels);
 	
-	clock_t begin = clock();
+//	clock_t begin = clock();
 
 	for (int i=1;i<DIMENSION;i++) { 
 		n[i]  = n[0];      // No. of points in each dimension
@@ -79,21 +80,21 @@ int main(int argc, char *argv[]) {
 		bounds[i*2] = 0.0;    // Lower bound in each dimension
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
-	
+	if (rank==0) {	
 	// Memory allocation of RHS, solution and residual
 	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
 	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
 	//px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
-
-	clock_t memT = clock();
+	
+//	clock_t memT = clock();
 	// Meshing
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
-	clock_t meshT = clock();
+//	clock_t meshT = clock();
 	
 	// f values
 	GetFuncValues2d(coord,n,f);
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]) {
 	
 	// Update 'u' with boundary conditions
 	UpdateBC(coord,u,n);
-	
+	}	
 	clock_t initT = clock();
 	// Solver
 	//Jacobi(u,f,r,As,weight,rnorm,numIter,n); // Weighted Jacobi
@@ -112,11 +113,6 @@ int main(int argc, char *argv[]) {
 	//AsyncMultigrid(u,f,r,As,weight,rnorm,n,numIter);
 	prolongStencil2D(&opIH2h, 3, 3);
 	restrictStencil2D(&opIh2H, 3, 3);
-
-	PetscInitialize(&argc, &argv, 0, 0);
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &size);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 //	PetscPrintf(PETSC_COMM_SELF,"rank = %d, n = %d, numIter = %d, levels = %d\n",rank,n[0],numIter,levels);
 	
@@ -138,11 +134,13 @@ int main(int argc, char *argv[]) {
 
 	VecGetOwnershipRange(b, &rowStart, &rowEnd);
 //	PetscPrintf(PETSC_COMM_SELF,"rank = %d:b: rowStart = %d, rowEnd = %d\n",rank,rowStart,rowEnd);
-	clock_t constrb = clock();
+//	clock_t constrb = clock();
 
 	//VecDuplicate(b, &x);
 	KSPCreate(PETSC_COMM_WORLD, &solver);
 	KSPSetOperators(solver, A, A);
+	KSPGetPC(solver,&pc);
+	PCSetType(pc,PCASM);
 	KSPSetTolerances(solver, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
 	KSPSetFromOptions(solver);
 	//PetscViewerASCIIOpen(PETSC_COMM_WORLD, "petsc.data", &viewer);
@@ -150,27 +148,34 @@ int main(int argc, char *argv[]) {
 
 	clock_t solverInitT = clock();
 
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
 	KSPSolve(solver, b, x);
+	PetscLogStagePop();
 	
 	clock_t solverT = clock();
-	
 	//KSPGetResidualHistory(solver, &rnorm, &numIter);
 	//KSPView(solver, viewer);
-	//VecView(x,PETSC_VIEWER_STDOUT_WORLD);
+//	VecView(x,PETSC_VIEWER_STDOUT_WORLD);
 	KSPGetIterationNumber(solver, &iters);
 	VecGetArray(x,&px);
 	//VecGetOwnershipRange(x, &rowStart, &rowEnd);
 	VecGetOwnershipRanges(x,&ranges);
-	//GetSol(u,px,n,levels,ranges,size,rank);
+//	for (int i=0;i<size+1;i++) PetscPrintf(PETSC_COMM_SELF,"ranges[%d] = %d\n",i,ranges[i]);
+//	for (int i=0;i<ranges[rank+1]-ranges[rank];i++) PetscPrintf(PETSC_COMM_SELF,"rank = %d; px[%d] = %f\n",rank,i,px[i]);
+	GetSol(u,px,n,levels,ranges,size,rank);
 	//GetSol(u,px,n,rowStart,rowEnd);
 	VecRestoreArray(x,&px);
 	
 	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
 	KSPDestroy(&solver);
-	PetscFinalize();
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction time:        %lf\n",rank,(double)(constrA-initT)/CLOCKS_PER_SEC);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver time:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	return 0;
-	clock_t solverFinalizeT = clock();
-	
+//	clock_t solverFinalizeT = clock();
+	if (rank==0) {	
 	// Error computation
 	GetError(coord,n,u,error);
 	
@@ -190,29 +195,31 @@ int main(int argc, char *argv[]) {
 		}
 		fprintf(solData,"\n");
 	}
-/*
+	}
+/*	}
 	for (int i=0;i<numIter+1;i++) {
 		fprintf(resData,"%.16e ",rnorm[i]);
 	}
 	fprintf(resData,"\n");
 */
-	clock_t ppT = clock();
+//	clock_t ppT = clock();
 	
-	printf("Total time:                 %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
-	printf("Memory allocation time:     %lf\n",(double)(memT-begin)/CLOCKS_PER_SEC);
-	printf("Meshing time:               %lf\n",(double)(meshT-memT)/CLOCKS_PER_SEC);
-	printf("Initialization time:        %lf\n",(double)(initT-meshT)/CLOCKS_PER_SEC);
-	printf("A construction time:        %lf\n",(double)(constrA-initT)/CLOCKS_PER_SEC);
-	printf("b construction time:        %lf\n",(double)(constrb-constrA)/CLOCKS_PER_SEC);
-	printf("Solver Initialization time: %lf\n",(double)(solverInitT-constrb)/CLOCKS_PER_SEC);
-	printf("Solver time:                %lf\n",(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
-	printf("Solver Finalization time:   %lf\n",(double)(solverFinalizeT-solverT)/CLOCKS_PER_SEC);
-	printf("Post processing time:       %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
-
-	printf("=============================================================\n");
-	printf("Size:			%d^2\n",n[0]);
-	printf("Number of levels:	%d\n",levels);
-	printf("=============================================================\n");
+//	printf("Total time:                 %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
+//	printf("Memory allocation time:     %lf\n",(double)(memT-begin)/CLOCKS_PER_SEC);
+//	printf("Meshing time:               %lf\n",(double)(meshT-memT)/CLOCKS_PER_SEC);
+//	printf("Initialization time:        %lf\n",(double)(initT-meshT)/CLOCKS_PER_SEC);
+//	printf("A construction time:        %lf\n",(double)(constrA-initT)/CLOCKS_PER_SEC);
+//	printf("b construction time:        %lf\n",(double)(constrb-constrA)/CLOCKS_PER_SEC);
+//	printf("Solver Initialization time: %lf\n",(double)(solverInitT-constrb)/CLOCKS_PER_SEC);
+//	printf("Solver time:                %lf\n",(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+//	printf("Solver Finalization time:   %lf\n",(double)(solverFinalizeT-solverT)/CLOCKS_PER_SEC);
+//	printf("Post processing time:       %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
+	if (rank==0) {
+//	printf("=============================================================\n");
+//	printf("Size:			%d^2\n",n[0]);
+//	printf("Number of levels:	%d\n",levels);
+//	printf("=============================================================\n");
+	
 	fclose(solData);
 	//fclose(resData);
 	fclose(errData);
@@ -220,11 +227,21 @@ int main(int argc, char *argv[]) {
 	free3dArray(&metrics);
 	free2dArray(&f);
 	free2dArray(&u);
+	}
 	//free(rnorm);
 	//free(px);
 	
 	free2dArray(&opIH2h);	
-	free2dArray(&opIh2H);	
+	free2dArray(&opIh2H);
+	PetscFinalize();
+	if (rank==0) {
+	printf("=============================================================\n");
+	printf("Size:			%d^2\n",n[0]);
+	printf("Number of unknowns:	%d\n",(((n[0]-2+1)*(n[0]-2+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n[0]-2+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels));
+	printf("Number of levels:	%d\n",levels);
+	printf("Number of processes:	%d\n",size);
+	printf("=============================================================\n");
+	}
 	return 0;
 }
 
@@ -238,7 +255,7 @@ double TransformFunc(double *bounds, double length, double xi) {
 	
 	double val;
 	val = bounds[1]-length*(cos(PI*0.5*xi));
-	//val = xi;
+//	val = xi;
 	return val;
 }
 
@@ -506,243 +523,6 @@ void restrictStencil2D(double ***Ih2H, int m, int n){
 	(*Ih2H)[1][1] = 1.0;
 }
 
-Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
-	// Builds matrix "A" for implicit multigrid correction method
-	// metrics	- metric terms
-	// opIH2h	- Stencilwise prolongation operator
-	// opIh2H	- Stencilwise restriction operator
-	// n0		- Number of unknowns per dimension
-	// levels	- Number of levels
-	
-	Mat	A, subA[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
-	Mat	UB[levels-1], LB[levels-1];
-	int	n[levels];
-	int	rows[levels], cols[levels];//, ncols;
-	int	rowStart, rowEnd, blockRowStart[levels], blockColStart[levels];
-	double	As[5], h[2];
-
-	int	rank;
-
-	n[0] = n0;
-	blockRowStart[0] = 0;
-	blockColStart[0] = 0;
-	rows[0] = n[0]*n[0];
-	cols[0] = rows[0];
-
-	for (int l=0;l<levels-1;l++) {
-		blockRowStart[l+1] = blockRowStart[l] + rows[l];
-		blockColStart[l+1] = blockRowStart[l+1];
-		n[l+1] = (n[l]-1)/2;
-		rows[l+1] = n[l+1]*n[l+1];
-		cols[l+1] = rows[l+1];
-//		restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
-//		prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n[l], n[l+1]);
-	}
-
-	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, blockRowStart[levels-1]+rows[levels-1], blockColStart[levels-1]+cols[levels-1], 11, PETSC_NULL, 11, PETSC_NULL,&A);
-//	MatCreate(PETSC_COMM_WORLD, &A);
-//	MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, blockRowStart[levels-1]+rows[levels-1], blockColStart[levels-1]+cols[levels-1]);
-//	MatSetFromOptions(A);
-//	MatSetUp(A);
-	
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	if (rank==0) {
-
-	for (int l=0;l<levels-1;l++) {
-		restrictMatrix[l] =  restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
-		prolongMatrix[l] =  prolongationMatrix(opIH2h, 3, n[l], n[l+1]);
-	}
-
-	for (int l=0;l<levels;l++) {
-
-		h[0] = 1.0/(n[l]+1);
-		h[1] = h[0];
-		
-		MatCreateSeqAIJ(PETSC_COMM_SELF, rows[l], cols[l], 5, NULL, &(subA[l]));
-//		MatCreate(PETSC_COMM_WORLD, &(subA[l]));
-//		MatSetSizes(subA[l], PETSC_DECIDE, PETSC_DECIDE, rows[l], cols[l]);
-//		MatSetFromOptions(subA[l]);
-//		MatSetUp(subA[l]);
-		MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
-	//	printf("level: %d\n",l);
-		for (int i=rowStart; i<rowEnd; i++) {
-	//		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
-			OpA(As,metrics[ipow(2,l)*((i/n[l])+1)-1][ipow(2,l)*((i%n[l])+1)-1],h);
-		//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
-			if (i-n[l]>=0) {
-				MatSetValue(subA[l], i, i-n[l], As[0], INSERT_VALUES);
-			}
-			if (i-1>=0 && i%n[l]!=0) {
-				MatSetValue(subA[l], i, i-1, As[1], INSERT_VALUES); 
-			}
-			MatSetValue(subA[l], i, i, As[2], INSERT_VALUES);
-			if (i+1<=rows[l]-1 && (i+1)%n[l]!=0) {
-				MatSetValue(subA[l], i, i+1, As[3], INSERT_VALUES);
-			}
-			if (i+n[l]<=rows[l]-1) {
-				MatSetValue(subA[l], i, i+n[l], As[4], INSERT_VALUES);
-			}
-		}
-		MatAssemblyBegin(subA[l],MAT_FINAL_ASSEMBLY);
-		MatAssemblyEnd(subA[l],MAT_FINAL_ASSEMBLY);
-		
-		//MatView(subA[l], PETSC_VIEWER_STDOUT_WORLD);
-		insertSubMatValues(&(subA[l]), rows[l], &A, blockRowStart[l], blockColStart[l]);
-		
-		if (l!=levels-1) {
-			MatMatMult(subA[l], prolongMatrix[l], MAT_INITIAL_MATRIX, 1.0, &(UB[l]));
-			MatMatMult(restrictMatrix[l], subA[l], MAT_INITIAL_MATRIX, 1.0, &(LB[l]));
-			
-			insertSubMatValues(&(UB[l]), rows[l], &A, blockRowStart[l], blockColStart[l+1]);
-			insertSubMatValues(&(LB[l]), rows[l+1], &A, blockRowStart[l+1], blockColStart[l]);
-			
-			for (int b=l+1;b<levels-1;b++) {
-				MatMatMult(UB[b-1], prolongMatrix[b], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(UB[b]));
-				MatMatMult(restrictMatrix[b], LB[b-1], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(LB[b]));
-				
-				insertSubMatValues(&(UB[b]), rows[l], &A, blockRowStart[l], blockColStart[b+1]);
-				insertSubMatValues(&(LB[b]), rows[b+1], &A, blockRowStart[b+1], blockColStart[l]);
-				
-				MatDestroy(&(UB[b-1]));
-				MatDestroy(&(LB[b-1]));
-			}
-			MatDestroy(&(UB[levels-2]));
-			MatDestroy(&(LB[levels-2]));
-			MatDestroy(&(prolongMatrix[l]));
-			MatDestroy(&(restrictMatrix[l]));
-		}
-		MatDestroy(&(subA[l]));
-
-	}
-	
-	}
-	MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-	return A;
-}
-
-Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type) {
-	// Is	- stencil wise grid transfer operator of size m*m
-	// nh	- number of unknowns per dimension in fine grid "h"
-	// nH	- number of unknowns per dimension in coarse grid "H"
-	// type	- "Restriction" or "Prolongation"
-	
-	Mat	matI;
-	int	rowStart, rowEnd, colStart, colEnd;
-	char	res[15] = "Restriction", pro[15] = "Prolongation";
-	int	flag;
-
-	MatCreate(PETSC_COMM_WORLD, &matI);
-	if (strcmp(type, res)) {
-		flag = 0;
-		MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
-	} else if (strcmp(type, pro)) {
-		flag = 1;
-		MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
-	} else {
-		printf("'%s' is not a valid grid transfer operation; use '%s' or '%s'\n",type,res,pro);
-		return matI;
-	}
-	MatSetFromOptions(matI);
-	MatSetUp(matI);
-	for (int bj=0;bj<nH;bj++) {
-		colStart = bj*nH;
-		colEnd   = colStart+nH;
-		rowStart = (bj*nh)*((m+1)/2);
-		for (int bi=0;bi<m;bi++) {
-			for (int j=colStart;j<colEnd;j++) {
-				rowEnd  = rowStart + m;
-				for (int i=rowStart;i<rowEnd;i++) {
-					if (flag == 0 && Is[bi][i-rowStart]!=0.0) {
-						MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
-					} else if (Is[bi][i-rowStart]!=0.0) {
-						MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
-					}
-				}
-				rowStart = rowStart + ((m+1)/2);
-			}
-			rowStart = rowEnd;
-		}
-	}
-	
-	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
-	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
-	return matI;
-}
-
-Mat restrictionMatrix(double **Is, int m, int nh, int nH) {
-	// Is	- stencil wise grid transfer operator of size m*m
-	// nh	- number of unknowns per dimension in fine grid "h"
-	// nH	- number of unknowns per dimension in coarse grid "H"
-	
-	Mat	matI;
-	int	rowStart, rowEnd, colStart, colEnd;
-
-	//MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh, &matI);
-	MatCreateSeqAIJ(PETSC_COMM_SELF, nH*nH, nh*nh, 1, NULL, &matI);
-//	MatCreate(PETSC_COMM_WORLD, &matI);
-//	MatSetType(matI,MATMPIAIJ);
-//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
-//	MatSetFromOptions(matI);
-//	MatSetUp(matI);
-	for (int bj=0;bj<nH;bj++) {
-		colStart = bj*nH;
-		colEnd   = colStart+nH;
-		rowStart = (bj*nh)*((m+1)/2);
-		for (int bi=0;bi<m;bi++) {
-			for (int j=colStart;j<colEnd;j++) {
-				rowEnd  = rowStart + m;
-				for (int i=rowStart;i<rowEnd;i++) {
-					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
-				}
-				rowStart = rowStart + ((m+1)/2);
-			}
-			rowStart = rowEnd;
-		}
-	}
-	
-	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
-	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
-	return matI;
-}
-
-Mat prolongationMatrix(double **Is, int m, int nh, int nH) {
-	// Is	- stencil wise grid transfer operator of size m*m
-	// nh	- number of unknowns per dimension in fine grid "h"
-	// nH	- number of unknowns per dimension in coarse grid "H"
-	
-	Mat	matI;
-	int	rowStart, rowEnd, colStart, colEnd;
-
-	MatCreateSeqAIJ(PETSC_COMM_SELF, nh*nh, nH*nH, 4, NULL, &matI);
-//	MatCreate(PETSC_COMM_WORLD, &matI);
-//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
-//	MatSetFromOptions(matI);
-//	MatSetUp(matI);
-	for (int bj=0;bj<nH;bj++) {
-		colStart = bj*nH;
-		colEnd   = colStart+nH;
-		rowStart = (bj*nh)*((m+1)/2);
-		for (int bi=0;bi<m;bi++) {
-			for (int j=colStart;j<colEnd;j++) {
-				rowEnd  = rowStart + m;
-				for (int i=rowStart;i<rowEnd;i++) {
-					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
-				}
-				rowStart = rowStart + ((m+1)/2);
-			}
-			rowStart = rowEnd;
-		}
-	}
-	
-	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
-	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
-	return matI;
-}
-
 void insertSubVecValues(Vec *subV, Vec *V, int i0) {
 	//Insert values of sub vector "subV" in a vector "V"
 	//
@@ -757,80 +537,6 @@ void insertSubVecValues(Vec *subV, Vec *V, int i0) {
 		if (vals[i]!=0.0) VecSetValue(*V, i0+i, vals[i], INSERT_VALUES);
 	}
 	VecRestoreArray(*subV, &vals);
-}
-
-void vecb(Vec *b, double **f, double **opIh2H, int n0, int levels) {
-	// Build vector "b" for the implicit multigrid correction method
-	// f		- 2D array containing right hand side values at each grid point
-	// opIh2H 	- Stencilwise restriction operator
-	// n		- Number of unknowns per dimension on finest grid
-	// levels	- Number of levels
-	
-	//Vec	b, subb[levels]; 
-	Vec	subb[levels]; 
-	Mat	restrictMatrix[levels-1];
-	int	r, rowStart, rowEnd, TotalRows;//, i, j;
-	int	n[levels];
-
-	int	rank;
-
-	TotalRows = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
-	
-	n[0] = n0;
-	for (int l=0;l<levels-1;l++) {
-		n[l+1] = (n[l]-1)/2;
-		//restrictMatrix[l] = restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
-	}	
-
-//	VecCreate(PETSC_COMM_WORLD, &b);
-//	VecSetSizes(b, PETSC_DECIDE, TotalRows);
-//	VecSetFromOptions(b);
-//	VecGetOwnershipRange(b, &rowStart, &rowEnd);
-
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-
-	if (rank == 0) {
-
-	for (int l=0;l<levels-1;l++) {
-		restrictMatrix[l] = restrictionMatrix(opIh2H, 3, n[l], n[l+1]);
-	}	
-	VecCreate(PETSC_COMM_SELF, &(subb[0]));
-	VecSetSizes(subb[0], PETSC_DECIDE, n[0]*n[0]);
-	VecSetFromOptions(subb[0]);
-	VecGetOwnershipRange(subb[0], &rowStart, &rowEnd);
-	r=0;
-	for (int i=1;i<n[0]+1;i++) {
-		for (int j=1;j<n[0]+1;j++) {
-			VecSetValue(subb[0], r, f[i][j], INSERT_VALUES);
-			r = r+1;
-		}
-	}
-	VecAssemblyBegin(subb[0]);
-	VecAssemblyEnd(subb[0]);
-	
-	//insertSubVecValues(&(subb[0]), &(b), 0);
-	insertSubVecValues(&(subb[0]), b, 0);
-	
-	r=0;
-	for (int l=0;l<levels-1;l++) {
-		r = r+n[l]*n[l];
-		VecCreate(PETSC_COMM_SELF, &(subb[l+1]));
-		VecSetSizes(subb[l+1], PETSC_DECIDE, n[l+1]*n[l+1]);
-		VecSetFromOptions(subb[l+1]);
-		MatMult(restrictMatrix[l],subb[l],subb[l+1]);
-		//insertSubVecValues(&(subb[l+1]), &(b), r);
-		insertSubVecValues(&(subb[l+1]), b, r);
-		MatDestroy(&(restrictMatrix[l]));
-		VecDestroy(&(subb[l]));
-	}
-	VecDestroy(&(subb[levels-1]));
-	
-	}
-
-	VecAssemblyBegin(*b);
-	VecAssemblyEnd(*b);
-
-	//return b;
 }
 
 void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
@@ -849,7 +555,7 @@ void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int n
 		length = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
 		x = (double *)malloc(length*sizeof(double)); 
 		
-		for (int i=ranges[0];i<ranges[1];i++) x[i] = px[i];
+		for (int i=0;i<ranges[1];i++) x[i] = px[i];
 		
 		for (int i=1;i<numProcs;i++) {
 			MPI_Recv(&(x[ranges[i]]), ranges[i+1]-ranges[i], MPI_DOUBLE, i, i, PETSC_COMM_WORLD, MPI_STATUS_IGNORE);

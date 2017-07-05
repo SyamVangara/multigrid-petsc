@@ -191,6 +191,25 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
+void MultigridPetsc(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int *n,int m) {
+
+	int v[2];
+
+	//printf("Enter the number of fine grid sweeps = ");
+	scanf("%d",v);
+	//printf("Enter the number of coarse grid sweeps = ");
+	scanf("%d",v+1);
+	
+	rnorm[0] = Residual(u,f,r,As,n);
+	for (int i=1;i<m+1;i++) {
+		Vcycle(u,f,r,As,w,v,levels,n);
+		rnorm[i] = Residual(u,f,r,As,n); 
+	}
+	printf("residual = %.16e\n",rnorm[m]);
+
+}
+
+
 void Copy(double **u, double **r, int *n) {
 	
 	//double temp;

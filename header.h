@@ -12,5 +12,6 @@
 #include "array.h"
 #include "mesh.h"
 #include "solver.h"
+#include "matbuild.h"
 
 #endif

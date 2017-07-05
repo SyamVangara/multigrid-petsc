@@ -15,7 +15,9 @@ name=$(sed -n "6 p" poisson.in)
 #./poisson -pc_type ilu -ksp_type gmres -ksp_monitor_draw #-mat_view ::ascii_matlab
 
 
-mpiexec -n 4 ./poisson -ksp_type gmres -ksp_monitor_max -log_view #-mat_view ::ascii_matlab
+#mpiexec -n 8 ./poisson -ksp_type gmres -ksp_view -ksp_monitor -log_view #-mat_view ::ascii_matlab
+mpiexec -n 8 ./poisson -pc_type bjacobi -ksp_type gmres -ksp_view -log_view #-mat_view ::ascii_matlab
+#mpiexec -n 8 ./poisson -pc_type jacobi -ksp_type richardson -ksp_richardson_scale 0.66666666 -ksp_view -ksp_monitor -log_view #-mat_view ::ascii_matlab
 mkdir -p data/$name
 mv -v *.out data/$name/
 cp -r *.in data/$name/
