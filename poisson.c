@@ -26,7 +26,7 @@ void CreateArrayOfIS(int n, int levels, IS *idx);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
 //void insertSubVecValues(Vec *subV, Vec *V, int i0);
-void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
+static void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 //void GetSol(double **u, double *px, int *n);
 double TransformFunc(double *bounds, double length, double xi);
 void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
@@ -36,22 +36,22 @@ int main(int argc, char *argv[]) {
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
 	double	**coord, h, bounds[DIMENSION*2], ***metrics;
-	double	**f, **u, **r, error[3], As[5], *px;//, *rnorm;
+	double	**f, **u, **r, error[3], As[5], *px, *rnorm;
 	double	**opIH2h, **opIh2H;
-	FILE	*solData, *errData;//, *resData;
+	FILE	*solData, *errData, *resData;
 	
 	int	size, rank;
 	int	rowStart, rowEnd;
 	
 	const 	int	*ranges;
 	
-	PetscLogStage	stage, stageSolve;
+//	PetscLogStage	stage, stageSolve;
 	//PetscViewer	viewer;
 
-	KSP	solver;
-	PC	pc;
-	Mat	A;
-	Vec	b, x;
+//	KSP	solver;
+//	PC	pc;
+//	Mat	A;
+//	Vec	b, x;
 	int	iters;
 	
 	PetscInitialize(&argc, &argv, 0, 0);
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
 	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
 	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
-	//rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
+	rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
 	//px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
 	
 //	clock_t memT = clock();
@@ -116,11 +116,12 @@ int main(int argc, char *argv[]) {
 
 //	PetscPrintf(PETSC_COMM_SELF,"rank = %d, n = %d, numIter = %d, levels = %d\n",rank,n[0],numIter,levels);
 	
-	MultigridPetsc(metrics, opIH2h, opIh2H, levels, n, numIter);
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, numIter);
+//	VecView(x, PETSC_VIEWER_STDOUT_WORLD);
 	
-	PetscFinalize();
-	return 0;
-
+//	PetscFinalize();
+//	return 0;
+/*
 	PetscLogStageRegister("Setup A", &stage);
 	PetscLogStagePush(stage);
 	A = matrixA(metrics, opIH2h, opIh2H, (n[0]-2), levels);
@@ -171,13 +172,14 @@ int main(int argc, char *argv[]) {
 	GetSol(u,px,n,levels,ranges,size,rank);
 	//GetSol(u,px,n,rowStart,rowEnd);
 	VecRestoreArray(x,&px);
-	
-	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
-	KSPDestroy(&solver);
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction time:        %lf\n",rank,(double)(constrA-initT)/CLOCKS_PER_SEC);
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver time:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+*/	
+//	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
+//	KSPDestroy(&solver);
+
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction time:        %lf\n",rank,(double)(constrA-initT)/CLOCKS_PER_SEC);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver time:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	return 0;
 //	clock_t solverFinalizeT = clock();
 	if (rank==0) {	
@@ -186,7 +188,7 @@ int main(int argc, char *argv[]) {
 	
 	// Output
 	solData = fopen("uData.dat","w");
-	//resData = fopen("rData.dat","w");
+	resData = fopen("rData.dat","w");
 	errData = fopen("eData.dat","w");
 
 	for(int i=0;i<3;i++){
@@ -200,13 +202,13 @@ int main(int argc, char *argv[]) {
 		}
 		fprintf(solData,"\n");
 	}
-	}
-/*	}
-	for (int i=0;i<numIter+1;i++) {
+	for (int i=0;i<numIter;i++) {
 		fprintf(resData,"%.16e ",rnorm[i]);
 	}
 	fprintf(resData,"\n");
-*/
+
+	}
+	
 //	clock_t ppT = clock();
 	
 //	printf("Total time:                 %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
@@ -226,14 +228,14 @@ int main(int argc, char *argv[]) {
 //	printf("=============================================================\n");
 	
 	fclose(solData);
-	//fclose(resData);
+	fclose(resData);
 	fclose(errData);
 	free2dArray(&coord);
 	free3dArray(&metrics);
 	free2dArray(&f);
 	free2dArray(&u);
+	free(rnorm);
 	}
-	//free(rnorm);
 	//free(px);
 	
 	free2dArray(&opIH2h);	
@@ -259,8 +261,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-//	val = bounds[1]-length*(cos(PI*0.5*xi));
-	val = xi;
+	val = bounds[1]-length*(cos(PI*0.5*xi));
+//	val = xi;
 	return val;
 }
 
@@ -283,16 +285,16 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 	double temp;
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-//	metrics[0] = 1.0;
-//	metrics[1] = 4.0/(PI*PI*temp);
-//	metrics[2] = 0.0;
-//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-//	metrics[4] = 0.0;
 	metrics[0] = 1.0;
-	metrics[1] = 1.0;
+	metrics[1] = 4.0/(PI*PI*temp);
 	metrics[2] = 0.0;
-	metrics[3] = 0.0; 
+	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 	metrics[4] = 0.0;
+//	metrics[0] = 1.0;
+//	metrics[1] = 1.0;
+//	metrics[2] = 0.0;
+//	metrics[3] = 0.0; 
+//	metrics[4] = 0.0;
 }
 
 void GetFuncValues2d(double **coord, int *n, double **f) {

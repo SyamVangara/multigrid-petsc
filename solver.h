@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "matbuild.h"
+#include <time.h>
 
 void UpdateRHS(double *A, double **u, double **r, int *n);
 double Residual(double **u, double **f, double **r, double *As, int *n);
@@ -17,7 +18,7 @@ void ResidualRestriction(double **f, double **r, int *n);
 void ErrorCorrection(double **u, int *n, int flag);
 void Vcycle(double **u, double **f, double **r, double *As, double w, int *v,int levels,int *n);
 void Multigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int *n,int m);
-void MultigridPetsc(double ***metrics, double **opIH2h, double **opIh2H, int levels, int *fulln, int m);
+void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int m);
 void PMultigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int*n, int m);
 //void AsyncMultigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int*n, int m);
 double L2norm(double *a, int n);

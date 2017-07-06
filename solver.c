@@ -1,5 +1,52 @@
 #include "solver.h"
 
+static int ipow(int base, int exp) {
+
+	int result = 1;
+	while (exp) {
+		if (exp & 1)
+			result *= base;
+		exp >>= 1;
+		base *= base;
+	}
+	return result;
+}
+
+static void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
+	
+	int	r;
+	
+	if (rank!=0) {
+		MPI_Send(px, ranges[rank+1]-ranges[rank], MPI_DOUBLE, 0, rank, PETSC_COMM_WORLD);
+	}
+	else if (rank==0) {
+	
+		int	length, n0;
+		double	*x;
+	
+		n0 = n[0]-2;
+		length = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+		x = (double *)malloc(length*sizeof(double)); 
+		
+		for (int i=0;i<ranges[1];i++) x[i] = px[i];
+		
+		for (int i=1;i<numProcs;i++) {
+			MPI_Recv(&(x[ranges[i]]), ranges[i+1]-ranges[i], MPI_DOUBLE, i, i, PETSC_COMM_WORLD, MPI_STATUS_IGNORE);
+		}
+	
+		r = 0;
+		for (int i=1;i<n[1]-1;i++) {
+			for (int j=1;j<n[0]-1;j++) {
+				u[i][j] = x[r];
+				r = r+1;
+			}
+		}
+		
+		free(x);
+	}
+
+}
+
 void UpdateRHS(double *A, double **u, double **r, int *n) {
 	
 	int iend;
@@ -191,14 +238,28 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
-void MultigridPetsc(double ***metrics, double **opIH2h, double **opIh2H, int levels, int *fulln, int m) {
+void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int m) {
 
 	int	v[2], n[levels];
 	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
-	int	sublevels = 1;
+	int	iter;
+	double	rnormchk;
 	
-	Mat	;
+	double	*px;
+	const	int	*ranges;
+	int	size, rank;
+	
+	KSP	solver[levels];
+	PC	pc[levels];
+	Vec	r[levels], x[levels], b[levels], xbuf[levels];
+//	Vec	dummy1, dummy2;
+
+	PetscLogStage	stage;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	//printf("Enter the number of fine grid sweeps = ");
+	
 	scanf("%d",v);
 	//printf("Enter the number of coarse grid sweeps = ");
 	scanf("%d",v+1);
@@ -211,14 +272,90 @@ void MultigridPetsc(double ***metrics, double **opIH2h, double **opIh2H, int lev
 	for (int l=0;l<levels-1;l++) {
 		restrictMatrix[l] =  restrictionMatrixMPI(opIh2H, 3, n[l], n[l+1]);
 		prolongMatrix[l] =  prolongationMatrixMPI(opIH2h, 3, n[l], n[l+1]);
-		MatView(restrictMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
-		MatView(prolongMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
+//		MatView(restrictMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
+//		MatView(prolongMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
 	}
 
 	for (int i=0;i<levels;i++) {
 		A[i] = levelMatrixA(metrics, n[i], i);
-		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
+//		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
+		MatCreateVecs(A[i],&(x[i]),&(r[i]));
+		VecDuplicate(r[i],&(b[i]));
+		VecDuplicate(x[i],&(xbuf[i]));
 	}
+	vecb(&(b[0]),f,opIh2H,n[0],1);
+//	VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
+	
+	for (int i=0;i<levels-1;i++) {
+		KSPCreate(PETSC_COMM_WORLD, &(solver[i]));
+//		KSPSetType(solver[i],KSPGMRES);
+		KSPSetType(solver[i],KSPRICHARDSON);
+		KSPRichardsonSetScale(solver[i],2.0/3.0);
+		KSPSetOperators(solver[i], A[i], A[i]);
+		KSPGetPC(solver[i],&(pc[i]));
+//		PCSetType(pc[i],PCBJACOBI);
+		PCSetType(pc[i],PCJACOBI);
+		KSPSetTolerances(solver[i], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
+	}
+	
+	KSPCreate(PETSC_COMM_WORLD, &(solver[levels-1]));
+//	KSPSetType(solver[levels-1],KSPGMRES);
+	KSPSetType(solver[levels-1],KSPRICHARDSON);
+	KSPRichardsonSetScale(solver[levels-1],2.0/3.0);
+	KSPSetOperators(solver[levels-1], A[levels-1], A[levels-1]);
+	KSPGetPC(solver[levels-1],&(pc[levels-1]));
+//	PCSetType(pc[levels-1],PCBJACOBI);
+	PCSetType(pc[levels-1],PCJACOBI);
+	KSPSetTolerances(solver[levels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+	
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stage);
+	PetscLogStagePush(stage);
+	iter = 0;
+	rnormchk = 1.0;
+	while (iter<m && rnormchk > (1.e-7)) {
+		KSPSolve(solver[0], b[0], x[0]);
+		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
+//		VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
+		MatMult(restrictMatrix[0],r[0],b[1]);
+//		VecView(b[1], PETSC_VIEWER_STDOUT_WORLD);
+		if (iter==0) KSPSetInitialGuessNonzero(solver[0],PETSC_TRUE);
+		for (int l=1;l<levels-1;l++) {
+			KSPSolve(solver[l], b[l], x[l]);
+			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
+			MatMult(restrictMatrix[l],r[l],b[l+1]);
+			KSPSetInitialGuessNonzero(solver[l],PETSC_TRUE);
+		}
+		KSPSolve(solver[levels-1], b[levels-1], x[levels-1]);
+//		VecView(x[levels-1], PETSC_VIEWER_STDOUT_WORLD);
+		for (int l=levels-2;l>0;l=l-1) {
+			MatMult(prolongMatrix[l],x[l+1],xbuf[l]);
+			VecAXPY(x[l],1.0,xbuf[l]);
+			KSPSolve(solver[l], b[l], x[l]);
+//			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
+			KSPSetInitialGuessNonzero(solver[l],PETSC_FALSE);
+		}
+		MatMult(prolongMatrix[0],x[1],xbuf[0]);
+//		VecView(xbuf[0], PETSC_VIEWER_STDOUT_WORLD);
+//		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
+		VecAXPY(x[0],1.0,xbuf[0]);
+//		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
+		KSPSolve(solver[0], b[0], x[0]);
+
+		KSPGetResidualNorm(solver[0],&(rnormchk));
+		if (rank==0) {
+			rnorm[iter] = rnormchk;
+		}
+
+		iter = iter + 1;
+	}
+	PetscLogStagePop();
+	clock_t solverT = clock();
+
+	for (int i=0;i<levels;i++) {
+		KSPView(solver[i],PETSC_VIEWER_STDOUT_WORLD);
+	}
+//	VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
 
 //	rnorm[0] = Residual(u,f,r,As,n);
 //	for (int i=1;i<m+1;i++) {
@@ -226,13 +363,27 @@ void MultigridPetsc(double ***metrics, double **opIH2h, double **opIh2H, int lev
 //		rnorm[i] = Residual(u,f,r,As,n); 
 //	}
 //	printf("residual = %.16e\n",rnorm[m]);
+	VecGetArray(x[0],&px);
+	VecGetOwnershipRanges(x[0],&ranges);
+	GetSol(u,px,fulln,levels,ranges,size,rank);
+	VecRestoreArray(x[0],&px);
+	
 	for (int i=0;i<levels;i++) {
 		MatDestroy(&(A[i]));
+		VecDestroy(&(r[i]));
+		VecDestroy(&(x[i]));
 	}
 	for (int l=0;l<levels-1;l++) {
 		MatDestroy(&(restrictMatrix[l]));
 		MatDestroy(&(prolongMatrix[l]));
 	}
+	
+	for (int i=0;i<levels;i++) {
+		KSPDestroy(&(solver[i]));
+	}
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver time:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+
 }
 
 
