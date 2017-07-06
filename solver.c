@@ -191,22 +191,48 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
-void MultigridPetsc(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int *n,int m) {
+void MultigridPetsc(double ***metrics, double **opIH2h, double **opIh2H, int levels, int *fulln, int m) {
 
-	int v[2];
-
+	int	v[2], n[levels];
+	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
+	int	sublevels = 1;
+	
+	Mat	;
 	//printf("Enter the number of fine grid sweeps = ");
 	scanf("%d",v);
 	//printf("Enter the number of coarse grid sweeps = ");
 	scanf("%d",v+1);
-	
-	rnorm[0] = Residual(u,f,r,As,n);
-	for (int i=1;i<m+1;i++) {
-		Vcycle(u,f,r,As,w,v,levels,n);
-		rnorm[i] = Residual(u,f,r,As,n); 
-	}
-	printf("residual = %.16e\n",rnorm[m]);
 
+	n[0] = fulln[0]-2;
+	for (int i=1;i<levels;i++) {
+		n[i] = (n[i-1]-1)/2;
+	}
+
+	for (int l=0;l<levels-1;l++) {
+		restrictMatrix[l] =  restrictionMatrixMPI(opIh2H, 3, n[l], n[l+1]);
+		prolongMatrix[l] =  prolongationMatrixMPI(opIH2h, 3, n[l], n[l+1]);
+		MatView(restrictMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
+		MatView(prolongMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
+	}
+
+	for (int i=0;i<levels;i++) {
+		A[i] = levelMatrixA(metrics, n[i], i);
+		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
+	}
+
+//	rnorm[0] = Residual(u,f,r,As,n);
+//	for (int i=1;i<m+1;i++) {
+//		Vcycle(u,f,r,As,w,v,levels,n);
+//		rnorm[i] = Residual(u,f,r,As,n); 
+//	}
+//	printf("residual = %.16e\n",rnorm[m]);
+	for (int i=0;i<levels;i++) {
+		MatDestroy(&(A[i]));
+	}
+	for (int l=0;l<levels-1;l++) {
+		MatDestroy(&(restrictMatrix[l]));
+		MatDestroy(&(prolongMatrix[l]));
+	}
 }
 
 

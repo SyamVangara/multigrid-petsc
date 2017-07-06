@@ -16,16 +16,16 @@
 void GetFuncValues2d(double **coord, int *n, double **f);
 void GetError(double **coord, int *n, double **u, double *error);
 void UpdateBC(double **coord, double **u, int *n);
-void OpA(double *A, double *metrics, double *h);
-int ipow(int base, int exp);
+//void OpA(double *A, double *metrics, double *h);
+static int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
 int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
 int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 void CreateArrayOfIS(int n, int levels, IS *idx);
-void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
+//void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
-void insertSubVecValues(Vec *subV, Vec *V, int i0);
+//void insertSubVecValues(Vec *subV, Vec *V, int i0);
 void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 //void GetSol(double **u, double *px, int *n);
 double TransformFunc(double *bounds, double length, double xi);
@@ -116,6 +116,11 @@ int main(int argc, char *argv[]) {
 
 //	PetscPrintf(PETSC_COMM_SELF,"rank = %d, n = %d, numIter = %d, levels = %d\n",rank,n[0],numIter,levels);
 	
+	MultigridPetsc(metrics, opIH2h, opIh2H, levels, n, numIter);
+	
+	PetscFinalize();
+	return 0;
+
 	PetscLogStageRegister("Setup A", &stage);
 	PetscLogStagePush(stage);
 	A = matrixA(metrics, opIH2h, opIh2H, (n[0]-2), levels);
@@ -254,8 +259,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-	val = bounds[1]-length*(cos(PI*0.5*xi));
-//	val = xi;
+//	val = bounds[1]-length*(cos(PI*0.5*xi));
+	val = xi;
 	return val;
 }
 
@@ -278,16 +283,16 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 	double temp;
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-	metrics[0] = 1.0;
-	metrics[1] = 4.0/(PI*PI*temp);
-	metrics[2] = 0.0;
-	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-	metrics[4] = 0.0;
 //	metrics[0] = 1.0;
-//	metrics[1] = 1.0;
+//	metrics[1] = 4.0/(PI*PI*temp);
 //	metrics[2] = 0.0;
-//	metrics[3] = 0.0; 
+//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 //	metrics[4] = 0.0;
+	metrics[0] = 1.0;
+	metrics[1] = 1.0;
+	metrics[2] = 0.0;
+	metrics[3] = 0.0; 
+	metrics[4] = 0.0;
 }
 
 void GetFuncValues2d(double **coord, int *n, double **f) {
@@ -341,24 +346,6 @@ void UpdateBC(double **coord, double **u, int *n) {
 }
 
 
-
-void OpA(double *A, double *metrics, double *h) {
-	//Computes the coefficients
-	//A[0]*u(i,j-1) + A[1]*u(i-1,j) + A[2]*u(i,j) + A[3]*u(i+1,j) + A[4]*u(i,j+1) = f(i,j)
-	//
-	//metrics[5]	- metrics at a point
-	//h[2]		- mesh width in computational domain in each direction
-	
-	double hy2, hx2;
-	
-	hx2 = h[0]*h[0];
-	hy2 = h[1]*h[1];
-	A[0] = (metrics[1]/hy2) - (metrics[3]/(2*h[1]));
-	A[1] = (metrics[0]/hx2) - (metrics[2]/(2*h[0]));
-	A[2] = -2.0*((metrics[0]/hx2) + (metrics[1]/hy2));
-	A[3] = (metrics[0]/hx2) + (metrics[2]/(2*h[0]));
-	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
-}
 
 int ipow(int base, int exp) {
 
@@ -470,27 +457,6 @@ void CreateArrayOfIS(int n, int levels, IS *idx) {
 	}
 }
 
-void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
-	//Insert values of sub matrix "subA" in "A"
-	//
-	//nrows	- number of rows in "subA"
-	//ncols - number of columns in "subA"
-	//
-	//A(i0+subi, j0+subj) = subA(subi,subj)
-	
-	const	int	*subj;
-	const	double	*vals;
-		int	ncols;
-	
-	for (int subi=0; subi<nrows; subi++) {
-		MatGetRow(*subA, subi, &ncols, &subj, &vals);
-		for (int jcol=0; jcol<ncols; jcol++) {
-			if (vals[jcol]!=0.0)	MatSetValue(*A, i0+subi, j0+subj[jcol], vals[jcol], INSERT_VALUES);
-		}
-		MatRestoreRow(*subA, subi, &ncols, &subj, &vals);
-	}
-}
-
 void prolongStencil2D(double ***IH2h, int m, int n){
 	// Builds prolongation 2D stencilwise operator (*IH2h)
 	// Stencil size: m x n
@@ -521,22 +487,6 @@ void restrictStencil2D(double ***Ih2H, int m, int n){
  		(*Ih2H)[2][lj]= 0.0;
 	}
 	(*Ih2H)[1][1] = 1.0;
-}
-
-void insertSubVecValues(Vec *subV, Vec *V, int i0) {
-	//Insert values of sub vector "subV" in a vector "V"
-	//
-	//V(i0+i) = subV(i)
-	
-	double	*vals;
-	int	n;
-	
-	VecGetLocalSize(*subV, &n);
-	VecGetArray(*subV, &vals);
-	for (int i=0; i<n; i++) {
-		if (vals[i]!=0.0) VecSetValue(*V, i0+i, vals[i], INSERT_VALUES);
-	}
-	VecRestoreArray(*subV, &vals);
 }
 
 void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {

@@ -1,5 +1,122 @@
 #include "matbuild.h"
 
+static int ipow(int base, int exp) {
+
+	int result = 1;
+	while (exp) {
+		if (exp & 1)
+			result *= base;
+		exp >>= 1;
+		base *= base;
+	}
+	return result;
+}
+
+void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
+	//Insert values of sub matrix "subA" in "A"
+	//
+	//nrows	- number of rows in "subA"
+	//ncols - number of columns in "subA"
+	//
+	//A(i0+subi, j0+subj) = subA(subi,subj)
+	
+	const	int	*subj;
+	const	double	*vals;
+		int	ncols;
+	
+	for (int subi=0; subi<nrows; subi++) {
+		MatGetRow(*subA, subi, &ncols, &subj, &vals);
+		for (int jcol=0; jcol<ncols; jcol++) {
+			if (vals[jcol]!=0.0)	MatSetValue(*A, i0+subi, j0+subj[jcol], vals[jcol], INSERT_VALUES);
+		}
+		MatRestoreRow(*subA, subi, &ncols, &subj, &vals);
+	}
+}
+
+void insertSubVecValues(Vec *subV, Vec *V, int i0) {
+	//Insert values of sub vector "subV" in a vector "V"
+	//
+	//V(i0+i) = subV(i)
+	
+	double	*vals;
+	int	n;
+	
+	VecGetLocalSize(*subV, &n);
+	VecGetArray(*subV, &vals);
+	for (int i=0; i<n; i++) {
+		if (vals[i]!=0.0) VecSetValue(*V, i0+i, vals[i], INSERT_VALUES);
+	}
+	VecRestoreArray(*subV, &vals);
+}
+
+void OpA(double *A, double *metrics, double *h) {
+	//Computes the coefficients
+	//A[0]*u(i,j-1) + A[1]*u(i-1,j) + A[2]*u(i,j) + A[3]*u(i+1,j) + A[4]*u(i,j+1) = f(i,j)
+	//
+	//metrics[5]	- metrics at a point
+	//h[2]		- mesh width in computational domain in each direction
+	
+	double hy2, hx2;
+	
+	hx2 = h[0]*h[0];
+	hy2 = h[1]*h[1];
+	A[0] = (metrics[1]/hy2) - (metrics[3]/(2*h[1]));
+	A[1] = (metrics[0]/hx2) - (metrics[2]/(2*h[0]));
+	A[2] = -2.0*((metrics[0]/hx2) + (metrics[1]/hy2));
+	A[3] = (metrics[0]/hx2) + (metrics[2]/(2*h[0]));
+	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
+}
+
+Mat levelMatrixA(double ***metrics, int n, int l) {
+	// Builds matrix "A" at a given multigrid level
+	// metrics	- metric terms
+	// n		- number of unknowns per dimension
+	// l		- level
+	
+	int	rows, cols;
+	double	As[5], h[2];
+	Mat	A;
+	
+	int 	rank;
+
+	rows = n*n;
+	cols = rows;
+
+	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, rows, cols, 5, PETSC_NULL, 4, PETSC_NULL, &A);
+//	MatCreateSeqAIJ(PETSC_COMM_SELF, rows, cols, 5, NULL, A);
+//	MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
+//	printf("level: %d\n",l);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	if (rank==0) {
+
+	h[0] = 1.0/(n+1);
+	h[1] = h[0];
+	for (int i=0; i<rows; i++) {
+//		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
+		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
+	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
+		if (i-n>=0) {
+			MatSetValue(A, i, i-n, As[0], INSERT_VALUES);
+		}
+		if (i-1>=0 && i%n!=0) {
+			MatSetValue(A, i, i-1, As[1], INSERT_VALUES); 
+		}
+		MatSetValue(A, i, i, As[2], INSERT_VALUES);
+		if (i+1<=rows-1 && (i+1)%n!=0) {
+			MatSetValue(A, i, i+1, As[3], INSERT_VALUES);
+		}
+		if (i+n<=rows-1) {
+			MatSetValue(A, i, i+n, As[4], INSERT_VALUES);
+		}
+	}
+
+	}
+	MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);
+
+	return A;
+}
+
 Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
 	// Builds matrix "A" for implicit multigrid correction method
 	// metrics	- metric terms
@@ -231,6 +348,89 @@ Mat prolongationMatrix(double **Is, int m, int nh, int nH) {
 		}
 	}
 	
+	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
+	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
+	return matI;
+}
+
+Mat restrictionMatrixMPI(double **Is, int m, int nh, int nH) {
+	// Is	- stencil wise grid transfer operator of size m*m
+	// nh	- number of unknowns per dimension in fine grid "h"
+	// nH	- number of unknowns per dimension in coarse grid "H"
+	
+	Mat	matI;
+	int	rowStart, rowEnd, colStart, colEnd;
+	int	rank;
+
+	//MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh, &matI);
+	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh, 1, PETSC_NULL, 1, PETSC_NULL, &matI);
+//	MatCreate(PETSC_COMM_WORLD, &matI);
+//	MatSetType(matI,MATMPIAIJ);
+//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
+//	MatSetFromOptions(matI);
+//	MatSetUp(matI);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	if (rank==0) {
+
+	for (int bj=0;bj<nH;bj++) {
+		colStart = bj*nH;
+		colEnd   = colStart+nH;
+		rowStart = (bj*nh)*((m+1)/2);
+		for (int bi=0;bi<m;bi++) {
+			for (int j=colStart;j<colEnd;j++) {
+				rowEnd  = rowStart + m;
+				for (int i=rowStart;i<rowEnd;i++) {
+					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
+				}
+				rowStart = rowStart + ((m+1)/2);
+			}
+			rowStart = rowEnd;
+		}
+	}
+	
+	}	
+	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
+	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
+	return matI;
+}
+
+Mat prolongationMatrixMPI(double **Is, int m, int nh, int nH) {
+	// Is	- stencil wise grid transfer operator of size m*m
+	// nh	- number of unknowns per dimension in fine grid "h"
+	// nH	- number of unknowns per dimension in coarse grid "H"
+	
+	Mat	matI;
+	int	rowStart, rowEnd, colStart, colEnd;
+	int	rank;
+
+	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH, 4, PETSC_NULL, 4, PETSC_NULL, &matI);
+//	MatCreateSeqAIJ(PETSC_COMM_SELF, nh*nh, nH*nH, 4, NULL, &matI);
+//	MatCreate(PETSC_COMM_WORLD, &matI);
+//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nh*nh, nH*nH);
+//	MatSetFromOptions(matI);
+//	MatSetUp(matI);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	if (rank==0) {
+
+	for (int bj=0;bj<nH;bj++) {
+		colStart = bj*nH;
+		colEnd   = colStart+nH;
+		rowStart = (bj*nh)*((m+1)/2);
+		for (int bi=0;bi<m;bi++) {
+			for (int j=colStart;j<colEnd;j++) {
+				rowEnd  = rowStart + m;
+				for (int i=rowStart;i<rowEnd;i++) {
+					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, i, j, Is[bi][i-rowStart], INSERT_VALUES);
+				}
+				rowStart = rowStart + ((m+1)/2);
+			}
+			rowStart = rowEnd;
+		}
+	}
+	
+	}	
 	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
 	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
