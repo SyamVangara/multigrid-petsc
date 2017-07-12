@@ -308,6 +308,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	PCSetType(pc[levels-1],PCJACOBI);
 	KSPSetTolerances(solver[levels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
 	
+	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
@@ -355,6 +356,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	*m = iter;
 	PetscLogStagePop();
 	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
 
 	for (int i=0;i<levels;i++) {
 		KSPView(solver[i],PETSC_VIEWER_STDOUT_WORLD);
@@ -385,7 +387,8 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	for (int i=0;i<levels;i++) {
 		KSPDestroy(&(solver[i]));
 	}
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver time:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 
 }

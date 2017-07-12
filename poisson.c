@@ -1,7 +1,7 @@
 #include "header.h"
 #include <time.h>
 #include <string.h>
-#include "petscksp.h"
+#include <petscksp.h>
 
 #define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
@@ -30,6 +30,7 @@ static void GetSol(double **u, double *px, int *n, int levels, const int *ranges
 //void GetSol(double **u, double *px, int *n);
 double TransformFunc(double *bounds, double length, double xi);
 void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
+PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
 
 int main(int argc, char *argv[]) {
 	
@@ -45,25 +46,20 @@ int main(int argc, char *argv[]) {
 	
 	const 	int	*ranges;
 	
-//	PetscLogStage	stage, stageSolve;
-	//PetscViewer	viewer;
-
-//	KSP	solver;
-//	PC	pc;
-//	Mat	A;
-//	Vec	b, x;
-	int	iters;
+	KSP	solver;
+	PC	pc;
+	Mat	A;
+	Vec	b, x;
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &size);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	if (rank==0) {
+	
 	freopen("poisson.in", "r", stdin);
 	freopen("poisson.out", "w", stdout);
-//	freopen("petsc.dat", "w", stdout);
 	freopen("poisson.err", "w", stderr);
-//	}
+	
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -80,15 +76,17 @@ int main(int argc, char *argv[]) {
 		bounds[i*2] = 0.0;    // Lower bound in each dimension
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
+	
 	if (rank==0) {	
 	// Memory allocation of RHS, solution and residual
 	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
 	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
-	//px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
+	px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
 	
 //	clock_t memT = clock();
+	
 	// Meshing
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
@@ -105,7 +103,6 @@ int main(int argc, char *argv[]) {
 	// Update 'u' with boundary conditions
 	UpdateBC(coord,u,n);
 	}	
-	clock_t initT = clock();
 	// Solver
 	//Jacobi(u,f,r,As,weight,rnorm,numIter,n); // Weighted Jacobi
 	//Multigrid(u,f,r,As,weight,rnorm,levels,n,numIter); // Multigrid V-cycle
@@ -114,74 +111,69 @@ int main(int argc, char *argv[]) {
 	prolongStencil2D(&opIH2h, 3, 3);
 	restrictStencil2D(&opIh2H, 3, 3);
 
-//	PetscPrintf(PETSC_COMM_SELF,"rank = %d, n = %d, numIter = %d, levels = %d\n",rank,n[0],numIter,levels);
+//	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);i
 	
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
-//	VecView(x, PETSC_VIEWER_STDOUT_WORLD);
-	
-//	PetscFinalize();
-//	return 0;
-/*
+/**********************************************************************************/	
+
+	PetscLogStage	stage, stageSolve;
+
+	double initAWallTime = MPI_Wtime();
+	clock_t initAT = clock();
 	PetscLogStageRegister("Setup A", &stage);
 	PetscLogStagePush(stage);
+	
 	A = matrixA(metrics, opIH2h, opIh2H, (n[0]-2), levels);
 	MatGetOwnershipRange(A, &rowStart, &rowEnd);
-//	PetscPrintf(PETSC_COMM_SELF,"rank = %d:A: rowStart = %d, rowEnd = %d\n",rank,rowStart,rowEnd);
+	
 	PetscLogStagePop();
-//	MatView(A, PETSC_VIEWER_STDOUT_WORLD);
-	//A = matrixA(As,(n[0]-2),levels);
+	clock_t endAT = clock();
+	double endAWallTime = MPI_Wtime();
 
-	clock_t constrA = clock();
+//	MatView(A, PETSC_VIEWER_STDOUT_WORLD);
+
 	MatCreateVecs(A,&x,&b);
-	//b = vecb(f, opIh2H, (n[0]-2), levels);
 	vecb(&b, f, opIh2H, (n[0]-2), levels);
 //	VecView(b, PETSC_VIEWER_STDOUT_WORLD);
-	//b = vecb(f,(n[0]-2),levels);
 
-	VecGetOwnershipRange(b, &rowStart, &rowEnd);
-//	PetscPrintf(PETSC_COMM_SELF,"rank = %d:b: rowStart = %d, rowEnd = %d\n",rank,rowStart,rowEnd);
-//	clock_t constrb = clock();
-
-	//VecDuplicate(b, &x);
 	KSPCreate(PETSC_COMM_WORLD, &solver);
 	KSPSetOperators(solver, A, A);
 	KSPGetPC(solver,&pc);
 	PCSetType(pc,PCASM);
+	KSPMonitorSet(solver, myMonitor, rnorm, NULL);
 	KSPSetTolerances(solver, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
 	KSPSetFromOptions(solver);
-	//PetscViewerASCIIOpen(PETSC_COMM_WORLD, "petsc.data", &viewer);
-	//KSPSetResidualHistory(solver, rnorm, numIter, PETSC_TRUE);
 
+	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
-
 	PetscLogStageRegister("Solver", &stageSolve);
 	PetscLogStagePush(stageSolve);
-	KSPSolve(solver, b, x);
-	PetscLogStagePop();
 	
+	KSPSolve(solver, b, x);
+	
+	PetscLogStagePop();
 	clock_t solverT = clock();
-	//KSPGetResidualHistory(solver, &rnorm, &numIter);
-	//KSPView(solver, viewer);
+	double endWallTime = MPI_Wtime();
+	
 //	VecView(x,PETSC_VIEWER_STDOUT_WORLD);
-	KSPGetIterationNumber(solver, &iters);
+	KSPGetIterationNumber(solver, &numIter);
 	VecGetArray(x,&px);
 	//VecGetOwnershipRange(x, &rowStart, &rowEnd);
 	VecGetOwnershipRanges(x,&ranges);
-//	for (int i=0;i<size+1;i++) PetscPrintf(PETSC_COMM_SELF,"ranges[%d] = %d\n",i,ranges[i]);
-//	for (int i=0;i<ranges[rank+1]-ranges[rank];i++) PetscPrintf(PETSC_COMM_SELF,"rank = %d; px[%d] = %f\n",rank,i,px[i]);
 	GetSol(u,px,n,levels,ranges,size,rank);
-	//GetSol(u,px,n,rowStart,rowEnd);
 	VecRestoreArray(x,&px);
-*/	
-//	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
-//	KSPDestroy(&solver);
+	
+	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
+	KSPDestroy(&solver);
 
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction time:        %lf\n",rank,(double)(constrA-initT)/CLOCKS_PER_SEC);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver time:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//	return 0;
-//	clock_t solverFinalizeT = clock();
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction cputime:        %lf\n",rank,(double)(endAT-initAT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction walltime:       %lf\n",rank,endAWallTime-initAWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+
+/**********************************************************************************/	
+
 	if (rank==0) {	
 	// Error computation
 	GetError(coord,n,u,error);
@@ -202,6 +194,7 @@ int main(int argc, char *argv[]) {
 		}
 		fprintf(solData,"\n");
 	}
+		
 	for (int i=0;i<numIter;i++) {
 		fprintf(resData,"%.16e ",rnorm[i]);
 	}
@@ -209,24 +202,7 @@ int main(int argc, char *argv[]) {
 
 	}
 	
-//	clock_t ppT = clock();
-	
-//	printf("Total time:                 %lf\n",(double)(ppT-begin)/CLOCKS_PER_SEC);
-//	printf("Memory allocation time:     %lf\n",(double)(memT-begin)/CLOCKS_PER_SEC);
-//	printf("Meshing time:               %lf\n",(double)(meshT-memT)/CLOCKS_PER_SEC);
-//	printf("Initialization time:        %lf\n",(double)(initT-meshT)/CLOCKS_PER_SEC);
-//	printf("A construction time:        %lf\n",(double)(constrA-initT)/CLOCKS_PER_SEC);
-//	printf("b construction time:        %lf\n",(double)(constrb-constrA)/CLOCKS_PER_SEC);
-//	printf("Solver Initialization time: %lf\n",(double)(solverInitT-constrb)/CLOCKS_PER_SEC);
-//	printf("Solver time:                %lf\n",(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
-//	printf("Solver Finalization time:   %lf\n",(double)(solverFinalizeT-solverT)/CLOCKS_PER_SEC);
-//	printf("Post processing time:       %lf\n",(double)(ppT-solverT)/CLOCKS_PER_SEC);
 	if (rank==0) {
-//	printf("=============================================================\n");
-//	printf("Size:			%d^2\n",n[0]);
-//	printf("Number of levels:	%d\n",levels);
-//	printf("=============================================================\n");
-	
 	fclose(solData);
 	fclose(resData);
 	fclose(errData);
@@ -234,9 +210,10 @@ int main(int argc, char *argv[]) {
 	free3dArray(&metrics);
 	free2dArray(&f);
 	free2dArray(&u);
+	free2dArray(&r);
 	free(rnorm);
+	free(px);
 	}
-	//free(px);
 	
 	free2dArray(&opIH2h);	
 	free2dArray(&opIh2H);
@@ -250,6 +227,18 @@ int main(int argc, char *argv[]) {
 	printf("Number of iterations:	%d\n",numIter);
 	printf("=============================================================\n");
 	}
+	return 0;
+}
+
+PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm) {
+	//Writes the l2-norm of residual at each iteration to an array
+	//
+	//rnorm[n] = rnormInstant
+	
+	int	rank;
+
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	if (rank==0) rnorm[n] = rnormAtn;
 	return 0;
 }
 
