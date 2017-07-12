@@ -238,7 +238,7 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
-void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int m) {
+void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int *m) {
 
 	int	v[2], n[levels];
 	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
@@ -313,34 +313,37 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	PetscLogStagePush(stage);
 	iter = 0;
 	rnormchk = 1.0;
-	while (iter<m && rnormchk > (1.e-7)) {
+	while (iter<*m && rnormchk > (1.e-7)) {
 		KSPSolve(solver[0], b[0], x[0]);
-		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
-//		VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
-		MatMult(restrictMatrix[0],r[0],b[1]);
-//		VecView(b[1], PETSC_VIEWER_STDOUT_WORLD);
 		if (iter==0) KSPSetInitialGuessNonzero(solver[0],PETSC_TRUE);
-		for (int l=1;l<levels-1;l++) {
+//		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
+//		VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
+//		MatMult(restrictMatrix[0],r[0],b[1]);
+//		VecView(b[1], PETSC_VIEWER_STDOUT_WORLD);
+//		for (int l=1;l<levels-1;l++) {
+		for (int l=1;l<levels;l++) {
+			KSPBuildResidual(solver[l-1],NULL,NULL,&(r[l-1]));
+			MatMult(restrictMatrix[l-1],r[l-1],b[l]);
 			KSPSolve(solver[l], b[l], x[l]);
-			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
-			MatMult(restrictMatrix[l],r[l],b[l+1]);
-			KSPSetInitialGuessNonzero(solver[l],PETSC_TRUE);
+			if (l!=levels-1) KSPSetInitialGuessNonzero(solver[l],PETSC_TRUE);
+//			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
+//			MatMult(restrictMatrix[l],r[l],b[l+1]);
 		}
-		KSPSolve(solver[levels-1], b[levels-1], x[levels-1]);
+//		KSPSolve(solver[levels-1], b[levels-1], x[levels-1]);
 //		VecView(x[levels-1], PETSC_VIEWER_STDOUT_WORLD);
-		for (int l=levels-2;l>0;l=l-1) {
+		for (int l=levels-2;l>=0;l=l-1) {
 			MatMult(prolongMatrix[l],x[l+1],xbuf[l]);
 			VecAXPY(x[l],1.0,xbuf[l]);
 			KSPSolve(solver[l], b[l], x[l]);
 //			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
-			KSPSetInitialGuessNonzero(solver[l],PETSC_FALSE);
+			if (l!=0) KSPSetInitialGuessNonzero(solver[l],PETSC_FALSE);
 		}
-		MatMult(prolongMatrix[0],x[1],xbuf[0]);
+//		MatMult(prolongMatrix[0],x[1],xbuf[0]);
 //		VecView(xbuf[0], PETSC_VIEWER_STDOUT_WORLD);
 //		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
-		VecAXPY(x[0],1.0,xbuf[0]);
+//		VecAXPY(x[0],1.0,xbuf[0]);
 //		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
-		KSPSolve(solver[0], b[0], x[0]);
+//		KSPSolve(solver[0], b[0], x[0]);
 
 		KSPGetResidualNorm(solver[0],&(rnormchk));
 		if (rank==0) {
@@ -349,6 +352,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 
 		iter = iter + 1;
 	}
+	*m = iter;
 	PetscLogStagePop();
 	clock_t solverT = clock();
 

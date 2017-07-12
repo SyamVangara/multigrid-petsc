@@ -60,9 +60,9 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 //	if (rank==0) {
 	freopen("poisson.in", "r", stdin);
-	//freopen("poisson.out", "w", stdout);
+	freopen("poisson.out", "w", stdout);
 //	freopen("petsc.dat", "w", stdout);
-//	freopen("poisson.err", "w", stderr);
+	freopen("poisson.err", "w", stderr);
 //	}
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
 //	PetscPrintf(PETSC_COMM_SELF,"rank = %d, n = %d, numIter = %d, levels = %d\n",rank,n[0],numIter,levels);
 	
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, numIter);
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
 //	VecView(x, PETSC_VIEWER_STDOUT_WORLD);
 	
 //	PetscFinalize();
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
 	solData = fopen("uData.dat","w");
 	resData = fopen("rData.dat","w");
 	errData = fopen("eData.dat","w");
-
+	
 	for(int i=0;i<3;i++){
 		printf("\nerror[%d] = %.16e\n",i,error[i]);
 		fprintf(errData,"%.16e\n",error[i]);
@@ -247,6 +247,7 @@ int main(int argc, char *argv[]) {
 	printf("Number of unknowns:	%d\n",(((n[0]-2+1)*(n[0]-2+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n[0]-2+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels));
 	printf("Number of levels:	%d\n",levels);
 	printf("Number of processes:	%d\n",size);
+	printf("Number of iterations:	%d\n",numIter);
 	printf("=============================================================\n");
 	}
 	return 0;
