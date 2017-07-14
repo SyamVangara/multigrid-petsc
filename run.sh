@@ -17,7 +17,7 @@ name=$(sed -n "6 p" poisson.in)
 
 #mpiexec -n 2 ./poisson -pc_type bjacobi -ksp_type gmres -ksp_view -ksp_monitor -log_view #-mat_view ::ascii_matlab
 #mpiexec -n 4 ./poisson -ksp_type gmres -ksp_view -ksp_monitor -log_view #-mat_view ::ascii_matlab
-mpiexec -n 4 ./poisson -ksp_type gmres -ksp_view -log_view -on_error_attach_debugger #-mat_view ::ascii_matlab
+mpiexec -n 1 ./poisson -ksp_type gmres -pc_asm_blocks 32 -ksp_view #-mat_view ::ascii_matlab
 #mpiexec -n 8 ./poisson -pc_type bjacobi -ksp_type gmres -ksp_view -log_view #-mat_view ::ascii_matlab
 #mpiexec -n 8 ./poisson -pc_type jacobi -ksp_type richardson -ksp_richardson_scale 0.66666666 -ksp_view -ksp_monitor -log_view #-mat_view ::ascii_matlab
 
@@ -25,6 +25,7 @@ mpiexec -n 4 ./poisson -ksp_type gmres -ksp_view -log_view -on_error_attach_debu
 mkdir -p data/$name
 mv -v *.out data/$name/
 cp -r *.in data/$name/
+cp -r *.sh data/$name/
 mv -v *.err data/$name/
 mv -v *.dat data/$name/
 

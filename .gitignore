@@ -5,6 +5,9 @@ tags
 *.txt
 *.dat
 *.err
+*.pbs
+*.out
+*.e
 
 # Compiled source #
 ###################
@@ -13,7 +16,6 @@ tags
 *.dll
 *.exe
 *.o
-*.out
 *.so
 
 # Packages #

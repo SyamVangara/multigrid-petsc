@@ -26,6 +26,7 @@ void CreateArrayOfIS(int n, int levels, IS *idx);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
 //void insertSubVecValues(Vec *subV, Vec *V, int i0);
+int totalUnknowns(int *n, int levels);
 static void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 //void GetSol(double **u, double *px, int *n);
 double TransformFunc(double *bounds, double length, double xi);
@@ -60,6 +61,8 @@ int main(int argc, char *argv[]) {
 	freopen("poisson.out", "w", stdout);
 	freopen("poisson.err", "w", stderr);
 	
+//	if (rank==0) printf("Inputs reading and memory allocation: ");
+	MPI_Barrier(PETSC_COMM_WORLD);
 	//printf("Enter the no .of points in each dimension = ");
 	scanf("%d",n);	// unTotal is used temporarily
 	//printf("Enter the no .of iterations = ");
@@ -87,13 +90,18 @@ int main(int argc, char *argv[]) {
 	
 //	clock_t memT = clock();
 	
+//	printf("done\n");
+	
+//	printf("Meshing and metrics computation: ");
 	// Meshing
 //	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
 //	clock_t meshT = clock();
+//	printf("done\n");
 	
+//	printf("RHS function values and BCs: ");
 	// f values
 	GetFuncValues2d(coord,n,f);
 	
@@ -111,11 +119,16 @@ int main(int argc, char *argv[]) {
 	prolongStencil2D(&opIH2h, 3, 3);
 	restrictStencil2D(&opIh2H, 3, 3);
 
+	MPI_Barrier(PETSC_COMM_WORLD);
+//	if (rank==0) printf("done\n");
 //	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);i
 	
 /**********************************************************************************/	
 
 	PetscLogStage	stage, stageSolve;
+	
+//	if (rank==0) printf("Matrix and vector constructions: ");
+	MPI_Barrier(PETSC_COMM_WORLD);
 
 	double initAWallTime = MPI_Wtime();
 	clock_t initAT = clock();
@@ -134,7 +147,12 @@ int main(int argc, char *argv[]) {
 	MatCreateVecs(A,&x,&b);
 	vecb(&b, f, opIh2H, (n[0]-2), levels);
 //	VecView(b, PETSC_VIEWER_STDOUT_WORLD);
+	MPI_Barrier(PETSC_COMM_WORLD);
+//	if (rank==0) printf("done\n");
 
+//	if (rank==0) printf("Solving...\n");
+	MPI_Barrier(PETSC_COMM_WORLD);
+	
 	KSPCreate(PETSC_COMM_WORLD, &solver);
 	KSPSetOperators(solver, A, A);
 	KSPGetPC(solver,&pc);
@@ -153,6 +171,9 @@ int main(int argc, char *argv[]) {
 	PetscLogStagePop();
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
+	
+	MPI_Barrier(PETSC_COMM_WORLD);
+//	if (rank==0) printf("\nSolver done\n");
 	
 //	VecView(x,PETSC_VIEWER_STDOUT_WORLD);
 	KSPGetIterationNumber(solver, &numIter);
@@ -176,6 +197,8 @@ int main(int argc, char *argv[]) {
 
 	if (rank==0) {	
 	// Error computation
+//	printf("Post-processing: ");
+
 	GetError(coord,n,u,error);
 	
 	// Output
@@ -200,6 +223,7 @@ int main(int argc, char *argv[]) {
 	}
 	fprintf(resData,"\n");
 
+//	printf("done\n");
 	}
 	
 	if (rank==0) {
@@ -218,10 +242,14 @@ int main(int argc, char *argv[]) {
 	free2dArray(&opIH2h);	
 	free2dArray(&opIh2H);
 	PetscFinalize();
+	
 	if (rank==0) {
+	int temp;
+	temp = totalUnknowns(n,levels);
+	
 	printf("=============================================================\n");
 	printf("Size:			%d^2\n",n[0]);
-	printf("Number of unknowns:	%d\n",(((n[0]-2+1)*(n[0]-2+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n[0]-2+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels));
+	printf("Number of unknowns:	%d\n",temp);
 	printf("Number of levels:	%d\n",levels);
 	printf("Number of processes:	%d\n",size);
 	printf("Number of iterations:	%d\n",numIter);
@@ -481,6 +509,19 @@ void restrictStencil2D(double ***Ih2H, int m, int n){
 	(*Ih2H)[1][1] = 1.0;
 }
 
+int totalUnknowns(int *n, int levels) {
+		
+	int length, n0;
+
+	n0 = n[0]-2;
+	length=n0*n0;
+	for (int i=1;i<levels;i++) {
+		n0 = (n0-1)/2;
+		length = length + n0*n0;
+	}
+	return length;
+}
+
 void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
 	
 	int	r;
@@ -493,8 +534,14 @@ void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int n
 		int	length, n0;
 		double	*x;
 	
-		n0 = n[0]-2;
-		length = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
+//		n0 = n[0]-2;
+//		length=n0*n0;
+//		for (int i=1;i<levels;i++) {
+//			n0 = (n0-1)/2;
+//			length = length + n0*n0;
+//		}
+		length = totalUnknowns(n, levels);
+//		length = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
 		x = (double *)malloc(length*sizeof(double)); 
 		
 		for (int i=0;i<ranges[1];i++) x[i] = px[i];
