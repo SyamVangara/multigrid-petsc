@@ -121,10 +121,10 @@ int main(int argc, char *argv[]) {
 
 	MPI_Barrier(PETSC_COMM_WORLD);
 //	if (rank==0) printf("done\n");
-//	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);i
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
 	
 /**********************************************************************************/	
-
+/*
 	PetscLogStage	stage, stageSolve;
 	
 //	if (rank==0) printf("Matrix and vector constructions: ");
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-
+*/
 /**********************************************************************************/	
 
 	if (rank==0) {	

@@ -264,6 +264,9 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	//printf("Enter the number of coarse grid sweeps = ");
 	scanf("%d",v+1);
 
+//	printf("rank = %d; v[0] = %d\n",rank,v[0]);
+//	printf("rank = %d; v[1] = %d\n",rank,v[1]);
+
 	n[0] = fulln[0]-2;
 	for (int i=1;i<levels;i++) {
 		n[i] = (n[i-1]-1)/2;
@@ -286,28 +289,49 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	vecb(&(b[0]),f,opIh2H,n[0],1);
 //	VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
 	
-	for (int i=0;i<levels-1;i++) {
+	KSPCreate(PETSC_COMM_WORLD, &(solver[0]));
+	KSPSetType(solver[0],KSPGMRES);
+//	KSPSetType(solver[0],KSPRICHARDSON);
+//	KSPRichardsonSetScale(solver[0],2.0/3.0);
+	KSPSetOperators(solver[0], A[0], A[0]);
+	KSPGetPC(solver[0],&(pc[0]));
+	PCSetType(pc[0],PCASM);
+	PCASMSetType(pc[0],PC_ASM_BASIC);
+	PCASMSetOverlap(pc[0],3);
+	PCASMSetTotalSubdomains(pc[0], 32, NULL, NULL);
+//	PCSetType(pc[0],PCJACOBI);
+	KSPSetTolerances(solver[0], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
+	
+	for (int i=1;i<levels-1;i++) {
 		KSPCreate(PETSC_COMM_WORLD, &(solver[i]));
-//		KSPSetType(solver[i],KSPGMRES);
-		KSPSetType(solver[i],KSPRICHARDSON);
-		KSPRichardsonSetScale(solver[i],2.0/3.0);
+		KSPSetType(solver[i],KSPGMRES);
+//		KSPSetType(solver[i],KSPRICHARDSON);
+//		KSPRichardsonSetScale(solver[i],2.0/3.0);
 		KSPSetOperators(solver[i], A[i], A[i]);
 		KSPGetPC(solver[i],&(pc[i]));
-//		PCSetType(pc[i],PCBJACOBI);
-		PCSetType(pc[i],PCJACOBI);
+		PCSetType(pc[i],PCASM);
+		PCASMSetType(pc[i],PC_ASM_BASIC);
+		PCASMSetOverlap(pc[i],3);
+		PCASMSetTotalSubdomains(pc[i], 32, NULL, NULL);
+//		PCSetType(pc[i],PCJACOBI);
 		KSPSetTolerances(solver[i], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
 	}
-	
-	KSPCreate(PETSC_COMM_WORLD, &(solver[levels-1]));
-//	KSPSetType(solver[levels-1],KSPGMRES);
-	KSPSetType(solver[levels-1],KSPRICHARDSON);
-	KSPRichardsonSetScale(solver[levels-1],2.0/3.0);
-	KSPSetOperators(solver[levels-1], A[levels-1], A[levels-1]);
-	KSPGetPC(solver[levels-1],&(pc[levels-1]));
-//	PCSetType(pc[levels-1],PCBJACOBI);
-	PCSetType(pc[levels-1],PCJACOBI);
-	KSPSetTolerances(solver[levels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
-	
+
+	if (levels>1) {
+		KSPCreate(PETSC_COMM_WORLD, &(solver[levels-1]));
+		KSPSetType(solver[levels-1],KSPGMRES);
+//		KSPSetType(solver[levels-1],KSPRICHARDSON);
+//		KSPRichardsonSetScale(solver[levels-1],2.0/3.0);
+		KSPSetOperators(solver[levels-1], A[levels-1], A[levels-1]);
+		KSPGetPC(solver[levels-1],&(pc[levels-1]));
+		PCSetType(pc[levels-1],PCASM);
+		PCASMSetType(pc[levels-1],PC_ASM_BASIC);
+		PCASMSetOverlap(pc[levels-1],3);
+		PCASMSetTotalSubdomains(pc[levels-1], 32, NULL, NULL);
+//		PCSetType(pc[levels-1],PCJACOBI);
+		KSPSetTolerances(solver[levels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+	}
+
 	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stage);
