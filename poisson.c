@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
-	px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
+//	px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
 	
 //	clock_t memT = clock();
 	
@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
 	free2dArray(&u);
 	free2dArray(&r);
 	free(rnorm);
-	free(px);
+//	free(px);
 	}
 	
 	free2dArray(&opIH2h);	
