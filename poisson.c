@@ -234,7 +234,6 @@ int main(int argc, char *argv[]) {
 	free3dArray(&metrics);
 	free2dArray(&f);
 	free2dArray(&u);
-	free2dArray(&r);
 	free(rnorm);
 //	free(px);
 	}
@@ -279,8 +278,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-	val = bounds[1]-length*(cos(PI*0.5*xi));
-//	val = xi;
+//	val = bounds[1]-length*(cos(PI*0.5*xi));
+	val = xi;
 	return val;
 }
 
@@ -303,16 +302,16 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 	double temp;
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-	metrics[0] = 1.0;
-	metrics[1] = 4.0/(PI*PI*temp);
-	metrics[2] = 0.0;
-	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-	metrics[4] = 0.0;
 //	metrics[0] = 1.0;
-//	metrics[1] = 1.0;
+//	metrics[1] = 4.0/(PI*PI*temp);
 //	metrics[2] = 0.0;
-//	metrics[3] = 0.0; 
+//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 //	metrics[4] = 0.0;
+	metrics[0] = 1.0;
+	metrics[1] = 1.0;
+	metrics[2] = 0.0;
+	metrics[3] = 0.0; 
+	metrics[4] = 0.0;
 }
 
 void GetFuncValues2d(double **coord, int *n, double **f) {
@@ -385,13 +384,13 @@ int JacobiMalloc(double ***f, double ***u, double ***r, int *n) {
 
 	ierr = malloc2d(f,n[1],n[0]); CHKERR_RETURN("malloc failed");
 	ierr = malloc2d(u,n[1],n[0]); CHKERR_RETURN("malloc failed");
-	ierr = malloc2d(r,n[1],n[0]); CHKERR_RETURN("malloc failed");
+//	ierr = malloc2d(r,n[1],n[0]); CHKERR_RETURN("malloc failed");
 	
 	for (int i=0;i<n[1];i++) {
 		for (int j=0;j<n[0];j++) {
 			(*u)[i][j] = 0.0;
 			(*f)[i][j] = 0.0;	
-			(*r)[i][j] = 0.0;	
+//			(*r)[i][j] = 0.0;	
 		}
 	}
 
