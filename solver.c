@@ -251,7 +251,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	
 	KSP	solver[levels];
 	PC	pc[levels];
-	Vec	r[levels], x[levels], b[levels];//, xbuf[levels];
+	Vec	r[levels], rv[levels], x[levels], b[levels];//, xbuf[levels];
 //	Vec	dummy1, dummy2;
 
 	PetscLogStage	stage;
@@ -282,8 +282,8 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	for (int i=0;i<levels;i++) {
 		A[i] = levelMatrixA(metrics, n[i], i);
 //		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
-		MatCreateVecs(A[i],&(x[i]),&(r[i]));
-		VecDuplicate(r[i],&(b[i]));
+		MatCreateVecs(A[i],&(x[i]),&(rv[i]));
+		VecDuplicate(rv[i],&(b[i]));
 //		VecDuplicate(x[i],&(xbuf[i]));
 	}
 	vecb(&(b[0]),f,opIh2H,n[0],1);
@@ -304,9 +304,6 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	PCSetType(pc[0],PCJACOBI);
 	KSPSetNormType(solver[0],KSP_NORM_NONE);
 	KSPSetTolerances(solver[0], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-//	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",0);
-//	KSPView(solver[0],PETSC_VIEWER_STDOUT_WORLD);
-//	PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 	
 	for (int i=1;i<levels-1;i++) {
 		KSPCreate(PETSC_COMM_WORLD, &(solver[i]));
@@ -322,9 +319,6 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 		PCSetType(pc[i],PCJACOBI);
 		KSPSetNormType(solver[i],KSP_NORM_NONE);
 		KSPSetTolerances(solver[i], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
-//		KSPView(solver[i],PETSC_VIEWER_STDOUT_WORLD);
-//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 	}
 
 	if (levels>1) {
@@ -341,9 +335,6 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 		PCSetType(pc[levels-1],PCJACOBI);
 		KSPSetNormType(solver[levels-1],KSP_NORM_NONE);
 		KSPSetTolerances(solver[levels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
-//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",levels-1);
-//		KSPView(solver[levels-1],PETSC_VIEWER_STDOUT_WORLD);
-//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 	}
 
 	double initWallTime = MPI_Wtime();
@@ -362,7 +353,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 //		VecView(b[1], PETSC_VIEWER_STDOUT_WORLD);
 //		for (int l=1;l<levels-1;l++) {
 		for (int l=1;l<levels;l++) {
-			KSPBuildResidual(solver[l-1],NULL,NULL,&(r[l-1]));
+			KSPBuildResidual(solver[l-1],NULL,rv[l-1],&(r[l-1]));
 			MatMult(restrictMatrix[l-1],r[l-1],b[l]);
 			KSPSolve(solver[l], b[l], x[l]);
 			if (l!=levels-1) KSPSetInitialGuessNonzero(solver[l],PETSC_TRUE);
@@ -374,8 +365,8 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 		for (int l=levels-2;l>=0;l=l-1) {
 //			MatMult(prolongMatrix[l],x[l+1],xbuf[l]);
 //			VecAXPY(x[l],1.0,xbuf[l]);
-			MatMult(prolongMatrix[l],x[l+1],r[l]);
-			VecAXPY(x[l],1.0,r[l]);
+			MatMult(prolongMatrix[l],x[l+1],rv[l]);
+			VecAXPY(x[l],1.0,rv[l]);
 			KSPSolve(solver[l], b[l], x[l]);
 //			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
 			if (l!=0) KSPSetInitialGuessNonzero(solver[l],PETSC_FALSE);
@@ -387,7 +378,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 //		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
 //		KSPSolve(solver[0], b[0], x[0]);
 
-		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
+		KSPBuildResidual(solver[0],NULL,rv[0],&(r[0]));
 		VecNorm(r[0], NORM_2, &rnormchk);	
 //		KSPGetResidualNorm(solver[0],&(rnormchk));
 		
@@ -420,7 +411,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	
 	for (int i=0;i<levels;i++) {
 		MatDestroy(&(A[i]));
-		VecDestroy(&(r[i]));
+		VecDestroy(&(rv[i]));
 		VecDestroy(&(x[i]));
 		VecDestroy(&(b[i]));
 	}

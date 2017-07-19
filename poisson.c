@@ -47,10 +47,10 @@ int main(int argc, char *argv[]) {
 	
 	const 	int	*ranges;
 	
-	KSP	solver;
-	PC	pc;
-	Mat	A;
-	Vec	b, x;
+//	KSP	solver;
+//	PC	pc;
+//	Mat	A;
+//	Vec	b, x;
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 	
@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	freopen("poisson.in", "r", stdin);
-//	freopen("poisson.out", "w", stdout);
-//	freopen("poisson.err", "w", stderr);
+	freopen("poisson.out", "w", stdout);
+	freopen("poisson.err", "w", stderr);
 	
 //	if (rank==0) printf("Inputs reading and memory allocation: ");
 	MPI_Barrier(PETSC_COMM_WORLD);
@@ -278,8 +278,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-//	val = bounds[1]-length*(cos(PI*0.5*xi));
-	val = xi;
+	val = bounds[1]-length*(cos(PI*0.5*xi));
+//	val = xi;
 	return val;
 }
 
@@ -302,16 +302,16 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 	double temp;
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-//	metrics[0] = 1.0;
-//	metrics[1] = 4.0/(PI*PI*temp);
-//	metrics[2] = 0.0;
-//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-//	metrics[4] = 0.0;
 	metrics[0] = 1.0;
-	metrics[1] = 1.0;
+	metrics[1] = 4.0/(PI*PI*temp);
 	metrics[2] = 0.0;
-	metrics[3] = 0.0; 
+	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 	metrics[4] = 0.0;
+//	metrics[0] = 1.0;
+//	metrics[1] = 1.0;
+//	metrics[2] = 0.0;
+//	metrics[3] = 0.0; 
+//	metrics[4] = 0.0;
 }
 
 void GetFuncValues2d(double **coord, int *n, double **f) {
