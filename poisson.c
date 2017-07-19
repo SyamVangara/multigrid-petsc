@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	freopen("poisson.in", "r", stdin);
-	freopen("poisson.out", "w", stdout);
-	freopen("poisson.err", "w", stderr);
+//	freopen("poisson.out", "w", stdout);
+//	freopen("poisson.err", "w", stderr);
 	
 //	if (rank==0) printf("Inputs reading and memory allocation: ");
 	MPI_Barrier(PETSC_COMM_WORLD);

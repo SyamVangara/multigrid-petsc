@@ -251,7 +251,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	
 	KSP	solver[levels];
 	PC	pc[levels];
-	Vec	r[levels], x[levels], b[levels], xbuf[levels];
+	Vec	r[levels], x[levels], b[levels];//, xbuf[levels];
 //	Vec	dummy1, dummy2;
 
 	PetscLogStage	stage;
@@ -284,10 +284,11 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 //		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
 		MatCreateVecs(A[i],&(x[i]),&(r[i]));
 		VecDuplicate(r[i],&(b[i]));
-		VecDuplicate(x[i],&(xbuf[i]));
+//		VecDuplicate(x[i],&(xbuf[i]));
 	}
 	vecb(&(b[0]),f,opIh2H,n[0],1);
 	VecNorm(b[0], NORM_2, &bnorm);
+//	printf("rank = %d, bnorm = %f\n", rank, bnorm);
 //	VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
 	
 	KSPCreate(PETSC_COMM_WORLD, &(solver[0]));
@@ -350,8 +351,9 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
 	iter = 0;
-	rnormchk = 1.0;
-	while (iter<*m && 100000000*bnorm > rnormchk > (1.e-7)*bnorm) {
+	rnormchk = bnorm;
+	if (rank==0) rnorm[0] = 1.0;
+	while (iter<*m && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
 		KSPSolve(solver[0], b[0], x[0]);
 		if (iter==0) KSPSetInitialGuessNonzero(solver[0],PETSC_TRUE);
 //		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
@@ -370,8 +372,10 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 //		KSPSolve(solver[levels-1], b[levels-1], x[levels-1]);
 //		VecView(x[levels-1], PETSC_VIEWER_STDOUT_WORLD);
 		for (int l=levels-2;l>=0;l=l-1) {
-			MatMult(prolongMatrix[l],x[l+1],xbuf[l]);
-			VecAXPY(x[l],1.0,xbuf[l]);
+//			MatMult(prolongMatrix[l],x[l+1],xbuf[l]);
+//			VecAXPY(x[l],1.0,xbuf[l]);
+			MatMult(prolongMatrix[l],x[l+1],r[l]);
+			VecAXPY(x[l],1.0,r[l]);
 			KSPSolve(solver[l], b[l], x[l]);
 //			KSPBuildResidual(solver[l],NULL,NULL,&(r[l]));
 			if (l!=0) KSPSetInitialGuessNonzero(solver[l],PETSC_FALSE);
@@ -386,11 +390,10 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
 		VecNorm(r[0], NORM_2, &rnormchk);	
 //		KSPGetResidualNorm(solver[0],&(rnormchk));
-		if (rank==0) {
-			rnorm[iter] = rnormchk/bnorm;
-		}
-
+		
+//		printf("rank = %d; iter: %d, ul = %f, rnorm = %f, ll = %f\n", rank, iter, 100000000*bnorm, rnormchk, (1.e-7)*bnorm);
 		iter = iter + 1;
+		if (rank==0) rnorm[iter] = rnormchk/bnorm;
 	}
 	*m = iter;
 	PetscLogStagePop();
@@ -419,6 +422,7 @@ void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, 
 		MatDestroy(&(A[i]));
 		VecDestroy(&(r[i]));
 		VecDestroy(&(x[i]));
+		VecDestroy(&(b[i]));
 	}
 	for (int l=0;l<levels-1;l++) {
 		MatDestroy(&(restrictMatrix[l]));
