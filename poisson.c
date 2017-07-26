@@ -13,9 +13,9 @@
 #define FUNC(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 #define SOL(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 
-void GetFuncValues2d(double **coord, int *n, double **f);
-void GetError(double **coord, int *n, double **u, double *error);
-void UpdateBC(double **coord, double **u, int *n);
+void GetFuncValues2d(double **coord, int *n, double *f);
+void GetError(double **coord, int *n, double *u, double *error);
+void UpdateBC(double **coord, double *u, int *n);
 //void OpA(double *A, double *metrics, double *h);
 static int ipow(int base, int exp);
 int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
@@ -27,7 +27,7 @@ void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
 //void insertSubVecValues(Vec *subV, Vec *V, int i0);
 int totalUnknowns(int *n, int levels);
-static void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
+static void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 //void GetSol(double **u, double *px, int *n);
 double TransformFunc(double *bounds, double length, double xi);
 void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
 	double	**coord, h, bounds[DIMENSION*2], ***metrics;
-	double	**f, **u, **r, error[3], As[5], *px, *rnorm;
+	double	*f, *u, error[3], As[5], *px, *rnorm;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
@@ -47,10 +47,10 @@ int main(int argc, char *argv[]) {
 	
 	const 	int	*ranges;
 	
-//	KSP	solver;
-//	PC	pc;
-//	Mat	A;
-//	Vec	b, x;
+	KSP	solver;
+	PC	pc;
+	Mat	A;
+	Vec	b, x;
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 	
@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	freopen("poisson.in", "r", stdin);
-	freopen("poisson.out", "w", stdout);
-	freopen("poisson.err", "w", stderr);
+//	freopen("poisson.out", "w", stdout);
+//	freopen("poisson.err", "w", stderr);
 	
 //	if (rank==0) printf("Inputs reading and memory allocation: ");
 	MPI_Barrier(PETSC_COMM_WORLD);
@@ -75,17 +75,21 @@ int main(int argc, char *argv[]) {
 	for (int i=1;i<DIMENSION;i++) { 
 		n[i]  = n[0];      // No. of points in each dimension
 	}
+	printf("rank = %d: n[0] = %d, n[1] = %d, numIter = %d, levels = %d\n",rank, n[0], n[1], numIter, levels);
 	for (int i=0;i<DIMENSION;i++) {
 		bounds[i*2] = 0.0;    // Lower bound in each dimension
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
+		printf("rank = %d: bounds[%d]: %f %f\n",rank, i, bounds[i*2], bounds[i*2+1]);
 	}
 	
 	if (rank==0) {	
 	// Memory allocation of RHS, solution and residual
-	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
+//	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
+	f = malloc(n[0]*n[1]*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
+	u = malloc(n[0]*n[1]*sizeof(double));if (u==NULL) ERROR_MSG("malloc failed");
 	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
-	rnorm = (double *)malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
+	rnorm = malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
 //	px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
 	
 //	clock_t memT = clock();
@@ -121,10 +125,10 @@ int main(int argc, char *argv[]) {
 
 	MPI_Barrier(PETSC_COMM_WORLD);
 //	if (rank==0) printf("done\n");
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
+//	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
 	
 /**********************************************************************************/	
-/*
+
 	PetscLogStage	stage, stageSolve;
 	
 //	if (rank==0) printf("Matrix and vector constructions: ");
@@ -192,7 +196,7 @@ int main(int argc, char *argv[]) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-*/
+
 /**********************************************************************************/	
 
 	if (rank==0) {	
@@ -213,7 +217,7 @@ int main(int argc, char *argv[]) {
 
 	for (int i=0;i<n[1];i++) {
 		for (int j=0;j<n[0];j++) {
-			fprintf(solData,"%.16e ",u[i][j]);
+			fprintf(solData,"%.16e ",u[i*n[0]+j]);
 		}
 		fprintf(solData,"\n");
 	}
@@ -232,7 +236,8 @@ int main(int argc, char *argv[]) {
 	fclose(errData);
 	free2dArray(&coord);
 	free3dArray(&metrics);
-	free2dArray(&f);
+//	free2dArray(&f);
+	free(f);
 	free2dArray(&u);
 	free(rnorm);
 //	free(px);
@@ -314,18 +319,18 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	metrics[4] = 0.0;
 }
 
-void GetFuncValues2d(double **coord, int *n, double **f) {
+void GetFuncValues2d(double **coord, int *n, double *f) {
 
 	// f(x,y) = -2*PI^2*sin(Pi*x)*sin(pi*y)	
 	for (int i=0;i<n[1];i++) {
 		for (int j=0;j<n[0];j++) {
-			f[i][j] = FUNC(i,j);
+			f[i*n[0]+j] = FUNC(i,j);
 		}
 	}
 
 }
 
-void GetError(double **coord, int *n, double **u, double *error) {
+void GetError(double **coord, int *n, double *u, double *error) {
 	
 	// u(x,y) = sin(Pi*x)*sin(pi*y)	
 	double diff;
@@ -334,7 +339,7 @@ void GetError(double **coord, int *n, double **u, double *error) {
 	error[2] = 0.0;
 	for (int i=1;i<n[1]-1;i++) {
 		for (int j=1;j<n[0]-1;j++) {
-			diff = fabs(u[i][j]-SOL(i,j));
+			diff = fabs(u[i*n[0]+j]-SOL(i,j));
 			error[0] = fmax(diff,error[0]);
 			error[1] = error[1] + diff;
 			error[2] = error[2] + diff*diff;
@@ -343,23 +348,23 @@ void GetError(double **coord, int *n, double **u, double *error) {
 	error[2] = sqrt(error[2]);
 }
 
-void UpdateBC(double **coord, double **u, int *n) {
+void UpdateBC(double **coord, double *u, int *n) {
 
 	int iend;
 	
 	for (int j=0;j<n[0];j++) {
-		u[0][j] = SOL(0,j);
+		u[j] = SOL(0,j);
 	}
 	
 	iend = n[0]-1;
 	for (int i=1;i<n[1]-1;i++) {
-		u[i][0] = SOL(i,0);
-		u[i][iend] = SOL(i,iend);
+		u[i*n[0]] = SOL(i,0);
+		u[i*n[0]+iend] = SOL(i,iend);
 	}
 
 	iend = n[1]-1;
 	for (int j=0;j<n[0];j++) {
-		u[iend][j] = SOL(iend,j);
+		u[iend*n[0]+j] = SOL(iend,j);
 	}
 	
 }
@@ -521,7 +526,7 @@ int totalUnknowns(int *n, int levels) {
 	return length;
 }
 
-void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
+void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
 	
 	int	r;
 	
@@ -552,7 +557,7 @@ void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int n
 		r = 0;
 		for (int i=1;i<n[1]-1;i++) {
 			for (int j=1;j<n[0]-1;j++) {
-				u[i][j] = x[r];
+				u[i*n[0]+j] = x[r];
 				r = r+1;
 			}
 		}
