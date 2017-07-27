@@ -37,12 +37,15 @@ int main(int argc, char *argv[]) {
 	
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
-	double	**coord, h, bounds[DIMENSION*2], ***metrics;
+	double	**coord, h, bounds[DIMENSION*2], *metrics;
 	double	*f, *u, error[3], As[5], *px, *rnorm;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
-	int	size, rank;
+	int	ltun; //local total unknowns
+	int	ltbn; //local total boundary points
+
+	int	procs, rank;
 	int	rowStart, rowEnd;
 	
 	const 	int	*ranges;
@@ -54,81 +57,53 @@ int main(int argc, char *argv[]) {
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 	
-	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	freopen("poisson.in", "r", stdin);
 //	freopen("poisson.out", "w", stdout);
 //	freopen("poisson.err", "w", stderr);
 	
-//	if (rank==0) printf("Inputs reading and memory allocation: ");
 	MPI_Barrier(PETSC_COMM_WORLD);
-	//printf("Enter the no .of points in each dimension = ");
-	scanf("%d",n);	// unTotal is used temporarily
-	//printf("Enter the no .of iterations = ");
+	scanf("%d",n);	
 	scanf("%d",&numIter);
-	//printf("Enter the no .of Multigrid levels = ");
 	scanf("%d",&levels);
 	
-//	clock_t begin = clock();
-
 	for (int i=1;i<DIMENSION;i++) { 
 		n[i]  = n[0];      // No. of points in each dimension
 	}
-	printf("rank = %d: n[0] = %d, n[1] = %d, numIter = %d, levels = %d\n",rank, n[0], n[1], numIter, levels);
 	for (int i=0;i<DIMENSION;i++) {
 		bounds[i*2] = 0.0;    // Lower bound in each dimension
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
-		printf("rank = %d: bounds[%d]: %f %f\n",rank, i, bounds[i*2], bounds[i*2+1]);
 	}
-	
+
+	if (rank==0) ltn = (n[0]*n[1])/procs + (n[0]*n[1])%procs;
+	if (rank!=0) ltn = (n[0]*n[1])/procs;
+
+	printf("rank = %d: ltn = %d\n",rank,ltn);
+/*
 	if (rank==0) {	
+	
 	// Memory allocation of RHS, solution and residual
-//	ierr = JacobiMalloc(&f,&u,&r,n); CHKERR_PRNT("malloc failed");
 	f = malloc(n[0]*n[1]*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
 	u = malloc(n[0]*n[1]*sizeof(double));if (u==NULL) ERROR_MSG("malloc failed");
-	//ierr = MultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
-	//ierr = AsyncMultigridMalloc(&f,&u,&r,n,levels); CHKERR_PRNT("malloc failed");
 	rnorm = malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
-//	px = (double *)malloc((n[0]-2)*(n[1]-2)*sizeof(double));if (px==NULL) ERROR_MSG("malloc failed");
-	
-//	clock_t memT = clock();
-	
-//	printf("done\n");
-	
-//	printf("Meshing and metrics computation: ");
-	// Meshing
-//	ierr = UniformMesh(&coord,n,bounds,h,DIMENSION); CHKERR_PRNT("meshing failed");
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
-	
-//	clock_t meshT = clock();
-//	printf("done\n");
-	
-//	printf("RHS function values and BCs: ");
-	// f values
 	GetFuncValues2d(coord,n,f);
-	
-	// Stencil operator coefficients
-//	OpA(As,h);
-	
-	// Update 'u' with boundary conditions
 	UpdateBC(coord,u,n);
+	
 	}	
+	
 	// Solver
-	//Jacobi(u,f,r,As,weight,rnorm,numIter,n); // Weighted Jacobi
-	//Multigrid(u,f,r,As,weight,rnorm,levels,n,numIter); // Multigrid V-cycle
-	//PMultigrid(u,f,r,As,weight,rnorm,levels,n,numIter);
-	//AsyncMultigrid(u,f,r,As,weight,rnorm,n,numIter);
 	prolongStencil2D(&opIH2h, 3, 3);
 	restrictStencil2D(&opIh2H, 3, 3);
 
 	MPI_Barrier(PETSC_COMM_WORLD);
-//	if (rank==0) printf("done\n");
 //	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
-	
+*/	
 /**********************************************************************************/	
-
+/*
 	PetscLogStage	stage, stageSolve;
 	
 //	if (rank==0) printf("Matrix and vector constructions: ");
@@ -196,9 +171,9 @@ int main(int argc, char *argv[]) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-
+*/
 /**********************************************************************************/	
-
+/*
 	if (rank==0) {	
 	// Error computation
 //	printf("Post-processing: ");
@@ -229,24 +204,23 @@ int main(int argc, char *argv[]) {
 
 //	printf("done\n");
 	}
-	
-	if (rank==0) {
-	fclose(solData);
-	fclose(resData);
-	fclose(errData);
-	free2dArray(&coord);
-	free3dArray(&metrics);
-//	free2dArray(&f);
-	free(f);
-	free2dArray(&u);
-	free(rnorm);
-//	free(px);
-	}
-	
-	free2dArray(&opIH2h);	
-	free2dArray(&opIh2H);
+*/	
+//	if (rank==0) {
+//	fclose(solData);
+//	fclose(resData);
+//	fclose(errData);
+//	free2dArray(&coord);
+//	free(f);
+//	free(u);
+//	free(metrics);
+//	free(rnorm);
+//	}
+//	
+//	free2dArray(&opIH2h);	
+//	free2dArray(&opIh2H);
+
 	PetscFinalize();
-	
+/*	
 	if (rank==0) {
 	int temp;
 	temp = totalUnknowns(n,levels);
@@ -259,6 +233,7 @@ int main(int argc, char *argv[]) {
 	printf("Number of iterations:	%d\n",numIter);
 	printf("=============================================================\n");
 	}
+*/
 	return 0;
 }
 

@@ -80,7 +80,7 @@ int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dim
 	return ierr;
 }
 
-int MetricCoefficients2D(double ****metrics, double **coord, int *n, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
+int MetricCoefficients2D(double **metrics, double **coord, int *n, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
 	//This is a metric coefficients computing shell
 	//Note: Metric coefficients at each point excluding BC points are computed
 	//
@@ -98,7 +98,8 @@ int MetricCoefficients2D(double ****metrics, double **coord, int *n, double *bou
 	double	lengths[dimension];
 	int	ierr = 0;
 
-	ierr = malloc3d(metrics, n[1]-2, n[0]-2, 5); CHKERR_RETURN("malloc failed");
+//	ierr = malloc3d(metrics, n[1]-2, n[0]-2, 5); CHKERR_RETURN("malloc failed");
+	*metrics = malloc(5*(n[0]-2)*(n[1]-2)*sizeof(double));if (*metrics==NULL) ERROR_MSG("malloc failed");
 
 	for(int i=0;i<dimension;i++) {
 		lengths[i] = bounds[i*2+1] - bounds[i*2];
@@ -107,7 +108,7 @@ int MetricCoefficients2D(double ****metrics, double **coord, int *n, double *bou
 	for(int i=1;i<n[1]-1;i++) {
 //	for(int i=1;i<2;i++) {
 		for(int j=1;j<n[0]-1;j++) {
-			(*MetricCoefficientsFunc)((*metrics)[i-1][j-1],bounds,lengths,coord[0][j],coord[1][i]);
+			(*MetricCoefficientsFunc)(((*metrics)+(5*((i-1)*(n[0]-2)+(j-1)))),bounds,lengths,coord[0][j],coord[1][i]);
 		}
 	}
 

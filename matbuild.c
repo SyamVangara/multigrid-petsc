@@ -117,7 +117,7 @@ Mat levelMatrixA(double ***metrics, int n, int l) {
 	return A;
 }
 
-Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
+Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
 	// Builds matrix "A" for implicit multigrid correction method
 	// metrics	- metric terms
 	// opIH2h	- Stencilwise prolongation operator
@@ -178,7 +178,7 @@ Mat matrixA(double ***metrics, double **opIH2h, double **opIh2H, int n0, int lev
 	//	printf("level: %d\n",l);
 		for (int i=rowStart; i<rowEnd; i++) {
 	//		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
-			OpA(As,metrics[ipow(2,l)*((i/n[l])+1)-1][ipow(2,l)*((i%n[l])+1)-1],h);
+			OpA(As,(metrics+5*((ipow(2,l)*((i/n[l])+1)-1)*(n0)+(ipow(2,l)*((i%n[l])+1)-1))),h);
 		//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
 			if (i-n[l]>=0) {
 				MatSetValue(subA[l], i, i-n[l], As[0], INSERT_VALUES);
@@ -437,9 +437,9 @@ Mat prolongationMatrixMPI(double **Is, int m, int nh, int nH) {
 	return matI;
 }
 
-void vecb(Vec *b, double **f, double **opIh2H, int n0, int levels) {
+void vecb(Vec *b, double *f, double **opIh2H, int n0, int levels) {
 	// Build vector "b" for the implicit multigrid correction method
-	// f		- 2D array containing right hand side values at each grid point
+	// f		- 1D array containing right hand side values at each grid point
 	// opIh2H 	- Stencilwise restriction operator
 	// n		- Number of unknowns per dimension on finest grid
 	// levels	- Number of levels
@@ -479,7 +479,7 @@ void vecb(Vec *b, double **f, double **opIh2H, int n0, int levels) {
 	r=0;
 	for (int i=1;i<n[0]+1;i++) {
 		for (int j=1;j<n[0]+1;j++) {
-			VecSetValue(subb[0], r, f[i][j], INSERT_VALUES);
+			VecSetValue(subb[0], r, f[i*(n0+2)+j], INSERT_VALUES);
 			r = r+1;
 		}
 	}
