@@ -30,16 +30,22 @@ double TransformFunc(double *bounds, double length, double xi);
 void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
 PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
 
+
 int main(int argc, char *argv[]) {
 	
 	//double	weight=(2.0/3.0);
 	int	n[DIMENSION], ierr=0, levels, numIter;
-	double	**coord, h, bounds[DIMENSION*2], *metrics;
-	double	*f, *u, error[3], As[5], *px, *rnorm;
+	double	**coord;
+	double	h, bounds[DIMENSION*2];
+	Array3d	*metrics;
+//	double	*metrics;
+//	double	*f, *u;
+	double	error[3], As[5], *px, *rnorm;
+	Array2d	*f, *u, *mapi2g, *mapg2i;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
-	int	ltun; //local total unknowns
+	int	*ltun; //local total unknowns
 	int	ltbn; //local total boundary points
 
 	int	procs, rank;
@@ -73,22 +79,29 @@ int main(int argc, char *argv[]) {
 		bounds[i*2] = 0.0;    // Lower bound in each dimension
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
+	
+//	itun = malloc(procs*sizeof(int));
+//
+//	ltun[0] = ((n[0]-2)*(n[1]-2))/procs + ((n[0]-2)*(n[1]-2))%procs;
+//	for (int i=1;i<procs;i++) {
+//
+//	}
+//	if (rank!=0) ltun = ((n[0]-2)*(n[1]-2))/procs;
+//	
+//	
+//	printf("rank = %d: ltn = %d\n",rank,ltun);
 
-	if (rank==0) ltun = ((n[0]-2)*(n[1]-2))/procs + ((n[0]-2)*(n[1]-2))%procs;
-	if (rank!=0) ltun = ((n[0]-2)*(n[1]-2))/procs;
-
-	printf("rank = %d: ltn = %d\n",rank,ltun);
-/*
+	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
+	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
+	
 	if (rank==0) {	
 	
 	// Memory allocation of RHS, solution and residual
-	f = malloc(n[0]*n[1]*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
-	u = malloc(n[0]*n[1]*sizeof(double));if (u==NULL) ERROR_MSG("malloc failed");
+//	f = malloc(n[0]*n[1]*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
+//	u = malloc(n[0]*n[1]*sizeof(double));if (u==NULL) ERROR_MSG("malloc failed");
 	rnorm = malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
-	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
-	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
-	GetFuncValues2d(coord,n,f);
-	UpdateBC(coord,u,n);
+//	GetFuncValues2d(coord,n,f);
+//	UpdateBC(coord,u,n);
 	
 	}	
 	
@@ -98,7 +111,7 @@ int main(int argc, char *argv[]) {
 
 	MPI_Barrier(PETSC_COMM_WORLD);
 //	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
-*/	
+	
 /**********************************************************************************/	
 /*
 	PetscLogStage	stage, stageSolve;
@@ -290,6 +303,27 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	metrics[3] = 0.0; 
 //	metrics[4] = 0.0;
 }
+
+//void Mapping(struct Array2d *getGlobalId, struct Array2d *getGridId, int *n, int ltun) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	// 
+//	// getGlobalId[i][j] = globalIndex
+//	// getGridId[globalIndex][0/1] = i/j
+//	
+//	int	procs, rank;
+//
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	for (int i=0;) {
+//	}
+//
+//	for (int i=1;i<n[1]-1;i++) {
+//		for (int j=1;j<n[0]-1;j++) {
+//			
+//		}
+//	}
+//}
 
 void GetFuncValues2d(double **coord, int *n, double *f) {
 

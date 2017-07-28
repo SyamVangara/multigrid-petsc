@@ -9,12 +9,19 @@
 
 #include <stdlib.h>
 // Structures
-//typedef struct {
-//	int ni;
-//	int nj;
-//	int nk;
-//	double* data;
-//} Double3dArray;
+
+typedef struct {
+	int ni;
+	int nj;
+	int* data;
+} Array2d;
+
+typedef struct {
+	int ni;
+	int nj;
+	int nk;
+	double* data;
+} Array3d;
 
 // Function prototypes
 
