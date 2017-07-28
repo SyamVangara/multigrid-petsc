@@ -26,6 +26,9 @@ double L1Norm(double *a, int n);
 double LiNorm(double *a, int n);
 double norm(double *a, int n);
 void Initialization(double **u, int *n);
+int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
+int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
+int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 
 #endif
 

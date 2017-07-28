@@ -18,9 +18,6 @@ void GetError(double **coord, int *n, double *u, double *error);
 void UpdateBC(double **coord, double *u, int *n);
 //void OpA(double *A, double *metrics, double *h);
 static int ipow(int base, int exp);
-int JacobiMalloc(double ***f, double ***u, double ***r, int *n);
-int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels);
-int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels);
 void CreateArrayOfIS(int n, int levels, IS *idx);
 //void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
 void prolongStencil2D(double ***IH2h, int m, int n);
@@ -77,10 +74,10 @@ int main(int argc, char *argv[]) {
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
 
-	if (rank==0) ltn = (n[0]*n[1])/procs + (n[0]*n[1])%procs;
-	if (rank!=0) ltn = (n[0]*n[1])/procs;
+	if (rank==0) ltun = ((n[0]-2)*(n[1]-2))/procs + ((n[0]-2)*(n[1]-2))%procs;
+	if (rank!=0) ltun = ((n[0]-2)*(n[1]-2))/procs;
 
-	printf("rank = %d: ltn = %d\n",rank,ltn);
+	printf("rank = %d: ltn = %d\n",rank,ltun);
 /*
 	if (rank==0) {	
 	
@@ -358,86 +355,6 @@ int ipow(int base, int exp) {
 	return result;
 }
 
-int JacobiMalloc(double ***f, double ***u, double ***r, int *n) {
-	
-	int ierr = 0;
-
-	ierr = malloc2d(f,n[1],n[0]); CHKERR_RETURN("malloc failed");
-	ierr = malloc2d(u,n[1],n[0]); CHKERR_RETURN("malloc failed");
-//	ierr = malloc2d(r,n[1],n[0]); CHKERR_RETURN("malloc failed");
-	
-	for (int i=0;i<n[1];i++) {
-		for (int j=0;j<n[0];j++) {
-			(*u)[i][j] = 0.0;
-			(*f)[i][j] = 0.0;	
-//			(*r)[i][j] = 0.0;	
-		}
-	}
-
-	return ierr;
-}
-
-int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels) {
-	
-	int TotalRows, n1, n0, *m, k, ierr = 0;
-
-	TotalRows = (2*(n[1]-1)*(ipow(2,levels)-1))/(ipow(2,levels))+levels;
-	m = (int *)malloc(TotalRows*sizeof(int)); if (m==NULL) ierr=1;ERROR_RETURN("malloc failed"); 
-	k = 0;
-	for (int i=0;i<levels;i++) {
-		n1 = (n[1]+ipow(2,i)-1)/(ipow(2,i));
-		n0 = (n[0]+ipow(2,i)-1)/(ipow(2,i));
-		for (int j=0;j<n1;j++) {
-			m[k] = n0;
-			k = k+1;
-		}
-	}
-	
-	ierr = malloc2dY(f,TotalRows,m); CHKERR_RETURN("malloc failed");
-	ierr = malloc2dY(u,TotalRows,m); CHKERR_RETURN("malloc failed");
-	ierr = malloc2dY(r,TotalRows,m); CHKERR_RETURN("malloc failed");
-	
-	for (int i=0;i<TotalRows;i++) {
-		for (int j=0;j<m[i];j++) {
-			(*u)[i][j] = 0.0;
-			(*f)[i][j] = 0.0;	
-			(*r)[i][j] = 0.0;	
-		}
-	}
-	free(m);
-	return ierr;
-}
-
-int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels) {
-	
-	int TotalRows, n1, n0, *m, k, ierr = 0;
-
-	TotalRows = (2*(n[1]-1)*(ipow(2,levels)-1))/(ipow(2,levels))+levels;
-	m = (int *)malloc(TotalRows*sizeof(int)); if (m==NULL) ierr=1;ERROR_RETURN("malloc failed"); 
-	k = 0;
-	for (int i=0;i<levels;i++) {
-		n1 = (n[1]+ipow(2,i)-1)/(ipow(2,i));
-		n0 = (n[0]+ipow(2,i)-1)/(ipow(2,i));
-		for (int j=0;j<n1;j++) {
-			m[k] = n0;
-			k = k+1;
-		}
-	}
-	
-	ierr = malloc2dY(f,TotalRows,m); CHKERR_RETURN("malloc failed");
-	ierr = malloc2dY(u,TotalRows,m); CHKERR_RETURN("malloc failed");
-	ierr = malloc2dY(r,TotalRows,m); CHKERR_RETURN("malloc failed");
-	
-	for (int i=0;i<TotalRows;i++) {
-		for (int j=0;j<m[i];j++) {
-			(*u)[i][j] = 0.0;
-			(*f)[i][j] = 0.0;	
-			(*r)[i][j] = 0.0;	
-		}
-	}
-	free(m);
-	return ierr;
-}
 /*
 double func(double x, double y) {
 	return -2.0*PI*PI*sin(PI*x)*sin(PI*y);
