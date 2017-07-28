@@ -13,8 +13,12 @@
 #define FUNC(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 #define SOL(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 
-void GetFuncValues2d(double **coord, int *n, double *f);
-void GetError(double **coord, int *n, double *u, double *error);
+#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
+#define F(i,j) (f.data[((i)*f.nj+(j))])
+#define U(i,j) (u.data[((i)*u.nj+(j))])
+
+void GetFuncValues2d(double **coord, int *n, Array2d f);
+void GetError(double **coord, int *n, Array2d u, double *error);
 void UpdateBC(double **coord, double *u, int *n);
 //void OpA(double *A, double *metrics, double *h);
 static int ipow(int base, int exp);
@@ -37,11 +41,11 @@ int main(int argc, char *argv[]) {
 	int	n[DIMENSION], ierr=0, levels, numIter;
 	double	**coord;
 	double	h, bounds[DIMENSION*2];
-	Array3d	*metrics;
+	Array3d	metrics;
 //	double	*metrics;
 //	double	*f, *u;
 	double	error[3], As[5], *px, *rnorm;
-	Array2d	*f, *u, *mapi2g, *mapg2i;
+	Array2d	f, u, mapi2g, mapg2i;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
@@ -53,10 +57,10 @@ int main(int argc, char *argv[]) {
 	
 	const 	int	*ranges;
 	
-	KSP	solver;
-	PC	pc;
-	Mat	A;
-	Vec	b, x;
+//	KSP	solver;
+//	PC	pc;
+//	Mat	A;
+//	Vec	b, x;
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 	
@@ -94,13 +98,25 @@ int main(int argc, char *argv[]) {
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics.ni = %d, metrics.nj = %d, metrics.nk = %d\n",rank,metrics.ni,metrics.nj,metrics.nk);
+//	for (int i=0;i<metrics.ni;i++) {
+//		for (int j=0;j<metrics.nj;j++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics[%d][%d]: %f %f %f %f %f\n",rank,i,j,METRICS(i,j,0),METRICS(i,j,1),METRICS(i,j,2),METRICS(i,j,3),METRICS(i,j,4));
+//		}
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	
 	if (rank==0) {	
 	
 	// Memory allocation of RHS, solution and residual
-//	f = malloc(n[0]*n[1]*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
-//	u = malloc(n[0]*n[1]*sizeof(double));if (u==NULL) ERROR_MSG("malloc failed");
+	f.ni = n[1]-2;
+	f.nj = n[0]-2;
+	f.data = malloc(f.ni*f.nj*sizeof(double));if (f.data==NULL) ERROR_MSG("malloc failed");
+	u.ni = n[1]-2;
+	u.nj = n[0]-2;
+	u.data = malloc(u.ni*u.nj*sizeof(double));if (u.data==NULL) ERROR_MSG("malloc failed");
 	rnorm = malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
-//	GetFuncValues2d(coord,n,f);
+	GetFuncValues2d(coord,n,f);
 //	UpdateBC(coord,u,n);
 	
 	}	
@@ -110,7 +126,7 @@ int main(int argc, char *argv[]) {
 	restrictStencil2D(&opIh2H, 3, 3);
 
 	MPI_Barrier(PETSC_COMM_WORLD);
-//	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
 	
 /**********************************************************************************/	
 /*
@@ -183,7 +199,7 @@ int main(int argc, char *argv[]) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 */
 /**********************************************************************************/	
-/*
+
 	if (rank==0) {	
 	// Error computation
 //	printf("Post-processing: ");
@@ -200,9 +216,9 @@ int main(int argc, char *argv[]) {
 		fprintf(errData,"%.16e\n",error[i]);
 	}
 
-	for (int i=0;i<n[1];i++) {
-		for (int j=0;j<n[0];j++) {
-			fprintf(solData,"%.16e ",u[i*n[0]+j]);
+	for (int i=0;i<u.ni;i++) {
+		for (int j=0;j<u.nj;j++) {
+			fprintf(solData,"%.16e ",U(i,j));
 		}
 		fprintf(solData,"\n");
 	}
@@ -214,8 +230,9 @@ int main(int argc, char *argv[]) {
 
 //	printf("done\n");
 	}
-*/	
-//	if (rank==0) {
+	
+	free(metrics.data);
+	if (rank==0) {
 //	fclose(solData);
 //	fclose(resData);
 //	fclose(errData);
@@ -223,14 +240,16 @@ int main(int argc, char *argv[]) {
 //	free(f);
 //	free(u);
 //	free(metrics);
-//	free(rnorm);
-//	}
+	free(f.data);
+	free(u.data);
+	free(rnorm);
+	}
 //	
 //	free2dArray(&opIH2h);	
 //	free2dArray(&opIh2H);
 
 	PetscFinalize();
-/*	
+	
 	if (rank==0) {
 	int temp;
 	temp = totalUnknowns(n,levels);
@@ -239,11 +258,11 @@ int main(int argc, char *argv[]) {
 	printf("Size:			%d^2\n",n[0]);
 	printf("Number of unknowns:	%d\n",temp);
 	printf("Number of levels:	%d\n",levels);
-	printf("Number of processes:	%d\n",size);
+	printf("Number of processes:	%d\n",procs);
 	printf("Number of iterations:	%d\n",numIter);
 	printf("=============================================================\n");
 	}
-*/
+
 	return 0;
 }
 
@@ -289,7 +308,11 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 	//
 	//lengths[0] = bounds[1] - bounds[0]
 	//lengths[1] = bounds[3] - bounds[2]
-	double temp;
+	double	temp;
+//	int	procs, rank;
+//
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
 	metrics[0] = 1.0;
@@ -302,6 +325,9 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	metrics[2] = 0.0;
 //	metrics[3] = 0.0; 
 //	metrics[4] = 0.0;
+			
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %f %f %f %f %f\n",rank,metrics[0],metrics[1],metrics[2],metrics[3],metrics[4]);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
 //void Mapping(struct Array2d *getGlobalId, struct Array2d *getGridId, int *n, int ltun) {
@@ -325,27 +351,27 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	}
 //}
 
-void GetFuncValues2d(double **coord, int *n, double *f) {
+void GetFuncValues2d(double **coord, int *n, Array2d f) {
 
 	// f(x,y) = -2*PI^2*sin(Pi*x)*sin(pi*y)	
-	for (int i=0;i<n[1];i++) {
-		for (int j=0;j<n[0];j++) {
-			f[i*n[0]+j] = FUNC(i,j);
+	for (int i=0;i<f.ni;i++) {
+		for (int j=0;j<f.nj;j++) {
+			F(i,j) = FUNC(i+1,j+1);
 		}
 	}
 
 }
 
-void GetError(double **coord, int *n, double *u, double *error) {
+void GetError(double **coord, int *n, Array2d u, double *error) {
 	
 	// u(x,y) = sin(Pi*x)*sin(pi*y)	
-	double diff;
+	double	diff;
 	error[0] = 0.0;
 	error[1] = 0.0;
 	error[2] = 0.0;
-	for (int i=1;i<n[1]-1;i++) {
-		for (int j=1;j<n[0]-1;j++) {
-			diff = fabs(u[i*n[0]+j]-SOL(i,j));
+	for (int i=0;i<u.ni;i++) {
+		for (int j=0;j<u.nj;j++) {
+			diff = fabs(U(i,j)-SOL(i+1,j+1));
 			error[0] = fmax(diff,error[0]);
 			error[1] = error[1] + diff;
 			error[2] = error[2] + diff*diff;

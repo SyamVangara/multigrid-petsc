@@ -6,6 +6,8 @@
 #define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
 #define PI 3.14159265358979323846
 
+#define METRICS(i,j,k) (metrics->data[metrics->nk*((i)*metrics->nj+(j))+(k)])
+
 int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension) {
 	
 	int ierr = 0;
@@ -80,11 +82,11 @@ int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dim
 	return ierr;
 }
 
-int MetricCoefficients2D(double **metrics, double **coord, int *n, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
+int MetricCoefficients2D(Array3d *metrics, double **coord, int *n, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
 	//This is a metric coefficients computing shell
 	//Note: Metric coefficients at each point excluding BC points are computed
 	//
-	//(*metrics)[n[0]-2][n[1]-2][5]
+	//metrics.data[n[0]-2][n[1]-2][5]
 	//n[0] - Number of points in "x"
 	//n[1] - Number of points in "y"
 	//
@@ -98,19 +100,32 @@ int MetricCoefficients2D(double **metrics, double **coord, int *n, double *bound
 	double	lengths[dimension];
 	int	ierr = 0;
 
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+
 //	ierr = malloc3d(metrics, n[1]-2, n[0]-2, 5); CHKERR_RETURN("malloc failed");
-	*metrics = malloc(5*(n[0]-2)*(n[1]-2)*sizeof(double));if (*metrics==NULL) ERROR_MSG("malloc failed");
+	metrics->ni = n[1]-2;
+	metrics->nj = n[0]-2;
+	metrics->nk = 5;
+	metrics->data = malloc(metrics->ni*metrics->nj*metrics->nk*sizeof(double));if (metrics->data==NULL) ERROR_MSG("malloc failed");
 
 	for(int i=0;i<dimension;i++) {
 		lengths[i] = bounds[i*2+1] - bounds[i*2];
 	}
 
-	for(int i=1;i<n[1]-1;i++) {
+	for(int i=0;i<metrics->ni;i++) {
 //	for(int i=1;i<2;i++) {
-		for(int j=1;j<n[0]-1;j++) {
-			(*MetricCoefficientsFunc)(((*metrics)+(5*((i-1)*(n[0]-2)+(j-1)))),bounds,lengths,coord[0][j],coord[1][i]);
+		for(int j=0;j<metrics->nj;j++) {
+			(*MetricCoefficientsFunc)(((metrics->data)+(metrics->nk*(i*metrics->nj+j))),bounds,lengths,coord[0][j+1],coord[1][i+1]);
 		}
 	}
 
+//	for (int i=0;i<metrics->ni;i++) {
+//		for (int j=0;j<metrics->nj;j++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics[%d][%d]: %f %f %f %f %f\n",rank,i,j,METRICS(i,j,0),METRICS(i,j,1),METRICS(i,j,2),METRICS(i,j,3),METRICS(i,j,4));
+//		}
+//	}
 	return ierr;
 }

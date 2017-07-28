@@ -1,5 +1,10 @@
 #include "matbuild.h"
 
+#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
+#define PMETRICS(i,j) (metrics.data+metrics.nk*((i)*metrics.nj+(j)))
+#define F(i,j) (f.data[((i)*f.nj+(j))])
+#define U(i,j) (u.data[((i)*u.nj+(j))])
+
 static int ipow(int base, int exp) {
 
 	int result = 1;
@@ -67,13 +72,13 @@ void OpA(double *A, double *metrics, double *h) {
 	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
 }
 
-Mat levelMatrixA(double ***metrics, int n, int l) {
+Mat levelMatrixA(Array3d metrics, int n, int l) {
 	// Builds matrix "A" at a given multigrid level
 	// metrics	- metric terms
 	// n		- number of unknowns per dimension
 	// l		- level
 	
-	int	rows, cols;
+	int	rows, cols, idummy, jdummy;
 	double	As[5], h[2];
 	Mat	A;
 	
@@ -93,7 +98,10 @@ Mat levelMatrixA(double ***metrics, int n, int l) {
 	h[1] = h[0];
 	for (int i=0; i<rows; i++) {
 //		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
-		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
+//		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
+		idummy = ipow(2,l)*((i/n)+1)-1;
+		jdummy = ipow(2,l)*((i%n)+1)-1;
+		OpA(As,PMETRICS(idummy, jdummy),h);
 	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
 		if (i-n>=0) {
 			MatSetValue(A, i, i-n, As[0], INSERT_VALUES);
@@ -437,9 +445,9 @@ Mat prolongationMatrixMPI(double **Is, int m, int nh, int nH) {
 	return matI;
 }
 
-void vecb(Vec *b, double *f, double **opIh2H, int n0, int levels) {
+void vecb(Vec *b, Array2d f, double **opIh2H, int n0, int levels) {
 	// Build vector "b" for the implicit multigrid correction method
-	// f		- 1D array containing right hand side values at each grid point
+	// f		- logically 2D array containing right hand side values at each grid point
 	// opIh2H 	- Stencilwise restriction operator
 	// n		- Number of unknowns per dimension on finest grid
 	// levels	- Number of levels
@@ -477,9 +485,9 @@ void vecb(Vec *b, double *f, double **opIh2H, int n0, int levels) {
 	VecSetFromOptions(subb[0]);
 	VecGetOwnershipRange(subb[0], &rowStart, &rowEnd);
 	r=0;
-	for (int i=1;i<n[0]+1;i++) {
-		for (int j=1;j<n[0]+1;j++) {
-			VecSetValue(subb[0], r, f[i*(n0+2)+j], INSERT_VALUES);
+	for (int i=0;i<f.ni;i++) {
+		for (int j=0;j<f.nj;j++) {
+			VecSetValue(subb[0], r, F(i,j) , INSERT_VALUES);
 			r = r+1;
 		}
 	}

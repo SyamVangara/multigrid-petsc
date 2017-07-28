@@ -13,7 +13,7 @@
 typedef struct {
 	int ni;
 	int nj;
-	int* data;
+	double* data;
 } Array2d;
 
 typedef struct {

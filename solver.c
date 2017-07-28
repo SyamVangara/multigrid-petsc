@@ -5,6 +5,10 @@
 #define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
 #define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
 
+#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
+#define F(i,j) (f.data[((i)*f.nj+(j))])
+#define U(i,j) (u.data[((i)*u.nj+(j))])
+
 static int ipow(int base, int exp) {
 
 	int result = 1;
@@ -17,7 +21,7 @@ static int ipow(int base, int exp) {
 	return result;
 }
 
-static void GetSol(double **u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
+static void GetSol(Array2d u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
 	
 	int	r;
 	
@@ -40,9 +44,9 @@ static void GetSol(double **u, double *px, int *n, int levels, const int *ranges
 		}
 	
 		r = 0;
-		for (int i=1;i<n[1]-1;i++) {
-			for (int j=1;j<n[0]-1;j++) {
-				u[i][j] = x[r];
+		for (int i=0;i<u.ni;i++) {
+			for (int j=0;j<u.nj;j++) {
+				U(i,j) = x[r];
 				r = r+1;
 			}
 		}
@@ -243,7 +247,7 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
-void MultigridPetsc(double **u, double ***metrics, double **f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int *m) {
+void MultigridPetsc(Array2d u, Array3d metrics, Array2d f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int *m) {
 
 	int	v[2], n[levels];
 	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
