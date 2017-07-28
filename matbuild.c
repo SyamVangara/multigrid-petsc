@@ -83,6 +83,7 @@ Mat levelMatrixA(Array3d metrics, int n, int l) {
 	Mat	A;
 	
 	int 	rank;
+	const 	int	*ranges;
 
 	rows = n*n;
 	cols = rows;
@@ -91,6 +92,7 @@ Mat levelMatrixA(Array3d metrics, int n, int l) {
 //	MatCreateSeqAIJ(PETSC_COMM_SELF, rows, cols, 5, NULL, A);
 //	MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
 //	printf("level: %d\n",l);
+	MatGetOwnershipRanges(A,&ranges);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	if (rank==0) {
 

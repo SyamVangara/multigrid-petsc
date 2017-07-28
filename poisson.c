@@ -49,8 +49,8 @@ int main(int argc, char *argv[]) {
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
-	int	*ltun; //local total unknowns
-	int	ltbn; //local total boundary points
+//	int	*ltun; //local total unknowns
+//	int	ltbn; //local total boundary points
 
 	int	procs, rank;
 	int	rowStart, rowEnd;
@@ -245,8 +245,8 @@ int main(int argc, char *argv[]) {
 	free(rnorm);
 	}
 //	
-//	free2dArray(&opIH2h);	
-//	free2dArray(&opIh2H);
+	free2dArray(&opIH2h);	
+	free2dArray(&opIh2H);
 
 	PetscFinalize();
 	
@@ -287,8 +287,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-	val = bounds[1]-length*(cos(PI*0.5*xi));
-//	val = xi;
+//	val = bounds[1]-length*(cos(PI*0.5*xi));
+	val = xi;
 	return val;
 }
 
@@ -315,41 +315,41 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-	metrics[0] = 1.0;
-	metrics[1] = 4.0/(PI*PI*temp);
-	metrics[2] = 0.0;
-	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-	metrics[4] = 0.0;
 //	metrics[0] = 1.0;
-//	metrics[1] = 1.0;
+//	metrics[1] = 4.0/(PI*PI*temp);
 //	metrics[2] = 0.0;
-//	metrics[3] = 0.0; 
+//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 //	metrics[4] = 0.0;
+	metrics[0] = 1.0;
+	metrics[1] = 1.0;
+	metrics[2] = 0.0;
+	metrics[3] = 0.0; 
+	metrics[4] = 0.0;
 			
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %f %f %f %f %f\n",rank,metrics[0],metrics[1],metrics[2],metrics[3],metrics[4]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-//void Mapping(struct Array2d *getGlobalId, struct Array2d *getGridId, int *n, int ltun) {
-//	// Maps global indices to grid unknowns and vice-versa
-//	// 
-//	// getGlobalId[i][j] = globalIndex
-//	// getGridId[globalIndex][0/1] = i/j
-//	
-//	int	procs, rank;
-//
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	for (int i=0;) {
-//	}
-//
-//	for (int i=1;i<n[1]-1;i++) {
-//		for (int j=1;j<n[0]-1;j++) {
-//			
-//		}
-//	}
-//}
+void Mapping(Array2d *getGlobalId, struct Array2d *getGridId, int *n, int ltun) {
+	// Maps global indices to grid unknowns and vice-versa
+	// 
+	// getGlobalId[i][j] = globalIndex
+	// getGridId[globalIndex][0/1] = i/j
+	
+	int	procs, rank;
+
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	for (int i=0;) {
+	}
+
+	for (int i=1;i<n[1]-1;i++) {
+		for (int j=1;j<n[0]-1;j++) {
+			
+		}
+	}
+}
 
 void GetFuncValues2d(double **coord, int *n, Array2d f) {
 
