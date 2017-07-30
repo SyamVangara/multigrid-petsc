@@ -23,6 +23,19 @@ typedef struct {
 	double* data;
 } Array3d;
 
+typedef struct {
+	int ni;
+	int nj;
+	int* data;
+} ArrayInt2d;
+
+typedef struct {
+	int ni;
+	int nj;
+	int nk;
+	int* data;
+} ArrayInt3d;
+
 // Function prototypes
 
 // Allocate contiguous memory for 2d array
