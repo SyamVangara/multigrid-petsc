@@ -45,11 +45,11 @@ int main(int argc, char *argv[]) {
 //	double	*metrics;
 //	double	*f, *u;
 	double	error[3], As[5], *px, *rnorm;
-	Array2d	f, u, mapi2g, mapg2i;
+	Array2d	f, u, IsGlobalToGrid, IsGridToGlobal;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
-//	int	*ltun; //local total unknowns
+	int	ltun; //local total unknowns
 //	int	ltbn; //local total boundary points
 
 	int	procs, rank;
@@ -84,16 +84,16 @@ int main(int argc, char *argv[]) {
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
 	
-//	itun = malloc(procs*sizeof(int));
-//
-//	ltun[0] = ((n[0]-2)*(n[1]-2))/procs + ((n[0]-2)*(n[1]-2))%procs;
-//	for (int i=1;i<procs;i++) {
-//
-//	}
-//	if (rank!=0) ltun = ((n[0]-2)*(n[1]-2))/procs;
-//	
-//	
-//	printf("rank = %d: ltn = %d\n",rank,ltun);
+	// Find the total number of local unknowns	
+	if (rank<((n[0]-2)*(n[1]-2))%procs) {
+		ltun = ((n[0]-2)*(n[1]-2))/procs + 1;
+	}
+	else {
+		ltun = ((n[0]-2)*(n[1]-2))/procs;
+	}
+	
+	
+	printf("rank = %d: ltn = %d\n",rank,ltun);
 
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 //		}
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	
+/*	
 	if (rank==0) {	
 	
 	// Memory allocation of RHS, solution and residual
@@ -126,8 +126,8 @@ int main(int argc, char *argv[]) {
 	restrictStencil2D(&opIh2H, 3, 3);
 
 	MPI_Barrier(PETSC_COMM_WORLD);
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, rnorm, levels, n, &numIter);
-	
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsGlobalToGrid, IsGridToGlobal, rnorm, levels, n, &numIter);
+*/	
 /**********************************************************************************/	
 /*
 	PetscLogStage	stage, stageSolve;
@@ -199,7 +199,7 @@ int main(int argc, char *argv[]) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 */
 /**********************************************************************************/	
-
+/*
 	if (rank==0) {	
 	// Error computation
 //	printf("Post-processing: ");
@@ -247,9 +247,9 @@ int main(int argc, char *argv[]) {
 //	
 	free2dArray(&opIH2h);	
 	free2dArray(&opIh2H);
-
+*/
 	PetscFinalize();
-	
+/*	
 	if (rank==0) {
 	int temp;
 	temp = totalUnknowns(n,levels);
@@ -262,7 +262,7 @@ int main(int argc, char *argv[]) {
 	printf("Number of iterations:	%d\n",numIter);
 	printf("=============================================================\n");
 	}
-
+*/
 	return 0;
 }
 
@@ -330,26 +330,26 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void Mapping(Array2d *getGlobalId, struct Array2d *getGridId, int *n, int ltun) {
-	// Maps global indices to grid unknowns and vice-versa
-	// 
-	// getGlobalId[i][j] = globalIndex
-	// getGridId[globalIndex][0/1] = i/j
-	
-	int	procs, rank;
-
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	for (int i=0;) {
-	}
-
-	for (int i=1;i<n[1]-1;i++) {
-		for (int j=1;j<n[0]-1;j++) {
-			
-		}
-	}
-}
+//void Mapping(Array2d IsGlobalToGrid, Array2d IsGridToGlobal, int *n, int *) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	// 
+//	// getGlobalId[i][j] = globalIndex
+//	// getGridId[globalIndex][0/1] = i/j
+//	
+//	int	procs, rank;
+//
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	for (int i=0;) {
+//	}
+//
+//	for (int i=1;i<n[1]-1;i++) {
+//		for (int j=1;j<n[0]-1;j++) {
+//			
+//		}
+//	}
+//}
 
 void GetFuncValues2d(double **coord, int *n, Array2d f) {
 
