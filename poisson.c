@@ -47,7 +47,8 @@ int main(int argc, char *argv[]) {
 	int	n[DIMENSION], ierr=0, levels, numIter;
 	double	**coord;
 	double	h, bounds[DIMENSION*2];
-	Array3d	metrics;
+//	Array3d	metrics;
+	Array2d	metrics;
 //	double	*metrics;
 	double	*f;
 //	double	*u;
@@ -113,7 +114,7 @@ int main(int argc, char *argv[]) {
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
-	ierr = MetricCoefficients2D(&metrics,coord,n,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
+	ierr = MetricCoefficients2D(&metrics,coord,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics.ni = %d, metrics.nj = %d, metrics.nk = %d\n",rank,metrics.ni,metrics.nj,metrics.nk);
 //	for (int i=0;i<metrics.ni;i++) {
@@ -125,12 +126,12 @@ int main(int argc, char *argv[]) {
 	
 	f = malloc(ln*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
 	GetFuncValues2d(coord, IsGlobalToGrid, f, range);
-	for (int i=0;i<ln;i++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: f[%d]: %f\n",rank,i,f[i]);
-	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	for (int i=0;i<ln;i++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: f[%d]: %f\n",rank,i,f[i]);
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	GetFuncValues2d(coord,n,f);
-	if (rank==0) {	
+/*	if (rank==0) {	
 	
 	// Memory allocation of RHS, solution and residual
 //	f.ni = n[1]-2;
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
 	u.nj = n[0]-2;
 	u.data = malloc(u.ni*u.nj*sizeof(double));if (u.data==NULL) ERROR_MSG("malloc failed");
 	rnorm = malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
-	GetFuncValues2d(coord,n,f);
+//	GetFuncValues2d(coord,n,f);
 //	UpdateBC(coord,u,n);
 	
 	}	
@@ -151,7 +152,7 @@ int main(int argc, char *argv[]) {
 
 	MPI_Barrier(PETSC_COMM_WORLD);
 	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsGlobalToGrid, IsGridToGlobal, rnorm, levels, n, &numIter);
-	
+*/	
 /**********************************************************************************/	
 /*
 	PetscLogStage	stage, stageSolve;
@@ -254,9 +255,9 @@ int main(int argc, char *argv[]) {
 
 //	printf("done\n");
 	}
-	
+*/	
 	free(metrics.data);
-	if (rank==0) {
+//	if (rank==0) {
 //	fclose(solData);
 //	fclose(resData);
 //	fclose(errData);
@@ -264,16 +265,18 @@ int main(int argc, char *argv[]) {
 //	free(f);
 //	free(u);
 //	free(metrics);
-	free(f.data);
-	free(u.data);
-	free(rnorm);
-	}
+//	free(f.data);
+//	free(u.data);
+//	free(rnorm);
+//	}
 //	
-	free2dArray(&opIH2h);	
-	free2dArray(&opIh2H);
-*/
+	free2dArray(&coord);
+	free(f);
+//	free2dArray(&opIH2h);	
+//	free2dArray(&opIh2H);
+
 	PetscFinalize();
-/*	
+/*
 	if (rank==0) {
 	int temp;
 	temp = totalUnknowns(n,levels);

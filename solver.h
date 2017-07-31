@@ -19,7 +19,7 @@ void ResidualRestriction(double **f, double **r, int *n);
 void ErrorCorrection(double **u, int *n, int flag);
 void Vcycle(double **u, double **f, double **r, double *As, double w, int *v,int levels,int *n);
 void Multigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int *n,int m);
-void MultigridPetsc(Array2d u, Array3d metrics, Array2d f, double **opIH2h, double **opIh2H, double *rnorm, int levels, int *fulln, int *m);
+void MultigridPetsc(Array2d u, Array3d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d IsGlobalToGrid, ArrayInt2d IsGridToGlobal, double *rnorm, int levels, int *fulln, int *m);
 void PMultigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int*n, int m);
 //void AsyncMultigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int*n, int m);
 double L2norm(double *a, int n);

@@ -72,7 +72,7 @@ void OpA(double *A, double *metrics, double *h) {
 	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
 }
 
-Mat levelMatrixA(Array3d metrics, int n, int l) {
+Mat levelMatrixA(Array3d metrics, ArrayInt2d IsGlobalToGrid, ArrayInt2d IsGridToGlobal, int n, int l) {
 	// Builds matrix "A" at a given multigrid level
 	// metrics	- metric terms
 	// n		- number of unknowns per dimension
@@ -82,23 +82,33 @@ Mat levelMatrixA(Array3d metrics, int n, int l) {
 	double	As[5], h[2];
 	Mat	A;
 	
-	int 	rank;
-	const 	int	*ranges;
+	int 	procs, rank;
+	int	ln;
+	int	range[2];
 
 	rows = n*n;
 	cols = rows;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	if (rank<(n*n)%procs) {
+		ln = (n*n)/procs + 1;
+	}
+	else {
+		ln = (n*n)/procs;
+	}
 
-	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, rows, cols, 5, PETSC_NULL, 4, PETSC_NULL, &A);
+	MatCreateAIJ(PETSC_COMM_WORLD, ln, ln, PETSC_DETERMINE, PETSC_DETERMINE, 5, PETSC_NULL, 4, PETSC_NULL, &A);
 //	MatCreateSeqAIJ(PETSC_COMM_SELF, rows, cols, 5, NULL, A);
 //	MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
 //	printf("level: %d\n",l);
-	MatGetOwnershipRanges(A,&ranges);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	if (rank==0) {
+	MatGetOwnershipRange(A, range, range+1);
+//	if (rank==0) {
 
 	h[0] = 1.0/(n+1);
 	h[1] = h[0];
-	for (int i=0; i<rows; i++) {
+	for (int i=range[0]; i<range[1]; i++) {
 //		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
 //		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
 		idummy = ipow(2,l)*((i/n)+1)-1;
@@ -119,8 +129,29 @@ Mat levelMatrixA(Array3d metrics, int n, int l) {
 			MatSetValue(A, i, i+n, As[4], INSERT_VALUES);
 		}
 	}
+//	for (int i=0; i<rows; i++) {
+////		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
+////		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
+//		idummy = ipow(2,l)*((i/n)+1)-1;
+//		jdummy = ipow(2,l)*((i%n)+1)-1;
+//		OpA(As,PMETRICS(idummy, jdummy),h);
+//	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
+//		if (i-n>=0) {
+//			MatSetValue(A, i, i-n, As[0], INSERT_VALUES);
+//		}
+//		if (i-1>=0 && i%n!=0) {
+//			MatSetValue(A, i, i-1, As[1], INSERT_VALUES); 
+//		}
+//		MatSetValue(A, i, i, As[2], INSERT_VALUES);
+//		if (i+1<=rows-1 && (i+1)%n!=0) {
+//			MatSetValue(A, i, i+1, As[3], INSERT_VALUES);
+//		}
+//		if (i+n<=rows-1) {
+//			MatSetValue(A, i, i+n, As[4], INSERT_VALUES);
+//		}
+//	}
 
-	}
+//	}
 	MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);
 
@@ -446,6 +477,23 @@ Mat prolongationMatrixMPI(double **Is, int m, int nh, int nH) {
 	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
 	return matI;
 }
+
+void levelvecb(Vec *b, double *f) {
+	// Build vector "b" for fine grid
+	// f - logically 2D array containing right hand side values at each grid point
+	
+	int	rowStart, rowEnd;
+
+	VecGetOwnershipRange(*b, &rowStart, &rowEnd);
+	for (int i=rowStart;i<rowEnd;i++) {
+		VecSetValue(*b, i, f[i-rowStart], INSERT_VALUES);
+	}
+	VecAssemblyBegin(*b);
+	VecAssemblyEnd(*b);
+
+	//return b;
+}
+
 
 void vecb(Vec *b, Array2d f, double **opIh2H, int n0, int levels) {
 	// Build vector "b" for the implicit multigrid correction method

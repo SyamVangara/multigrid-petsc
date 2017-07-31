@@ -7,6 +7,8 @@
 #define PI 3.14159265358979323846
 
 #define METRICS(i,j,k) (metrics->data[metrics->nk*((i)*metrics->nj+(j))+(k)])
+#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
+#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
 int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension) {
 	
@@ -82,13 +84,13 @@ int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dim
 	return ierr;
 }
 
-int MetricCoefficients2D(Array3d *metrics, double **coord, int *n, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
+int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d IsGlobalToGrid, int *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
 	//This is a metric coefficients computing shell
 	//Note: Metric coefficients at each point excluding BC points are computed
 	//
-	//metrics.data[n[0]-2][n[1]-2][5]
-	//n[0] - Number of points in "x"
-	//n[1] - Number of points in "y"
+	//metrics.indices[(n[0]-2)*(n[1]-2)][5]
+	//metrics.data[(n[0]-2)*(n[1]-2)][5]
+	//range[0:1] = start to end global index of unknowns in this process
 	//
 	//bounds[0] - Lower bound of "x"
 	//bounds[1] - Upper bound of "x"
@@ -98,6 +100,7 @@ int MetricCoefficients2D(Array3d *metrics, double **coord, int *n, double *bound
 	//(*MetricCoefficientsFunc) compute and return metric coefficients at (x,y)
 	
 	double	lengths[dimension];
+	int	igrid, jgrid;
 	int	ierr = 0;
 
 //	int	procs, rank;
@@ -106,21 +109,26 @@ int MetricCoefficients2D(Array3d *metrics, double **coord, int *n, double *bound
 //	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 //	ierr = malloc3d(metrics, n[1]-2, n[0]-2, 5); CHKERR_RETURN("malloc failed");
-	metrics->ni = n[1]-2;
-	metrics->nj = n[0]-2;
-	metrics->nk = 5;
-	metrics->data = malloc(metrics->ni*metrics->nj*metrics->nk*sizeof(double));if (metrics->data==NULL) ERROR_MSG("malloc failed");
+	metrics->ni = range[1]-range[0];
+	metrics->nj = 5;
+//	metrics->indices = malloc(metrics->ni*metrics->nj*sizeof(int));if (metrics->indices==NULL) ERROR_MSG("malloc failed");
+	metrics->data = malloc(metrics->ni*metrics->nj*sizeof(double));if (metrics->data==NULL) ERROR_MSG("malloc failed");
 
 	for(int i=0;i<dimension;i++) {
 		lengths[i] = bounds[i*2+1] - bounds[i*2];
 	}
-
-	for(int i=0;i<metrics->ni;i++) {
-//	for(int i=1;i<2;i++) {
-		for(int j=0;j<metrics->nj;j++) {
-			(*MetricCoefficientsFunc)(((metrics->data)+(metrics->nk*(i*metrics->nj+j))),bounds,lengths,coord[0][j+1],coord[1][i+1]);
-		}
+	
+	for(int i=range[0];i<range[1];i++) {
+		igrid = isGLOBALtoGRID(i,0);
+		jgrid = isGLOBALtoGRID(i,1);
+		(*MetricCoefficientsFunc)(((metrics->data)+((i-range[0])*metrics->nj)),bounds,lengths,coord[0][jgrid+1],coord[1][igrid+1]);
 	}
+//	for(int i=0;i<metrics->ni;i++) {
+////	for(int i=1;i<2;i++) {
+//		for(int j=0;j<metrics->nj;j++) {
+//			(*MetricCoefficientsFunc)(((metrics->data)+(metrics->nk*(i*metrics->nj+j))),bounds,lengths,coord[0][j+1],coord[1][i+1]);
+//		}
+//	}
 
 //	for (int i=0;i<metrics->ni;i++) {
 //		for (int j=0;j<metrics->nj;j++) {
