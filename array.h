@@ -11,6 +11,11 @@
 // Structures
 
 typedef struct {
+	int start;
+	int end;
+} IsRange;
+
+typedef struct {
 	int ni;
 	int nj;
 	double* data;

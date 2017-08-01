@@ -56,6 +56,9 @@ void insertSubVecValues(Vec *subV, Vec *V, int i0) {
 
 void OpA(double *A, double *metrics, double *h) {
 	//Computes the coefficients
+	//
+	//i - row    - y coord
+	//j - column - x coord
 	//A[0]*u(i,j-1) + A[1]*u(i-1,j) + A[2]*u(i,j) + A[3]*u(i+1,j) + A[4]*u(i,j+1) = f(i,j)
 	//
 	//metrics[5]	- metrics at a point

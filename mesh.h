@@ -16,6 +16,6 @@ extern int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int 
 
 extern int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dimension, double (*Transform)(double *bounds, double range, double s) );
 
-extern int MetricCoefficients2D(Array3d *metrics, double **coord, int *n, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y));
+int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalToGrid, IsRange *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y));
 
 #endif

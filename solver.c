@@ -289,7 +289,7 @@ void MultigridPetsc(Array2d u, Array3d metrics, double *f, double **opIH2h, doub
 	}
 
 	for (int i=0;i<levels;i++) {
-		A[i] = levelMatrixA(metrics, n[i], i);
+//		A[i] = levelMatrixA(metrics, n[i], i);
 //		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
 		MatCreateVecs(A[i],&(x[i]),&(rv[i]));
 		VecDuplicate(rv[i],&(b[i]));

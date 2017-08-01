@@ -13,16 +13,19 @@
 #define FUNC(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 #define SOL(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 
-#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
+#define METRICS(i,j) (metrics.data[(i)*metrics.nj+(j)])
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
-#define PisGRIDtoGLOBAL(i,j) (IsGridToGlobal->data[((i)*IsGridToGlobal->nj+(j))])
-#define PisGLOBALtoGRID(i,j) (IsGlobalToGrid->data[((i)*IsGlobalToGrid->nj+(j))])
-#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
-#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
+//#define PisGRIDtoGLOBAL(i,j) (IsGridToGlobal->data[((i)*IsGridToGlobal->nj+(j))])
+//#define PisGLOBALtoGRID(i,j) (IsGlobalToGrid->data[((i)*IsGlobalToGrid->nj+(j))])
+#define isGRIDtoGLOBAL(l,i,j) (IsGridToGlobal[l].data[((i)*IsGridToGlobal[l].nj+(j))])
+#define isGLOBALtoGRID(l,i,j) (IsGlobalToGrid[l].data[((i)*IsGlobalToGrid[l].nj+(j))])
+#define isSTENCIL(l,i,j) (IsStencil[l].data[((i)*IsStencil[l].nj+(j))])
+//#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
+//#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
 //void GetFuncValues2d(double **coord, int *n, Array2d f);
-void GetFuncValues2d(double **coord, ArrayInt2d IsGlobalToGrid, double *f, int *range);
+void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range);
 void GetError(double **coord, int *n, Array2d u, double *error);
 void UpdateBC(double **coord, double *u, int *n);
 //void OpA(double *A, double *metrics, double *h);
@@ -38,8 +41,9 @@ static void GetSol(double *u, double *px, int *n, int levels, const int *ranges,
 double TransformFunc(double *bounds, double length, double xi);
 void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
 PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
-void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, int *range);
-
+void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, IsRange *range, int levels);
+//void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, int *range);
+void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
 
 int main(int argc, char *argv[]) {
 	
@@ -65,8 +69,9 @@ int main(int argc, char *argv[]) {
 	int	rowStart, rowEnd;
 	
 	const 	int	*ranges;
-		int	range[2];
-	ArrayInt2d	IsGlobalToGrid, IsGridToGlobal;
+		IsRange	*range;
+	ArrayInt2d	*IsGlobalToGrid, *IsGridToGlobal;
+	ArrayInt2d	*IsStencil;
 	
 //	KSP	solver;
 //	PC	pc;
@@ -95,42 +100,52 @@ int main(int argc, char *argv[]) {
 		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
 	
+	IsStencil = malloc(levels*sizeof(ArrayInt2d));
+	IsGlobalToGrid = malloc(levels*sizeof(ArrayInt2d)); 
+	IsGridToGlobal = malloc(levels*sizeof(ArrayInt2d));
+	range = malloc(levels*sizeof(IsRange));
 	// Indices maps; number of local unknowns	
-	mapping(&IsGlobalToGrid, &IsGridToGlobal, n, range);
-	ln = range[1]-range[0];
+	mapping(IsGlobalToGrid, IsGridToGlobal, n, range, levels);
+//	ln = range[1]-range[0];
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: from %d to %d; local unknowns = %d\n",rank,range[0],range[1]-1,range[1]-range[0]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//
-//	for (int i=0;i<IsGridToGlobal.ni;i++) {
-//		for (int j=0;j<IsGridToGlobal.nj;j++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): %d\n",rank,i,j,isGRIDtoGLOBAL(i,j));
+//	for (int l=0;l<levels;l++) {
+//		for (int i=0;i<IsGridToGlobal[l].ni;i++) {
+//			for (int j=0;j<IsGridToGlobal[l].nj;j++) {
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: (%d,%d): %d\n",rank,l,i,j,isGRIDtoGLOBAL(l,i,j));
+//			}
+//		}
+//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	
+//		for (int i=0;i<IsGlobalToGrid[l].ni;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: %d:(%d,%d)\n",rank,l,i,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1));
 //		}
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//
-//	for (int i=0;i<IsGlobalToGrid.ni;i++) {
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %d:(%d,%d)\n",rank,i,isGLOBALtoGRID(i,0),isGLOBALtoGRID(i,1));
-//	}
+	stencilIndices(IsGlobalToGrid, IsGridToGlobal, IsStencil, range, levels);
+//	for (int l=0;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isStencil[%d]: %d %d %d %d %d\n",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start,isSTENCIL(l,i-range[l].start,0),isSTENCIL(l,i-range[l].start,1),isSTENCIL(l,i-range[l].start,2),isSTENCIL(l,i-range[l].start,3),isSTENCIL(l,i-range[l].start,4));
+//		}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	}
 	
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
-	ierr = MetricCoefficients2D(&metrics,coord,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
+	ierr = MetricCoefficients2D(&metrics,coord,IsGlobalToGrid,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics.ni = %d, metrics.nj = %d, metrics.nk = %d\n",rank,metrics.ni,metrics.nj,metrics.nk);
-//	for (int i=0;i<metrics.ni;i++) {
-//		for (int j=0;j<metrics.nj;j++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics[%d][%d]: %f %f %f %f %f\n",rank,i,j,METRICS(i,j,0),METRICS(i,j,1),METRICS(i,j,2),METRICS(i,j,3),METRICS(i,j,4));
-//		}
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics.ni = %d, metrics.nj = %d\n",rank,metrics.ni,metrics.nj);
+//	for (int i=range[0];i<range[1];i++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): metrics[%d]: %f %f %f %f %f\n",rank,isGLOBALtoGRID(0,i,0),isGLOBALtoGRID(0,i,1),i,METRICS(i-range[0],0),METRICS(i-range[0],1),METRICS(i-range[0],2),METRICS(i-range[0],3),METRICS(i-range[0],4));
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	
-	f = malloc(ln*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
+	f = malloc((range[0].end-range[0].start)*sizeof(double));if (f==NULL) ERROR_MSG("malloc failed");
 	GetFuncValues2d(coord, IsGlobalToGrid, f, range);
-//	for (int i=0;i<ln;i++) {
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: f[%d]: %f\n",rank,i,f[i]);
+//	for (int i=range[0];i<range[1];i++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): f[%d]: %f\n",rank,isGLOBALtoGRID(0,i,0),isGLOBALtoGRID(0,i,1),i-range[0],f[i-range[0]]);
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//	GetFuncValues2d(coord,n,f);
+
 /*	if (rank==0) {	
 	
 	// Memory allocation of RHS, solution and residual
@@ -270,8 +285,18 @@ int main(int argc, char *argv[]) {
 //	free(rnorm);
 //	}
 //	
+//	free(ln);
+	for (int i=0;i<levels;i++) {
+		free(IsStencil[i].data);
+		free(IsGlobalToGrid[i].data);
+		free(IsGridToGlobal[i].data);
+	}
+	free(range);
+	free(IsGlobalToGrid);
+	free(IsGridToGlobal);
+	free(IsStencil);
 	free2dArray(&coord);
-	free(f);
+//	free(f);
 //	free2dArray(&opIH2h);	
 //	free2dArray(&opIh2H);
 
@@ -314,8 +339,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-//	val = bounds[1]-length*(cos(PI*0.5*xi));
-	val = xi;
+	val = bounds[1]-length*(cos(PI*0.5*xi));
+//	val = xi;
 	return val;
 }
 
@@ -342,45 +367,52 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-//	metrics[0] = 1.0;
-//	metrics[1] = 4.0/(PI*PI*temp);
-//	metrics[2] = 0.0;
-//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-//	metrics[4] = 0.0;
 	metrics[0] = 1.0;
-	metrics[1] = 1.0;
+	metrics[1] = 4.0/(PI*PI*temp);
 	metrics[2] = 0.0;
-	metrics[3] = 0.0; 
+	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 	metrics[4] = 0.0;
+//	metrics[0] = 1.0;
+//	metrics[1] = 1.0;
+//	metrics[2] = 0.0;
+//	metrics[3] = 0.0; 
+//	metrics[4] = 0.0;
 			
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %f %f %f %f %f\n",rank,metrics[0],metrics[1],metrics[2],metrics[3],metrics[4]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, int *range) {
+void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, IsRange *range, int levels) {
 	// Maps global indices to grid unknowns and vice-versa
 	// 
 	// IsGridToGlobal[i][j] = globalIndex
 	// IsGlobalToGrid[globalIndex][0/1] = i/j
-	// range[0] = Starting global index
-	// range[1] = 1+(ending global index)
+	// range[level].start = Starting global index in level
+	// range[level].end = 1+(ending global index) in level
 	
 	int	remainder, quotient;
 	int	procs, rank;
 	int	count;
+	int	n0, n1;
 
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	remainder = ((n[0]-2)*(n[1]-2))%procs;
-	quotient  = ((n[0]-2)*(n[1]-2))/procs;
-	if (rank<remainder) {
-		range[0] = rank*(quotient + 1);
-		range[1] = range[0] + (quotient + 1);
-	}
-	else {
-		range[0] = rank*quotient + remainder;
-		range[1] = range[0] + quotient;
+	n0 = n[0]-2;
+	n1 = n[1]-2;
+	for (int l=0;l<levels;l++) {	
+		remainder = (n0*n1)%procs;
+		quotient  = (n0*n1)/procs;
+		if (rank<remainder) {
+			range[l].start = rank*(quotient + 1);
+			range[l].end = range[l].start + (quotient + 1);
+		}
+		else {
+			range[l].start = rank*quotient + remainder;
+			range[l].end = range[l].start + quotient;
+		}
+		n0 = (n0-1)/2;
+		n1 = (n1-1)/2;
 	}
 //	if (rank<((n[0]-2)*(n[1]-2))%procs) {
 //		*ln = ((n[0]-2)*(n[1]-2))/procs + 1;
@@ -388,22 +420,29 @@ void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, int
 //	else {
 //		*ln = ((n[0]-2)*(n[1]-2))/procs;
 //	}
-	
-	IsGlobalToGrid->ni = (n[0]-2)*(n[1]-2);
-	IsGlobalToGrid->nj = 2;
-	IsGlobalToGrid->data = malloc(IsGlobalToGrid->ni*IsGlobalToGrid->nj*sizeof(int));if (IsGlobalToGrid->data==NULL) ERROR_MSG("malloc failed");
+	n0 = n[0]-2;
+	n1 = n[1]-2;
+	for (int i=0;i<levels;i++) {
+		IsGlobalToGrid[i].ni = n0*n1;
+		IsGlobalToGrid[i].nj = 2;
+		IsGlobalToGrid[i].data = malloc(IsGlobalToGrid[i].ni*IsGlobalToGrid[i].nj*sizeof(int));if (IsGlobalToGrid[i].data==NULL) ERROR_MSG("malloc failed");
+	                                                                                                                   
+		IsGridToGlobal[i].ni = n1;                                                                          
+		IsGridToGlobal[i].nj = n0;                                                                          
+		IsGridToGlobal[i].data = malloc(IsGridToGlobal[i].ni*IsGridToGlobal[i].nj*sizeof(int));if (IsGridToGlobal[i].data==NULL) ERROR_MSG("malloc failed");
 
-	IsGridToGlobal->ni = (n[1]-2);
-	IsGridToGlobal->nj = (n[0]-2);
-	IsGridToGlobal->data = malloc(IsGridToGlobal->ni*IsGridToGlobal->nj*sizeof(int));if (IsGridToGlobal->data==NULL) ERROR_MSG("malloc failed");
-	
-	count = 0;
-	for (int i=0;i<IsGridToGlobal->ni;i++) {
-		for (int j=0;j<IsGridToGlobal->nj;j++) {
-			PisGRIDtoGLOBAL(i,j) = count;
-			PisGLOBALtoGRID(count,0) = i;
-			PisGLOBALtoGRID(count,1) = j;
-			count = count + 1;
+		n0 = (n0-1)/2;
+		n1 = (n1-1)/2;
+	}
+	for (int l=0;l<levels;l++) {	
+		count = 0;
+		for (int i=0;i<IsGridToGlobal[l].ni;i++) {
+			for (int j=0;j<IsGridToGlobal[l].nj;j++) {
+				isGRIDtoGLOBAL(l,i,j) = count;
+				isGLOBALtoGRID(l,count,0) = i;
+				isGLOBALtoGRID(l,count,1) = j;
+				count = count + 1;
+			}
 		}
 	}
 //	for (int i=0;i<IsGridToGlobal->ni;i++) {
@@ -419,7 +458,81 @@ void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, int
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void GetFuncValues2d(double **coord, ArrayInt2d IsGlobalToGrid, double *f, int *range) {
+void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels) {
+	// Maps global indices to grid unknowns and vice-versa
+	// 
+	// IsGridToGlobal[level][i][j] = globalIndex
+	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+	//
+	// n[0/1] - num of points in each dimension "0/1"
+	// range[level].start - level global index start
+	// range[level].end   - (level global index end + 1) 
+	// IsStencil[level].data[i][j] - global indices of points (j) in stencil at point (i) in a given level
+	
+	int	i0, j0, itemp;
+	int	stencilSize = 5; //Stencil size
+
+	for (int i=0;i<levels;i++) {
+		IsStencil[i].ni = range[i].end-range[i].start;
+		IsStencil[i].nj = stencilSize;
+		IsStencil[i].data = malloc(IsStencil[i].ni*IsStencil[i].nj*sizeof(int));
+	}
+	
+	for (int l=0;l<levels;l++) {
+		for (int i=range[l].start;i<range[l].end;i++) {
+			//i0 - row    - y coord
+			//j0 - column - x coord
+			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+			i0 = isGLOBALtoGRID(l,i,0);
+			j0 = isGLOBALtoGRID(l,i,1);
+			itemp = i-range[l].start;
+			if (i0-1<0) {
+				isSTENCIL(l,itemp,0) = -1; 
+			}
+			else {
+				isSTENCIL(l,itemp,0) = isGRIDtoGLOBAL(l,i0-1,j0); 
+			}
+
+			if (j0-1<0) {
+				isSTENCIL(l,itemp,1) = -1; 
+			}
+			else {
+				isSTENCIL(l,itemp,1) = isGRIDtoGLOBAL(l,i0,j0-1); 
+			}
+
+			if (j0+1>IsGridToGlobal[l].nj-1) {
+				isSTENCIL(l,itemp,3) = -1; 
+			}
+			else {
+				isSTENCIL(l,itemp,3) = isGRIDtoGLOBAL(l,i0,j0+1); 
+			}
+
+			if (i0+1>IsGridToGlobal[l].ni-1) {
+				isSTENCIL(l,itemp,4) = -1;
+			}
+			else {
+				isSTENCIL(l,itemp,4) = isGRIDtoGLOBAL(l,i0+1,j0);
+			}
+			
+			i0 = ipow(2,l)*(i0+1)-1; // fine grid index // knowledge of coarsening strategy used
+			j0 = ipow(2,l)*(j0+1)-1; // fine grid index // knowledge of coarsening strategy used
+			isSTENCIL(l,itemp,2) = isGRIDtoGLOBAL(0,i0,j0); // Inserting fine grid global index instead of current level global index
+		}
+	}
+//	for (int i=0;i<IsGridToGlobal->ni;i++) {
+//		for (int j=0;j<IsGridToGlobal->nj;j++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): %d\n",rank,i,j,PisGRIDtoGLOBAL(i,j));
+//		}
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//
+//	for (int i=0;i<IsGlobalToGrid->ni;i++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %d:(%d,%d)\n",rank,i,PisGLOBALtoGRID(i,0),PisGLOBALtoGRID(i,1));
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
+void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range) {
 
 	// f(x,y) = -2*PI^2*sin(Pi*x)*sin(pi*y)	
 //	for (int i=0;i<f.ni;i++) {
@@ -428,10 +541,10 @@ void GetFuncValues2d(double **coord, ArrayInt2d IsGlobalToGrid, double *f, int *
 //		}
 //	}
 	int	i, j;
-	for (int ig=range[0];ig<range[1];ig++) {
-		i = isGLOBALtoGRID(ig,0);
-		j = isGLOBALtoGRID(ig,1);
-		f[ig-range[0]] = FUNC(i+1,j+1);
+	for (int ig=range[0].start;ig<range[0].end;ig++) {
+		i = isGLOBALtoGRID(0,ig,0);
+		j = isGLOBALtoGRID(0,ig,1);
+		f[ig-range[0].start] = FUNC(i+1,j+1);
 	}
 
 }
