@@ -145,8 +145,8 @@ int main(int argc, char *argv[]) {
 //		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): f[%d]: %f\n",rank,isGLOBALtoGRID(0,i,0),isGLOBALtoGRID(0,i,1),i-range[0],f[i-range[0]]);
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-
-/*	if (rank==0) {	
+	
+	if (rank==0) {	
 	
 	// Memory allocation of RHS, solution and residual
 //	f.ni = n[1]-2;
@@ -166,8 +166,8 @@ int main(int argc, char *argv[]) {
 	restrictStencil2D(&opIh2H, 3, 3);
 
 	MPI_Barrier(PETSC_COMM_WORLD);
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsGlobalToGrid, IsGridToGlobal, rnorm, levels, n, &numIter);
-*/	
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsStencil, rnorm, levels, n, &numIter);
+	
 /**********************************************************************************/	
 /*
 	PetscLogStage	stage, stageSolve;
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 */
 /**********************************************************************************/	
-/*
+
 	if (rank==0) {	
 	// Error computation
 //	printf("Post-processing: ");
@@ -270,20 +270,20 @@ int main(int argc, char *argv[]) {
 
 //	printf("done\n");
 	}
-*/	
+	
 	free(metrics.data);
-//	if (rank==0) {
-//	fclose(solData);
-//	fclose(resData);
-//	fclose(errData);
+	if (rank==0) {
+	fclose(solData);
+	fclose(resData);
+	fclose(errData);
 //	free2dArray(&coord);
 //	free(f);
 //	free(u);
 //	free(metrics);
 //	free(f.data);
-//	free(u.data);
-//	free(rnorm);
-//	}
+	free(u.data);
+	free(rnorm);
+	}
 //	
 //	free(ln);
 	for (int i=0;i<levels;i++) {
@@ -296,12 +296,12 @@ int main(int argc, char *argv[]) {
 	free(IsGridToGlobal);
 	free(IsStencil);
 	free2dArray(&coord);
-//	free(f);
-//	free2dArray(&opIH2h);	
-//	free2dArray(&opIh2H);
+	free(f);
+	free2dArray(&opIH2h);	
+	free2dArray(&opIh2H);
 
 	PetscFinalize();
-/*
+
 	if (rank==0) {
 	int temp;
 	temp = totalUnknowns(n,levels);
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
 	printf("Number of iterations:	%d\n",numIter);
 	printf("=============================================================\n");
 	}
-*/
+
 	return 0;
 }
 
@@ -339,8 +339,8 @@ double TransformFunc(double *bounds, double length, double xi) {
 	//x or y = T(xi)
 	
 	double val;
-	val = bounds[1]-length*(cos(PI*0.5*xi));
-//	val = xi;
+//	val = bounds[1]-length*(cos(PI*0.5*xi));
+	val = xi;
 	return val;
 }
 
@@ -367,16 +367,16 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 //	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-	metrics[0] = 1.0;
-	metrics[1] = 4.0/(PI*PI*temp);
-	metrics[2] = 0.0;
-	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-	metrics[4] = 0.0;
 //	metrics[0] = 1.0;
-//	metrics[1] = 1.0;
+//	metrics[1] = 4.0/(PI*PI*temp);
 //	metrics[2] = 0.0;
-//	metrics[3] = 0.0; 
+//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
 //	metrics[4] = 0.0;
+	metrics[0] = 1.0;
+	metrics[1] = 1.0;
+	metrics[2] = 0.0;
+	metrics[3] = 0.0; 
+	metrics[4] = 0.0;
 			
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %f %f %f %f %f\n",rank,metrics[0],metrics[1],metrics[2],metrics[3],metrics[4]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);

@@ -12,8 +12,7 @@
 #include "array.h"
 
 extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
-Mat levelMatrixA(Array3d metrics, ArrayInt2d IsGlobalToGrid, ArrayInt2d IsGridToGlobal, int n, int l);
-//extern Mat levelMatrixA(Array3d metrics, int n, int level);
+Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l); 
 extern Mat restrictionMatrix(double **Is, int m, int nh, int nH);
 extern Mat prolongationMatrix(double **Is, int m, int nh, int nH);
 extern Mat restrictionMatrixMPI(double **Is, int m, int nh, int nH);

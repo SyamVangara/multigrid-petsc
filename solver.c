@@ -247,7 +247,7 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
-void MultigridPetsc(Array2d u, Array3d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d IsGlobalToGrid, ArrayInt2d IsGridToGlobal, double *rnorm, int levels, int *fulln, int *m) {
+void MultigridPetsc(Array2d u, Array2d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d *IsStencil, double *rnorm, int levels, int *fulln, int *m) {
 
 	int	v[2], n[levels];
 	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
@@ -289,6 +289,7 @@ void MultigridPetsc(Array2d u, Array3d metrics, double *f, double **opIH2h, doub
 	}
 
 	for (int i=0;i<levels;i++) {
+		A[i] = levelMatrixA(metrics, IsStencil[i], n[i], i);
 //		A[i] = levelMatrixA(metrics, n[i], i);
 //		MatView(A[i], PETSC_VIEWER_STDOUT_WORLD);
 		MatCreateVecs(A[i],&(x[i]),&(rv[i]));

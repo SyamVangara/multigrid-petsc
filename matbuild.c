@@ -1,7 +1,8 @@
 #include "matbuild.h"
 
-#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
-#define PMETRICS(i,j) (metrics.data+metrics.nk*((i)*metrics.nj+(j)))
+#define METRICS(i,j) (metrics.data[(i)*metrics.nj+(j)])
+//#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
+#define PMETRICS(i) ((metrics.data)+((i)*metrics.nj))
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
 
@@ -75,34 +76,36 @@ void OpA(double *A, double *metrics, double *h) {
 	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
 }
 
-Mat levelMatrixA(Array3d metrics, ArrayInt2d IsGlobalToGrid, ArrayInt2d IsGridToGlobal, int n, int l) {
+Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
 	// Builds matrix "A" at a given multigrid level
-	// metrics	- metric terms
+	// metrics	- metric terms in global index array
 	// n		- number of unknowns per dimension
 	// l		- level
 	
-	int	rows, cols, idummy, jdummy;
+//	int	rows, cols, idummy, jdummy;
 	double	As[5], h[2];
 	Mat	A;
 	
 	int 	procs, rank;
-	int	ln;
+//	int	ln;
+//	int	stencilsize;
+	int	*col;
 	int	range[2];
 
-	rows = n*n;
-	cols = rows;
-	
+//	rows = n*n;
+//	cols = rows;
+//	
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	if (rank<(n*n)%procs) {
-		ln = (n*n)/procs + 1;
-	}
-	else {
-		ln = (n*n)/procs;
-	}
+//	if (rank<(n*n)%procs) {
+//		ln = (n*n)/procs + 1;
+//	}
+//	else {
+//		ln = (n*n)/procs;
+//	}
 
-	MatCreateAIJ(PETSC_COMM_WORLD, ln, ln, PETSC_DETERMINE, PETSC_DETERMINE, 5, PETSC_NULL, 4, PETSC_NULL, &A);
+	MatCreateAIJ(PETSC_COMM_WORLD, IsStencil.ni, IsStencil.ni, PETSC_DETERMINE, PETSC_DETERMINE, 5, PETSC_NULL, 4, PETSC_NULL, &A);
 //	MatCreateSeqAIJ(PETSC_COMM_SELF, rows, cols, 5, NULL, A);
 //	MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
 //	printf("level: %d\n",l);
@@ -114,22 +117,24 @@ Mat levelMatrixA(Array3d metrics, ArrayInt2d IsGlobalToGrid, ArrayInt2d IsGridTo
 	for (int i=range[0]; i<range[1]; i++) {
 //		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
 //		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
-		idummy = ipow(2,l)*((i/n)+1)-1;
-		jdummy = ipow(2,l)*((i%n)+1)-1;
-		OpA(As,PMETRICS(idummy, jdummy),h);
+//		idummy = ipow(2,l)*((i/n)+1)-1;
+//		jdummy = ipow(2,l)*((i%n)+1)-1;
+//		OpA(As,PMETRICS(idummy, jdummy),h);
+		OpA(As,PMETRICS(i-range[0]),h);
 	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
-		if (i-n>=0) {
-			MatSetValue(A, i, i-n, As[0], INSERT_VALUES);
+		col = IsStencil.data+((i-range[0])*IsStencil.nj);
+		if (col[0]>-1) {
+			MatSetValue(A, i, col[0], As[0], INSERT_VALUES);
 		}
-		if (i-1>=0 && i%n!=0) {
-			MatSetValue(A, i, i-1, As[1], INSERT_VALUES); 
+		if (col[1]>-1) {
+			MatSetValue(A, i, col[1], As[1], INSERT_VALUES); 
 		}
 		MatSetValue(A, i, i, As[2], INSERT_VALUES);
-		if (i+1<=rows-1 && (i+1)%n!=0) {
-			MatSetValue(A, i, i+1, As[3], INSERT_VALUES);
+		if (col[3]>-1) {
+			MatSetValue(A, i, col[3], As[3], INSERT_VALUES);
 		}
-		if (i+n<=rows-1) {
-			MatSetValue(A, i, i+n, As[4], INSERT_VALUES);
+		if (col[4]>-1) {
+			MatSetValue(A, i, col[4], As[4], INSERT_VALUES);
 		}
 	}
 //	for (int i=0; i<rows; i++) {
