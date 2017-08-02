@@ -21,6 +21,7 @@
 #define isGRIDtoGLOBAL(l,i,j) (IsGridToGlobal[l].data[((i)*IsGridToGlobal[l].nj+(j))])
 #define isGLOBALtoGRID(l,i,j) (IsGlobalToGrid[l].data[((i)*IsGlobalToGrid[l].nj+(j))])
 #define isSTENCIL(l,i,j) (IsStencil[l].data[((i)*IsStencil[l].nj+(j))])
+#define isRESSTENCIL(l,i,j) (IsResStencil[l].data[((i)*IsResStencil[l].nj+(j))])
 //#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
 //#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
@@ -44,6 +45,7 @@ PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm)
 void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, IsRange *range, int levels);
 //void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, int *range);
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
+void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
 
 int main(int argc, char *argv[]) {
 	
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
 	const 	int	*ranges;
 		IsRange	*range;
 	ArrayInt2d	*IsGlobalToGrid, *IsGridToGlobal;
-	ArrayInt2d	*IsStencil;
+	ArrayInt2d	*IsStencil, *IsResStencil;
 	
 //	KSP	solver;
 //	PC	pc;
@@ -101,6 +103,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 	IsStencil = malloc(levels*sizeof(ArrayInt2d));
+	IsResStencil = malloc(levels*sizeof(ArrayInt2d));
 	IsGlobalToGrid = malloc(levels*sizeof(ArrayInt2d)); 
 	IsGridToGlobal = malloc(levels*sizeof(ArrayInt2d));
 	range = malloc(levels*sizeof(IsRange));
@@ -126,6 +129,19 @@ int main(int argc, char *argv[]) {
 //	for (int l=0;l<levels;l++) {
 //		for (int i=range[l].start;i<range[l].end;i++) {
 //			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isStencil[%d]: %d %d %d %d %d\n",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start,isSTENCIL(l,i-range[l].start,0),isSTENCIL(l,i-range[l].start,1),isSTENCIL(l,i-range[l].start,2),isSTENCIL(l,i-range[l].start,3),isSTENCIL(l,i-range[l].start,4));
+//		}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	}
+
+	restrictionStencilIndices(IsGlobalToGrid, IsGridToGlobal, IsResStencil, range, levels);
+
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isResStencil[%d]:",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start);
+//			for (int j=0;j<9;j++) { 
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d ",isRESSTENCIL(l-1,i-range[l].start,j));
+//			}
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
 //		}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	}
@@ -166,7 +182,7 @@ int main(int argc, char *argv[]) {
 	restrictStencil2D(&opIh2H, 3, 3);
 
 	MPI_Barrier(PETSC_COMM_WORLD);
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsStencil, rnorm, levels, n, &numIter);
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsStencil, IsResStencil, rnorm, levels, n, &numIter);
 	
 /**********************************************************************************/	
 /*
@@ -286,6 +302,9 @@ int main(int argc, char *argv[]) {
 	}
 //	
 //	free(ln);
+	for (int i=0;i<levels-1;i++) {
+		free(IsResStencil[i].data);
+	}
 	for (int i=0;i<levels;i++) {
 		free(IsStencil[i].data);
 		free(IsGlobalToGrid[i].data);
@@ -294,6 +313,7 @@ int main(int argc, char *argv[]) {
 	free(range);
 	free(IsGlobalToGrid);
 	free(IsGridToGlobal);
+	free(IsResStencil);
 	free(IsStencil);
 	free2dArray(&coord);
 	free(f);
@@ -414,12 +434,6 @@ void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, IsR
 		n0 = (n0-1)/2;
 		n1 = (n1-1)/2;
 	}
-//	if (rank<((n[0]-2)*(n[1]-2))%procs) {
-//		*ln = ((n[0]-2)*(n[1]-2))/procs + 1;
-//	}
-//	else {
-//		*ln = ((n[0]-2)*(n[1]-2))/procs;
-//	}
 	n0 = n[0]-2;
 	n1 = n[1]-2;
 	for (int i=0;i<levels;i++) {
@@ -445,26 +459,15 @@ void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, IsR
 			}
 		}
 	}
-//	for (int i=0;i<IsGridToGlobal->ni;i++) {
-//		for (int j=0;j<IsGridToGlobal->nj;j++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): %d\n",rank,i,j,PisGRIDtoGLOBAL(i,j));
-//		}
-//	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//
-//	for (int i=0;i<IsGlobalToGrid->ni;i++) {
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %d:(%d,%d)\n",rank,i,PisGLOBALtoGRID(i,0),PisGLOBALtoGRID(i,1));
-//	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels) {
-	// Maps global indices to grid unknowns and vice-versa
-	// 
+	// Maps a global index of point in a level to global indices of points in its stencil at that level
+	//
 	// IsGridToGlobal[level][i][j] = globalIndex
 	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
 	//
-	// n[0/1] - num of points in each dimension "0/1"
+	// levels - num of multigrid levels
 	// range[level].start - level global index start
 	// range[level].end   - (level global index end + 1) 
 	// IsStencil[level].data[i][j] - global indices of points (j) in stencil at point (i) in a given level
@@ -519,17 +522,48 @@ void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, Arra
 			isSTENCIL(l,itemp,2) = isGRIDtoGLOBAL(0,i0,j0); // Inserting fine grid global index instead of current level global index
 		}
 	}
-//	for (int i=0;i<IsGridToGlobal->ni;i++) {
-//		for (int j=0;j<IsGridToGlobal->nj;j++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: (%d,%d): %d\n",rank,i,j,PisGRIDtoGLOBAL(i,j));
-//		}
-//	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//
-//	for (int i=0;i<IsGlobalToGrid->ni;i++) {
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %d:(%d,%d)\n",rank,i,PisGLOBALtoGRID(i,0),PisGLOBALtoGRID(i,1));
-//	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
+void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels) {
+	// Maps a global index of point in a coarse level to global indices of points in its restriction stencil (likely from a fine grid level)
+	//
+	// IsGridToGlobal[level][i][j] = globalIndex
+	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+	//
+	// levels - num of multigrid levels
+	// range[level].start - level global index start
+	// range[level].end   - (level global index end + 1) 
+	// IsResStencil[level].data[i][j] - global indices of points (j) in restriction stencil at point (i) in a given level
+	
+	int	i0, j0, itemp, count;
+	int	stencilSize = 9; //Stencil size
+	int	n = 3; //stencil size per dimension
+
+	for (int i=1;i<levels;i++) {
+		IsResStencil[i-1].ni = range[i].end-range[i].start;
+		IsResStencil[i-1].nj = stencilSize;
+		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
+	}
+	
+	for (int l=1;l<levels;l++) {
+		for (int i=range[l].start;i<range[l].end;i++) {
+			
+			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+			i0 = isGLOBALtoGRID(l,i,0); // l-level grid x-index
+			j0 = isGLOBALtoGRID(l,i,1); // l-level grid y-index
+
+			i0 = 2*(i0+1)-1; // l-level grid x-index // knowledge of coarsening strategy used
+			j0 = 2*(j0+1)-1; // l-level grid y-index // knowledge of coarsening strategy used
+			itemp = i-range[l].start;
+			count = 0;
+			for (int id=-1;id<2;id++) {
+				for (int jd=-1;jd<2;jd++) {
+					isRESSTENCIL(l-1,itemp,count) = isGRIDtoGLOBAL(l-1,i0+id,j0+jd);
+					count = count + 1;
+				}
+			}
+		}
+	}
 }
 
 void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range) {

@@ -403,42 +403,47 @@ Mat prolongationMatrix(double **Is, int m, int nh, int nH) {
 	return matI;
 }
 
-Mat restrictionMatrixMPI(double **Is, int m, int nh, int nH) {
+Mat restrictionMatrixMPI(double **Is, int m, int lnh, ArrayInt2d IsResStencil) {
 	// Is	- stencil wise grid transfer operator of size m*m
-	// nh	- number of unknowns per dimension in fine grid "h"
-	// nH	- number of unknowns per dimension in coarse grid "H"
+	// lnh	- number of unknowns in the immediate higher level in this process
+	//
+	// IsResStencil[i][j=0:8]: i-global index at current level; 
+	// 			   j-global index of a point in restriction stencil
 	
 	Mat	matI;
-	int	rowStart, rowEnd, colStart, colEnd;
-	int	rank;
+	int	range[2];
+//	int	rank;
+	int	*col;
 
 	//MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh, &matI);
-	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh, 1, PETSC_NULL, 1, PETSC_NULL, &matI);
-//	MatCreate(PETSC_COMM_WORLD, &matI);
-//	MatSetType(matI,MATMPIAIJ);
-//	MatSetSizes(matI, PETSC_DECIDE, PETSC_DECIDE, nH*nH, nh*nh);
-//	MatSetFromOptions(matI);
-//	MatSetUp(matI);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	if (rank==0) {
-
-	for (int bj=0;bj<nH;bj++) {
-		colStart = bj*nH;
-		colEnd   = colStart+nH;
-		rowStart = (bj*nh)*((m+1)/2);
-		for (int bi=0;bi<m;bi++) {
-			for (int j=colStart;j<colEnd;j++) {
-				rowEnd  = rowStart + m;
-				for (int i=rowStart;i<rowEnd;i++) {
-					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
-				}
-				rowStart = rowStart + ((m+1)/2);
-			}
-			rowStart = rowEnd;
+	MatCreateAIJ(PETSC_COMM_WORLD, IsResStencil.ni, lnh, PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, &matI);
+	
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	if (rank==0) {
+	MatGetOwnershipRange(matI, range, range+1);
+	for (int i=range[0];i<range[1];i++) {
+		col = IsResStencil.data+((i-range[0])*IsResStencil.nj);
+		for (int j=0;j<IsResStencil.nj;j++) {
+			if (Is[j/3][j%3]!=0.0) MatSetValue(matI, i, col[j], Is[j/3][j%3], INSERT_VALUES);
 		}
 	}
+//	for (int bj=0;bj<nH;bj++) {
+//		colStart = bj*nH;
+//		colEnd   = colStart+nH;
+//		rowStart = (bj*nh)*((m+1)/2);
+//		for (int bi=0;bi<m;bi++) {
+//			for (int j=colStart;j<colEnd;j++) {
+//				rowEnd  = rowStart + m;
+//				for (int i=rowStart;i<rowEnd;i++) {
+//					if (Is[bi][i-rowStart]!=0.0) MatSetValue(matI, j, i, Is[bi][i-rowStart], INSERT_VALUES);
+//				}
+//				rowStart = rowStart + ((m+1)/2);
+//			}
+//			rowStart = rowEnd;
+//		}
+//	}
 	
-	}	
+//	}	
 	MatAssemblyBegin(matI, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
 	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
