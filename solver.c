@@ -247,7 +247,7 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
-void MultigridPetsc(Array2d u, Array2d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d *IsStencil, ArrayInt2d *IsResStencil, double *rnorm, int levels, int *fulln, int *m) {
+void MultigridPetsc(Array2d u, Array2d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d *IsStencil, ArrayInt2d *IsResStencil, ArrayInt2d *IsProStencil, IsRange *range, double *rnorm, int levels, int *fulln, int *m) {
 
 	int	v[2], n[levels];
 	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
@@ -282,9 +282,9 @@ void MultigridPetsc(Array2d u, Array2d metrics, double *f, double **opIH2h, doub
 	}
 
 	for (int l=0;l<levels-1;l++) {
-		restrictMatrix[l] =  restrictionMatrixMPI(opIh2H, 3, IsStencil[l].ni, IsResStencil[l]);
+		restrictMatrix[l] =  restrictionMatrixMPI(opIh2H, 3, range[l], range[l+1], IsResStencil[l]);
 //		restrictMatrix[l] =  restrictionMatrixMPI(opIh2H, 3, n[l], n[l+1]);
-		prolongMatrix[l] =  prolongationMatrixMPI(opIH2h, 3, n[l], n[l+1]);
+		prolongMatrix[l] =  prolongationMatrixMPI(opIH2h, 3, range[l], range[l+1], IsProStencil[l]);
 //		MatView(restrictMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
 //		MatView(prolongMatrix[l], PETSC_VIEWER_STDOUT_WORLD);
 	}

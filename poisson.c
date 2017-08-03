@@ -22,6 +22,7 @@
 #define isGLOBALtoGRID(l,i,j) (IsGlobalToGrid[l].data[((i)*IsGlobalToGrid[l].nj+(j))])
 #define isSTENCIL(l,i,j) (IsStencil[l].data[((i)*IsStencil[l].nj+(j))])
 #define isRESSTENCIL(l,i,j) (IsResStencil[l].data[((i)*IsResStencil[l].nj+(j))])
+#define isPROSTENCIL(l,i,j) (IsProStencil[l].data[((i)*IsProStencil[l].nj+(j))])
 //#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
 //#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
@@ -73,7 +74,7 @@ int main(int argc, char *argv[]) {
 	const 	int	*ranges;
 		IsRange	*range;
 	ArrayInt2d	*IsGlobalToGrid, *IsGridToGlobal;
-	ArrayInt2d	*IsStencil, *IsResStencil;
+	ArrayInt2d	*IsStencil, *IsResStencil, *IsProStencil;
 	
 //	KSP	solver;
 //	PC	pc;
@@ -146,6 +147,19 @@ int main(int argc, char *argv[]) {
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	}
 	
+	IsProStencil = IsResStencil; // Prolongation stencil is same as restriction stencil
+	
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isPROStencil[%d]:",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start);
+//			for (int j=0;j<9;j++) { 
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d ",isPROSTENCIL(l-1,i-range[l].start,j));
+//			}
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//		}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	}
+	
 	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 	ierr = MetricCoefficients2D(&metrics,coord,IsGlobalToGrid,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
@@ -182,7 +196,7 @@ int main(int argc, char *argv[]) {
 	restrictStencil2D(&opIh2H, 3, 3);
 
 	MPI_Barrier(PETSC_COMM_WORLD);
-	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsStencil, IsResStencil, rnorm, levels, n, &numIter);
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsStencil, IsResStencil, IsProStencil, range, rnorm, levels, n, &numIter);
 	
 /**********************************************************************************/	
 /*
@@ -565,6 +579,48 @@ void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToG
 		}
 	}
 }
+
+//void prolongationStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsProStencil, IsRange *range, int levels) {
+//	// Maps a global index of point in a coarse level to global indices of points in its prolongation stencil (likely from a fine grid level)
+//	//
+//	// IsGridToGlobal[level][i][j] = globalIndex
+//	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+//	//
+//	// levels - num of multigrid levels
+//	// range[level].start - level global index start
+//	// range[level].end   - (level global index end + 1) 
+//	// IsProStencil[level].data[i][j] - global indices of points (j) in prolongation stencil at point (i) in a given level
+//	
+//	int	i0, j0, itemp, count;
+//	int	stencilSize = 9; //Stencil size
+//	int	n = 3; //stencil size per dimension
+//
+//	for (int i=1;i<levels;i++) {
+//		IsProStencil[i-1].ni = range[i].end-range[i].start;
+//		IsProStencil[i-1].nj = stencilSize;
+//		IsProStencil[i-1].data = malloc(IsProStencil[i-1].ni*IsProStencil[i-1].nj*sizeof(int));
+//	}
+//	
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			
+//			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+//			i0 = isGLOBALtoGRID(l,i,0); // l-level grid x-index
+//			j0 = isGLOBALtoGRID(l,i,1); // l-level grid y-index
+//
+//			i0 = 2*(i0+1)-1; // l-level grid x-index // knowledge of coarsening strategy used
+//			j0 = 2*(j0+1)-1; // l-level grid y-index // knowledge of coarsening strategy used
+//			itemp = i-range[l].start;
+//			count = 0;
+//			for (int id=-1;id<2;id++) {
+//				for (int jd=-1;jd<2;jd++) {
+//					isRESSTENCIL(l-1,itemp,count) = isGRIDtoGLOBAL(l-1,i0+id,j0+jd);
+//					count = count + 1;
+//				}
+//			}
+//		}
+//	}
+//}
 
 void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range) {
 
