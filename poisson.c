@@ -26,6 +26,11 @@
 //#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
 //#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
+typedef struct {
+	int		ni;
+	ArrayInt2d	*grid; // uses local grid ID
+} MapGridToGlobal;
+
 //void GetFuncValues2d(double **coord, int *n, Array2d f);
 void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range);
 void GetError(double **coord, int *n, Array2d u, double *error);
@@ -73,7 +78,10 @@ int main(int argc, char *argv[]) {
 	
 	const 	int	*ranges;
 		IsRange	*range;
-	ArrayInt2d	*IsGlobalToGrid, *IsGridToGlobal;
+		IsRange	*gridId;
+	ArrayInt2d	*IsGlobalToGrid;
+//	ArrayInt2d	*IsGridToGlobal;
+	MapGridToGlobal	*IsGridToGlobal;
 	ArrayInt2d	*IsStencil, *IsResStencil, *IsProStencil;
 	
 //	KSP	solver;
@@ -414,6 +422,89 @@ void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, 
 			
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %f %f %f %f %f\n",rank,metrics[0],metrics[1],metrics[2],metrics[3],metrics[4]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
+void GridIdRange(int levels, int grids, IsRange *gridId) {
+	// Computes the gridId range of each level
+	
+	int q;
+
+	q = grids/levels;
+	for (int l=0;l<levels;l++) {
+		gridId[l].start = l*q;
+		gridId[l].end = (l+1)*q;
+	}
+}
+
+void CreateIsGridToGlobal(int *n, int levels, IsRange gridId, MapGridToGlobal *IsGridToGlobal) {
+	// Allocate memory to grid-to-global indices struct
+	
+	int	temp, lg;
+
+	(*IsGridToGlobal) = malloc(levels*sizeof(MapGridToGlobal));
+	
+	for (int l=0;l<levels;l++) {
+		(*IsGridToGlobal)[l].ni = gridId[l].end-gridId[l].start;
+		(*IsGridToGlobal)[l].grid = malloc((*IsGridToGlobal)[l].ni*sizeof(ArrayInt2d));
+	}
+
+	for (int l=0;l<levels;l++) {
+		for (int g=gridId[l].start;g<gridId[l].end;g++) {
+			temp = ipow(2,g);
+			lg = g-gridId[l].start;
+			CreateArrayInt2d((n[1]-1)/temp-1,(n[0]-1)/temp-1,(*IsGridToGlobal)[l].grid+lg);
+//			(*IsGridToGlobal)[l].grid[lg].ni = (n[1]-1)/temp - 1;
+//			(*IsGridToGlobal)[l].grid[lg].nj = (n[0]-1)/temp - 1;
+//			(*IsGridToGlobal)[l].grid[lg].data = malloc(IsGridToGlobal[l].gridId[lg].ni*IsGridToGlobal[l].gridId[lg].nj*sizeof(int));if (IsGridToGlobal[l].gridId[lg].data==NULL) ERROR_MSG("malloc failed");
+		}
+	}
+}
+
+void DeleteIsGridToGlobal(int levels, MapGridToGlobal *IsGridToGlobal) {
+	// Free memory of grid-to-global indices struct
+	
+	for (int l=0;l<levels;l++) {
+		for (int g=0;g<(*IsGridToGlobal)[l].ni;g++) {
+			DeleteArrayInt2d((*IsGridToGlobal)[l].grid+g);
+//			free((*IsGridToGlobal)[l].grid[g].data);
+		}
+		free((*IsGridToGlobal)[l].grid);
+	}
+	free(*IsGridToGlobal);
+}
+
+void Range(int *n, IsRange *gridId, int levels, IsRange *range) {
+	// Computes the range of global indices in this process for all levels	
+	//
+	// range[level].start = Starting global index in level
+	// range[level].end = 1+(ending global index) in level
+	
+	int	remainder, quotient;
+	int	procs, rank;
+	int	totaln, temp, n0, n1;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	for (int l=0;l<levels;l++) {
+		totaln = 0;
+		for (int g=gridId[l].start;g<gridId[l].end;g++) {
+			temp = ipow(2,g);
+			n0 = (n[0]-1)/temp - 1;
+			n1 = (n[0]-1)/temp - 1;
+			totaln = totaln + n0*n1; 
+		}
+		remainder = (totaln)%procs;
+		quotient  = (totaln)/procs;
+		if (rank<remainder) {
+			range[l].start = rank*(quotient + 1);
+			range[l].end = range[l].start + (quotient + 1);
+		}
+		else {
+			range[l].start = rank*quotient + remainder;
+			range[l].end = range[l].start + quotient;
+		}
+	}
 }
 
 void mapping(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, int *n, IsRange *range, int levels) {

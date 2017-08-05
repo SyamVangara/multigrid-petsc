@@ -50,6 +50,8 @@ typedef struct {
 
 // Function prototypes
 
+void CreateArrayInt2d(int ni, int nj, ArrayInt2d *a);
+void DeleteArrayInt2d(ArrayInt2d *a); 
 extern int malloc2d(double ***a, int n, int m);
 extern int malloc3d(double ****a, int p, int q, int r);
 extern int malloc2dY(double ***a, int n, int *m);
