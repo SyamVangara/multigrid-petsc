@@ -55,27 +55,6 @@ void insertSubVecValues(Vec *subV, Vec *V, int i0) {
 	VecRestoreArray(*subV, &vals);
 }
 
-void OpA(double *A, double *metrics, double *h) {
-	//Computes the coefficients
-	//
-	//i - row    - y coord
-	//j - column - x coord
-	//A[0]*u(i,j-1) + A[1]*u(i-1,j) + A[2]*u(i,j) + A[3]*u(i+1,j) + A[4]*u(i,j+1) = f(i,j)
-	//
-	//metrics[5]	- metrics at a point
-	//h[2]		- mesh width in computational domain in each direction
-	
-	double hy2, hx2;
-	
-	hx2 = h[0]*h[0];
-	hy2 = h[1]*h[1];
-	A[0] = (metrics[1]/hy2) - (metrics[3]/(2*h[1]));
-	A[1] = (metrics[0]/hx2) - (metrics[2]/(2*h[0]));
-	A[2] = -2.0*((metrics[0]/hx2) + (metrics[1]/hy2));
-	A[3] = (metrics[0]/hx2) + (metrics[2]/(2*h[0]));
-	A[4] = (metrics[1]/hy2) + (metrics[3]/(2*h[1]));
-}
-
 Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
 	// Builds matrix "A" at a given multigrid level
 	// metrics	- metric terms in global index array

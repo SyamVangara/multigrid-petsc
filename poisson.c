@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
 //	DeleteIsGridToGlobal(levels, &IsGridToGlobal); 
 //	DeleteIsGlobalToGrid(levels, &IsGlobalToGrid);
 
-	stencilIndices(IsGlobalToGrid, IsGridToGlobal, IsStencil, range, levels);
+//	stencilIndices(IsGlobalToGrid, IsGridToGlobal, IsStencil, range, levels);
 
 //	for (int l=0;l<levels;l++) {
 //		for (int i=range[l].start;i<range[l].end;i++) {
@@ -216,8 +216,8 @@ int main(int argc, char *argv[]) {
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	}
 	
-//	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
-//	ierr = MetricCoefficients2D(&metrics,coord,IsGlobalToGrid,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
+	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
+//	ierr = MetricCoefficients2D(&metrics,coord,map.level[0].,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics.ni = %d, metrics.nj = %d\n",rank,metrics.ni,metrics.nj);
 //	for (int i=range[0];i<range[1];i++) {
@@ -424,57 +424,6 @@ PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm
 	return 0;
 }
 
-double TransformFunc(double *bounds, double length, double xi) {
-	//Transformation function from computational to physical space
-	//
-	//bounds - lower and upper bounds of physical coordinate
-	//length = (bounds[1]-bounds[0])
-	//
-	//x or y = T(xi)
-	
-	double val;
-//	val = bounds[1]-length*(cos(PI*0.5*xi));
-	val = xi;
-	return val;
-}
-
-void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y) {
-	//Computes following metrics at (x,y)
-	//
-	//metrics[0] = (xi_x)^2 + (xi_y)^2
-	//metrics[1] = (eta_x)^2 + (eta_y)^2
-	//metrics[2] = (xi_xx) + (xi_yy)
-	//metrics[3] = (eta_xx) + (eta_yy)
-	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
-	//
-	//bounds[0] - Lower bound of "x"
-	//bounds[1] - Upper bound of "x"
-	//bounds[2] - Lower bound of "y"
-	//bounds[3] - Upper bound of "y"
-	//
-	//lengths[0] = bounds[1] - bounds[0]
-	//lengths[1] = bounds[3] - bounds[2]
-	double	temp;
-//	int	procs, rank;
-//
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-
-	temp = (lengths[1]*lengths[1]-(bounds[3]-y)*(bounds[3]-y));
-//	metrics[0] = 1.0;
-//	metrics[1] = 4.0/(PI*PI*temp);
-//	metrics[2] = 0.0;
-//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-//	metrics[4] = 0.0;
-	metrics[0] = 1.0;
-	metrics[1] = 1.0;
-	metrics[2] = 0.0;
-	metrics[3] = 0.0; 
-	metrics[4] = 0.0;
-			
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: %f %f %f %f %f\n",rank,metrics[0],metrics[1],metrics[2],metrics[3],metrics[4]);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
 
 void GridIdRange(int levels, int grids, IsRange *gridId) {
 	// Computes the gridId range of each level
@@ -625,120 +574,120 @@ void mapping(IndexMaps map, IsRange *gridId, int levels) {
 	}
 }
 
-void stencilIndices(IndexMaps map, ArrayInt2d *IsStencil, IsRange *range, IsRange *gridId, int levels) {
-	// Maps a global index of point in a level to global indices of points in its stencil at that level
-	//
-	// IsGridToGlobal[level][i][j] = globalIndex
-	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
-	//
-	// levels - num of multigrid levels
-	// range[level].start - level global index start
-	// range[level].end   - (level global index end + 1) 
-	// IsStencil[level].data[i][j] - global indices of points (j) in stencil at point (i) in a given level
-	
-	int	i0, j0, g0, itemp;
-	int	stencilSize = 5; //Stencil size
-	double	*a, *b;
-	int	aj, bj;
-
-	for (int i=0;i<levels;i++) {
-		IsStencil[i].ni = range[i].end-range[i].start;
-		IsStencil[i].nj = stencilSize;
-		IsStencil[i].data = malloc(IsStencil[i].ni*IsStencil[i].nj*sizeof(int));
-	}
-	
-	for (int l=0;l<map.levels;l++) {
-		a  = map.level[l].global.data;
-		aj = map.level[l].global.nj;
-		for (int i=range[l].start;i<range[l].end;i++) {
-			//i0 - row    - y coord
-			//j0 - column - x coord
-			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
-//			i0 = isGLOBALtoGRID(l,i,0);
-//			j0 = isGLOBALtoGRID(l,i,1);
-			i0 = a[i*aj];
-			j0 = a[i*aj+1];
-			g0 = a[i*aj+2]-gridId[l].start;
-
-			b  = map.level[l].grid[g0].data;
-			bj = map.level[l].grid[g0].nj;
-			itemp = i-range[l].start;
-			if (i0-1<0) {
-				isSTENCIL(l,itemp,0) = -1; 
-			}
-			else {
-				isSTENCIL(l,itemp,0) = b[(i0-1)*bj+j0];//isGRIDtoGLOBAL(l,i0-1,j0); 
-			}
-
-			if (j0-1<0) {
-				isSTENCIL(l,itemp,1) = -1; 
-			}
-			else {
-				isSTENCIL(l,itemp,1) = b[(i0)*bj+j0-1];//isGRIDtoGLOBAL(l,i0,j0-1); 
-			}
-
-			if (j0+1>IsGridToGlobal[l].nj-1) {
-				isSTENCIL(l,itemp,3) = -1; 
-			}
-			else {
-				isSTENCIL(l,itemp,3) = b[(i0)*bj+j0+1];//isGRIDtoGLOBAL(l,i0,j0+1); 
-			}
-
-			if (i0+1>IsGridToGlobal[l].ni-1) {
-				isSTENCIL(l,itemp,4) = -1;
-			}
-			else {
-				isSTENCIL(l,itemp,4) = b[(i0+1)*bj+j0];//isGRIDtoGLOBAL(l,i0+1,j0);
-			}
-			
-			i0 = ipow(2,l)*(i0+1)-1; // fine grid index // knowledge of coarsening strategy used
-			j0 = ipow(2,l)*(j0+1)-1; // fine grid index // knowledge of coarsening strategy used
-			isSTENCIL(l,itemp,2) = b[(i0)*bj+j0];//isGRIDtoGLOBAL(0,i0,j0); // Inserting fine grid global index instead of current level global index
-		}
-	}
-}
-
-void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels) {
-	// Maps a global index of point in a coarse level to global indices of points in its restriction stencil (likely from a fine grid level)
-	//
-	// IsGridToGlobal[level][i][j] = globalIndex
-	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
-	//
-	// levels - num of multigrid levels
-	// range[level].start - level global index start
-	// range[level].end   - (level global index end + 1) 
-	// IsResStencil[level].data[i][j] - global indices of points (j) in restriction stencil at point (i) in a given level
-	
-	int	i0, j0, itemp, count;
-	int	stencilSize = 9; //Stencil size
-	int	n = 3; //stencil size per dimension
-
-	for (int i=1;i<levels;i++) {
-		IsResStencil[i-1].ni = range[i].end-range[i].start;
-		IsResStencil[i-1].nj = stencilSize;
-		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
-	}
-	
-	for (int l=1;l<levels;l++) {
-		for (int i=range[l].start;i<range[l].end;i++) {
-			
-			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
-			i0 = isGLOBALtoGRID(l,i,0); // l-level grid x-index
-			j0 = isGLOBALtoGRID(l,i,1); // l-level grid y-index
-
-			i0 = 2*(i0+1)-1; // l-level grid x-index // knowledge of coarsening strategy used
-			j0 = 2*(j0+1)-1; // l-level grid y-index // knowledge of coarsening strategy used
-			itemp = i-range[l].start;
-			count = 0;
-			for (int id=-1;id<2;id++) {
-				for (int jd=-1;jd<2;jd++) {
-					isRESSTENCIL(l-1,itemp,count) = isGRIDtoGLOBAL(l-1,i0+id,j0+jd);
-					count = count + 1;
-				}
-			}
-		}
-	}
-}
+//void stencilIndices(IndexMaps map, ArrayInt2d *IsStencil, IsRange *range, IsRange *gridId, int levels) {
+//	// Maps a global index of point in a level to global indices of points in its stencil at that level
+//	//
+//	// IsGridToGlobal[level][i][j] = globalIndex
+//	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+//	//
+//	// levels - num of multigrid levels
+//	// range[level].start - level global index start
+//	// range[level].end   - (level global index end + 1) 
+//	// IsStencil[level].data[i][j] - global indices of points (j) in stencil at point (i) in a given level
+//	
+//	int	i0, j0, g0, itemp;
+//	int	stencilSize = 5; //Stencil size
+//	double	*a, *b;
+//	int	aj, bj;
+//
+//	for (int i=0;i<levels;i++) {
+//		IsStencil[i].ni = range[i].end-range[i].start;
+//		IsStencil[i].nj = stencilSize;
+//		IsStencil[i].data = malloc(IsStencil[i].ni*IsStencil[i].nj*sizeof(int));
+//	}
+//	
+//	for (int l=0;l<map.levels;l++) {
+//		a  = map.level[l].global.data;
+//		aj = map.level[l].global.nj;
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			//i0 - row    - y coord
+//			//j0 - column - x coord
+//			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+////			i0 = isGLOBALtoGRID(l,i,0);
+////			j0 = isGLOBALtoGRID(l,i,1);
+//			i0 = a[i*aj];
+//			j0 = a[i*aj+1];
+//			g0 = a[i*aj+2]-gridId[l].start;
+//
+//			b  = map.level[l].grid[g0].data;
+//			bj = map.level[l].grid[g0].nj;
+//			itemp = i-range[l].start;
+//			if (i0-1<0) {
+//				isSTENCIL(l,itemp,0) = -1; 
+//			}
+//			else {
+//				isSTENCIL(l,itemp,0) = b[(i0-1)*bj+j0];//isGRIDtoGLOBAL(l,i0-1,j0); 
+//			}
+//
+//			if (j0-1<0) {
+//				isSTENCIL(l,itemp,1) = -1; 
+//			}
+//			else {
+//				isSTENCIL(l,itemp,1) = b[(i0)*bj+j0-1];//isGRIDtoGLOBAL(l,i0,j0-1); 
+//			}
+//
+//			if (j0+1>IsGridToGlobal[l].nj-1) {
+//				isSTENCIL(l,itemp,3) = -1; 
+//			}
+//			else {
+//				isSTENCIL(l,itemp,3) = b[(i0)*bj+j0+1];//isGRIDtoGLOBAL(l,i0,j0+1); 
+//			}
+//
+//			if (i0+1>IsGridToGlobal[l].ni-1) {
+//				isSTENCIL(l,itemp,4) = -1;
+//			}
+//			else {
+//				isSTENCIL(l,itemp,4) = b[(i0+1)*bj+j0];//isGRIDtoGLOBAL(l,i0+1,j0);
+//			}
+//			
+//			i0 = ipow(2,l)*(i0+1)-1; // fine grid index // knowledge of coarsening strategy used
+//			j0 = ipow(2,l)*(j0+1)-1; // fine grid index // knowledge of coarsening strategy used
+//			isSTENCIL(l,itemp,2) = b[(i0)*bj+j0];//isGRIDtoGLOBAL(0,i0,j0); // Inserting fine grid global index instead of current level global index
+//		}
+//	}
+//}
+//
+//void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels) {
+//	// Maps a global index of point in a coarse level to global indices of points in its restriction stencil (likely from a fine grid level)
+//	//
+//	// IsGridToGlobal[level][i][j] = globalIndex
+//	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+//	//
+//	// levels - num of multigrid levels
+//	// range[level].start - level global index start
+//	// range[level].end   - (level global index end + 1) 
+//	// IsResStencil[level].data[i][j] - global indices of points (j) in restriction stencil at point (i) in a given level
+//	
+//	int	i0, j0, itemp, count;
+//	int	stencilSize = 9; //Stencil size
+//	int	n = 3; //stencil size per dimension
+//
+//	for (int i=1;i<levels;i++) {
+//		IsResStencil[i-1].ni = range[i].end-range[i].start;
+//		IsResStencil[i-1].nj = stencilSize;
+//		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
+//	}
+//	
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			
+//			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+//			i0 = isGLOBALtoGRID(l,i,0); // l-level grid x-index
+//			j0 = isGLOBALtoGRID(l,i,1); // l-level grid y-index
+//
+//			i0 = 2*(i0+1)-1; // l-level grid x-index // knowledge of coarsening strategy used
+//			j0 = 2*(j0+1)-1; // l-level grid y-index // knowledge of coarsening strategy used
+//			itemp = i-range[l].start;
+//			count = 0;
+//			for (int id=-1;id<2;id++) {
+//				for (int jd=-1;jd<2;jd++) {
+//					isRESSTENCIL(l-1,itemp,count) = isGRIDtoGLOBAL(l-1,i0+id,j0+jd);
+//					count = count + 1;
+//				}
+//			}
+//		}
+//	}
+//}
 
 //void prolongationStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsProStencil, IsRange *range, int levels) {
 //	// Maps a global index of point in a coarse level to global indices of points in its prolongation stencil (likely from a fine grid level)

@@ -12,6 +12,62 @@
 //#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
 //#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
+double TransformFunc(double *bounds, double length, double xi) {
+	//Transformation function from computational to physical space
+	//
+	//bounds - lower and upper bounds of physical coordinate
+	//length = (bounds[1]-bounds[0])
+	//
+	//x or y = T(xi)
+	
+	double val;
+//	val = bounds[1]-length*(cos(PI*0.5*xi));
+	val = xi;
+	return val;
+}
+
+void MetricsUniform(Mesh *mesh, double x, double y, double *metrics) {
+	//Computes following metrics at (x,y)
+	//
+	//metrics[0] = (xi_x)^2 + (xi_y)^2
+	//metrics[1] = (eta_x)^2 + (eta_y)^2
+	//metrics[2] = (xi_xx) + (xi_yy)
+	//metrics[3] = (eta_xx) + (eta_yy)
+	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+	
+	metrics[0] = 1.0;
+	metrics[1] = 1.0;
+	metrics[2] = 0.0;
+	metrics[3] = 0.0; 
+	metrics[4] = 0.0;
+}
+
+void MetricsNonUniform(Mesh *mesh, double x, double y, double *metrics) {
+	//Computes following metrics at (x,y)
+	//
+	//metrics[0] = (xi_x)^2 + (xi_y)^2
+	//metrics[1] = (eta_x)^2 + (eta_y)^2
+	//metrics[2] = (xi_xx) + (xi_yy)
+	//metrics[3] = (eta_xx) + (eta_yy)
+	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+	//
+	//bounds[0] - Lower bound of "x"
+	//bounds[1] - Upper bound of "x"
+	//bounds[2] - Lower bound of "y"
+	//bounds[3] - Upper bound of "y"
+	
+	double	temp;
+	double	*bounds;
+
+	bounds = mesh->bounds;
+	temp = ((bounds[3]-bounds[2])*(bounds[3]-bounds[2])-(bounds[3]-y)*(bounds[3]-y));
+	metrics[0] = 1.0;
+	metrics[1] = 4.0/(PI*PI*temp);
+	metrics[2] = 0.0;
+	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
+	metrics[4] = 0.0;
+}
+
 int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension) {
 	
 	int ierr = 0;
@@ -33,57 +89,65 @@ int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimensi
 	return ierr;
 }
 
-int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dimension, double (*Transform)(double *bounds, double length, double xi) ) {
+void Coords(Mesh mesh, MeshType type) {
+	// computes coords in each direction of the structured grid
+	//
+	// MeshType type: {UNIFORM, NONUNIFORM}
 	
 	int	ierr = 0;
-	double	length, d[dimension];
+	double	length, d[DIMENSION];
+
+	int	*n;
+	double	**coord, *bounds;
 	
-	//Assign memory
-	ierr = malloc2dY(pcoord,dimension,n); CHKERR_RETURN("malloc failed");
-	//Compute uniform grid in each dimension
+	n 	= mesh->n;
+	bounds	= mesh->bounds;
+	coord	= mesh->coord;
 	for(int i=0;i<1;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
-		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		coord[i][0] = bounds[i*2]; //Lower bound
+		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
-		d[i] = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
+		d[i] = (coord[i][n[i]-1]-coord[i][0])/(n[i]-1); //Spacing
 		for(int j=1;j<n[i]-1;j++){
-			(*pcoord)[i][j] = (*pcoord)[i][j-1] + d[i];
+			coord[i][j] = coord[i][j-1] + d[i];
 		}
 	}
 
 	for(int i=1;i<2;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
-		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		coord[i][0] = bounds[i*2]; //Lower bound
+		pcoord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
-		length = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0]);
+		length = (coord[i][n[i]-1]-coord[i][0]);
 		d[i] = 0.0;
 		for(int j=1;j<n[i]-1;j++){
-			(*pcoord)[i][j] = (*Transform)(&(bounds[i*2]), length, j/(double)(n[i]-1));
-			d[i] = fmax(d[i],fabs((*pcoord)[i][j]-(*pcoord)[i][j-1])); 
+			if(type == NONUNIFORM) coord[i][j] = bounds[i*2+1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
+			if(type == UNIFORM) coord[i][j] = (j/(double)(n[i]-1));
+//			coord[i][j] = (*Transform)(&(bounds[i*2]), length, j/(double)(n[i]-1));
+			d[i] = fmax(d[i],fabs(coord[i][j]-coord[i][j-1])); 
 		}
-		d[i] = fmax(d[i],fabs((*pcoord)[i][n[i]-2]-(*pcoord)[i][n[i]-1])); 
+		d[i] = fmax(d[i],fabs(coord[i][n[i]-2]-coord[i][n[i]-1])); 
 	}
 
 	for(int i=2;i<dimension;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
-		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		coord[i][0] = bounds[i*2]; //Lower bound
+		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
-		d[i] = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
+		d[i] = (coord[i][n[i]-1]-coord[i][0])/(n[i]-1); //Spacing
 		for(int j=1;j<n[i]-1;j++){
-			(*pcoord)[i][j] = (*pcoord)[i][j-1] + d[i];
+			coord[i][j] = coord[i][j-1] + d[i];
 		}
 	}
 	
-	*h = 0.0;
+	mesh->h = 0.0;
 	for (int i=0;i<dimension;i++){
-		*h = *h + d[i]*d[i];
+		mesh->h += d[i]*d[i];
 	}
-	*h = sqrt(*h);
+	mesh->h = sqrt(mesh->h);
 
-	return ierr;
+//	return ierr;
 }
 
 int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalToGrid, IsRange *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
@@ -106,18 +170,10 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	int	ierr = 0;
 	int	range0[2];
 
-//	int	procs, rank;
-//	
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-
-//	ierr = malloc3d(metrics, n[1]-2, n[0]-2, 5); CHKERR_RETURN("malloc failed");
-	
 	range0[0] = range[0].start;	
 	range0[1] = range[0].end;	
 	metrics->ni = range0[1]-range0[0];
 	metrics->nj = 5;
-//	metrics->indices = malloc(metrics->ni*metrics->nj*sizeof(int));if (metrics->indices==NULL) ERROR_MSG("malloc failed");
 	metrics->data = malloc(metrics->ni*metrics->nj*sizeof(double));if (metrics->data==NULL) ERROR_MSG("malloc failed");
 
 	for(int i=0;i<dimension;i++) {
@@ -129,17 +185,24 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 		jgrid = isGLOBALtoGRID(0,i,1);
 		(*MetricCoefficientsFunc)(((metrics->data)+((i-range0[0])*metrics->nj)),bounds,lengths,coord[0][jgrid+1],coord[1][igrid+1]);
 	}
-//	for(int i=0;i<metrics->ni;i++) {
-////	for(int i=1;i<2;i++) {
-//		for(int j=0;j<metrics->nj;j++) {
-//			(*MetricCoefficientsFunc)(((metrics->data)+(metrics->nk*(i*metrics->nj+j))),bounds,lengths,coord[0][j+1],coord[1][i+1]);
-//		}
-//	}
-
-//	for (int i=0;i<metrics->ni;i++) {
-//		for (int j=0;j<metrics->nj;j++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics[%d][%d]: %f %f %f %f %f\n",rank,i,j,METRICS(i,j,0),METRICS(i,j,1),METRICS(i,j,2),METRICS(i,j,3),METRICS(i,j,4));
-//		}
-//	}
+	
 	return ierr;
+}
+
+void SetUpMesh(Mesh &mesh, MeshType type) {
+	// Allocates memory
+	// Computes coords of a structured mesh
+	// Assigns metric coefficients computing function
+	
+	malloc2dY(&(mesh->coord),DIMENSION,mesh->n); CHKERR_RETURN("malloc failed");
+	Coords(Mesh mesh, MeshType type);
+	if (type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
+	if (type == NONUNIFORM) mesh->MetricCoefficients = &MetricsNonUniform;
+}
+
+void DestroyMesh(Mesh &mesh) {
+	// Deallocates memory
+	
+	if (mesh->coord != NULL) free2dArray(&(mesh->coord));
+
 }

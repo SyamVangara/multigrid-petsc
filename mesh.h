@@ -11,11 +11,21 @@
 #include <petscksp.h>
 
 #include "array.h"
+#include "problem.h"
 
-extern int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension);
+#define PI 3.14159265358979323846
+#define DIMENSION 2
 
-extern int NonUniformMeshY(double ***pcoord, int *n, double *bounds, double *h, int dimension, double (*Transform)(double *bounds, double range, double s) );
+typedef enum {UNIFORM, NONUNIFORM} MeshType;
 
-int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalToGrid, IsRange *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y));
+typedef struct {
+	int	n[DIMENSION];
+	double	bounds[DIMENSIONS*2];
+	double	**coord;
+	double	h;
+	void	(*MetricCoefficients)(Mesh *mesh, double x, double y, double *metrics);
+} Mesh;
 
+void SetUpMesh(Mesh &mesh, MeshType type);
+void DestroyMesh(Mesh &mesh);
 #endif
