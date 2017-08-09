@@ -48,55 +48,49 @@ typedef struct {
 	StencilLevel	*level;
 } StencilIndices;
 
-//void GetFuncValues2d(double **coord, int *n, Array2d f);
 void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range);
 void GetError(double **coord, int *n, Array2d u, double *error);
 void UpdateBC(double **coord, double *u, int *n);
-//void OpA(double *A, double *metrics, double *h);
 static int ipow(int base, int exp);
 void CreateArrayOfIS(int n, int levels, IS *idx);
-//void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i, int j);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
-//void insertSubVecValues(Vec *subV, Vec *V, int i0);
 int totalUnknowns(int *n, int levels);
 static void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
-//void GetSol(double **u, double *px, int *n);
-double TransformFunc(double *bounds, double length, double xi);
-void MetricCoefficientsFunc2D(double *metrics, double *bounds, double *lengths, double x, double y);
 PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
 void mapping(IndexMaps map, IsRange *gridId, int levels);
-//void mapping(ArrayInt2d *IsGlobalToGrid, MapGridToGlobal *IsGridToGlobal, IsRange *gridId, int levels);
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
 void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
 void GridIdRange(int levels, int grids, IsRange *gridId);
 void CreateIndexMaps(int *n, int levels, IsRange *gridId, IndexMaps *map);
 void DeleteIndexMaps(IndexMaps *map);
-//void CreateIsGridToGlobal(int *n, int levels, IsRange *gridId, MapGridToGlobal **IsGridToGlobal); 
-//void DeleteIsGridToGlobal(int levels, MapGridToGlobal **IsGridToGlobal); 
-//void CreateIsGlobalToGrid(int *n, int levels, IsRange *gridId, ArrayInt2d **IsGlobalToGrid);
-//void DeleteIsGlobalToGrid(int levels, ArrayInt2d **IsGlobalToGrid);
 void Range(int *n, IsRange *gridId, int levels, IsRange *range); 
 
 int main(int argc, char *argv[]) {
 	
+	PetscInitialize(&argc, &argv, 0, 0);
+
+	Problem	prob;
+	Mesh	mesh;
+	
+	int	ierr=0, levels, grids, numIter;
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	SetUpProblem(&prob);
+	
+/*
 	//double	weight=(2.0/3.0);
-	int	n[DIMENSION], ierr=0, levels, grids, numIter;
-	double	**coord;
-	double	h, bounds[DIMENSION*2];
-//	Array3d	metrics;
+	int	ierr=0, levels, grids, numIter;
 	Array2d	metrics;
-//	double	*metrics;
-	double	*f;
-//	double	*u;
 	double	error[3], As[5], *px, *rnorm;
-//	Array2d	f;
 	Array2d	u;
 	double	**opIH2h, **opIh2H;
 	FILE	*solData, *errData, *resData;
 	
 	int	ln; //number of local unknowns
-//	int	ltbn; //number of local boundary points
 
 	int	procs, rank;
 	int	rowStart, rowEnd;
@@ -113,36 +107,59 @@ int main(int argc, char *argv[]) {
 //	Mat	A;
 //	Vec	b, x;
 	
-	PetscInitialize(&argc, &argv, 0, 0);
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
+*/	
 	freopen("poisson.in", "r", stdin);
 //	freopen("poisson.out", "w", stdout);
 //	freopen("poisson.err", "w", stderr);
 	
 	MPI_Barrier(PETSC_COMM_WORLD);
-	scanf("%d",n);	
+	scanf("%d",mesh.n);	
 	scanf("%d",&numIter);
 	scanf("%d",&grids);
 	levels = grids;
 	
 	for (int i=1;i<DIMENSION;i++) { 
-		n[i]  = n[0];      // No. of points in each dimension
+		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
 	}
 	for (int i=0;i<DIMENSION;i++) {
-		bounds[i*2] = 0.0;    // Lower bound in each dimension
-		bounds[i*2+1] = 1.0;  // Upper bound in each dimension
+		mesh.bounds[i*2] = 0.0;    // Lower bound in each dimension
+		mesh.bounds[i*2+1] = 1.0;  // Upper bound in each dimension
 	}
+	
+
+//	SetUpMesh(&mesh, UNIFORM);
+	SetUpMesh(&mesh, NONUNIFORM);
+	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: n[0] = %d, n[1] = %d\n", rank, mesh.n[0], mesh.n[1]);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: bounds[0:1] = %f, %f; bounds[2:3] = %f, %f\n", rank, mesh.bounds[0], mesh.bounds[1], mesh.bounds[2], mesh.bounds[3]);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: h = %f\n", rank, mesh.h);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	
+//	for (int i;i<DIMENSION;i++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: coord[%d]:",rank,i);
+//		for (int j=0;j<mesh.n[i];j++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
+//		}
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+
+	DestroyMesh(&mesh);
 	
 //	IsStencil = malloc(levels*sizeof(ArrayInt2d));
 //	IsResStencil = malloc(levels*sizeof(ArrayInt2d));
-	range = malloc(levels*sizeof(IsRange));
-	gridId = malloc(levels*sizeof(IsRange));
+//	range = malloc(levels*sizeof(IsRange));
+//	gridId = malloc(levels*sizeof(IsRange));
 	// Indices maps; number of local unknowns	
 
-	GridIdRange(levels, grids, gridId);
+//	GridIdRange(levels, grids, gridId);
 
 //	for (int l=0;l<levels;l++) {
 //		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: gridId.start = %d, gridId.end = %d\n",rank,l,gridId[l].start,gridId[l].end);
@@ -155,8 +172,8 @@ int main(int argc, char *argv[]) {
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 
-	CreateIndexMaps(n, levels, gridId, &map);
-	mapping(map, gridId, levels);
+//	CreateIndexMaps(n, levels, gridId, &map);
+//	mapping(map, gridId, levels);
 
 //	ln = range[1]-range[0];
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: from %d to %d; local unknowns = %d\n",rank,range[0],range[1]-1,range[1]-range[0]);
@@ -216,7 +233,7 @@ int main(int argc, char *argv[]) {
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //	}
 	
-	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
+//	ierr = NonUniformMeshY(&coord,n,bounds,&h,DIMENSION,&TransformFunc); CHKERR_PRNT("meshing failed");
 //	ierr = MetricCoefficients2D(&metrics,coord,map.level[0].,range,bounds,DIMENSION,&MetricCoefficientsFunc2D); CHKERR_PRNT("Metrics computation failed");
 	
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: metrics.ni = %d, metrics.nj = %d\n",rank,metrics.ni,metrics.nj);
@@ -391,9 +408,9 @@ int main(int argc, char *argv[]) {
 	free2dArray(&opIH2h);	
 	free2dArray(&opIh2H);
 */
-	DeleteIndexMaps(&map);
-	free(range);
-	free(gridId);
+//	DeleteIndexMaps(&map);
+//	free(range);
+//	free(gridId);
 	PetscFinalize();
 /*
 	if (rank==0) {
@@ -437,37 +454,37 @@ void GridIdRange(int levels, int grids, IsRange *gridId) {
 	}
 }
 
-void CreateStencilIndices(int *n, int levels, IsRange *range, StencilIndices &indices) {
-	// Allocate memory to grid-to-global indices struct
-	
-	int	temp, lg;
-	int	totaln, n0, n1;
-	int	stencilSize = 5;
-
-	(*indices).levels = levels;
-	(*indices).level = malloc((*indices).levels*sizeof(StencilLevel));
-	for (int l=0;l<((*indices).levels);l++) {
-		CreateArrayInt2d(range[i].end-range[i].start, stencilSize, &((*indices).level[l].stencil));
-	}
-	
-		IsResStencil[i-1].ni = range[i].end-range[i].start;
-		IsResStencil[i-1].nj = stencilSize;
-		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
-}
-
-void DeleteStencilIndices( *map) {
-	// Free memory of grid-to-global indices struct
-	
-	for (int l=0;l<(*map).levels;l++) {
-		for (int g=0;g<(*map).level[l].grids;g++) {
-			DeleteArrayInt2d((*map).level[l].grid+g);
-//			free((*IsGridToGlobal)[l].grid[g].data);
-		}
-		free((*map).level[l].grid);
-		DeleteArrayInt2d(&((*map).level[l].global));
-	}
-	free((*map).level);
-}
+//void CreateStencilIndices(int *n, int levels, IsRange *range, StencilIndices &indices) {
+//	// Allocate memory to grid-to-global indices struct
+//	
+//	int	temp, lg;
+//	int	totaln, n0, n1;
+//	int	stencilSize = 5;
+//
+//	(*indices).levels = levels;
+//	(*indices).level = malloc((*indices).levels*sizeof(StencilLevel));
+//	for (int l=0;l<((*indices).levels);l++) {
+//		CreateArrayInt2d(range[i].end-range[i].start, stencilSize, &((*indices).level[l].stencil));
+//	}
+//	
+//		IsResStencil[i-1].ni = range[i].end-range[i].start;
+//		IsResStencil[i-1].nj = stencilSize;
+//		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
+//}
+//
+//void DeleteStencilIndices( *map) {
+//	// Free memory of grid-to-global indices struct
+//	
+//	for (int l=0;l<(*map).levels;l++) {
+//		for (int g=0;g<(*map).level[l].grids;g++) {
+//			DeleteArrayInt2d((*map).level[l].grid+g);
+////			free((*IsGridToGlobal)[l].grid[g].data);
+//		}
+//		free((*map).level[l].grid);
+//		DeleteArrayInt2d(&((*map).level[l].global));
+//	}
+//	free((*map).level);
+//}
 
 void CreateIndexMaps(int *n, int levels, IsRange *gridId, IndexMaps *map) {
 	// Allocate memory to grid-to-global indices struct

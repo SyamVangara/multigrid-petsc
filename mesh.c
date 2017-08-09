@@ -26,7 +26,7 @@ double TransformFunc(double *bounds, double length, double xi) {
 	return val;
 }
 
-void MetricsUniform(Mesh *mesh, double x, double y, double *metrics) {
+void MetricsUniform(void *mesh, double x, double y, double *metrics) {
 	//Computes following metrics at (x,y)
 	//
 	//metrics[0] = (xi_x)^2 + (xi_y)^2
@@ -42,7 +42,7 @@ void MetricsUniform(Mesh *mesh, double x, double y, double *metrics) {
 	metrics[4] = 0.0;
 }
 
-void MetricsNonUniform(Mesh *mesh, double x, double y, double *metrics) {
+void MetricsNonUniform(void *mesh1, double x, double y, double *metrics) {
 	//Computes following metrics at (x,y)
 	//
 	//metrics[0] = (xi_x)^2 + (xi_y)^2
@@ -58,7 +58,9 @@ void MetricsNonUniform(Mesh *mesh, double x, double y, double *metrics) {
 	
 	double	temp;
 	double	*bounds;
-
+	Mesh	*mesh;
+	
+	mesh = (Mesh*)mesh1;
 	bounds = mesh->bounds;
 	temp = ((bounds[3]-bounds[2])*(bounds[3]-bounds[2])-(bounds[3]-y)*(bounds[3]-y));
 	metrics[0] = 1.0;
@@ -89,7 +91,7 @@ int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimensi
 	return ierr;
 }
 
-void Coords(Mesh mesh, MeshType type) {
+void Coords(Mesh *mesh, MeshType type) {
 	// computes coords in each direction of the structured grid
 	//
 	// MeshType type: {UNIFORM, NONUNIFORM}
@@ -117,7 +119,7 @@ void Coords(Mesh mesh, MeshType type) {
 	for(int i=1;i<2;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
 		coord[i][0] = bounds[i*2]; //Lower bound
-		pcoord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
 		length = (coord[i][n[i]-1]-coord[i][0]);
 		d[i] = 0.0;
@@ -130,7 +132,7 @@ void Coords(Mesh mesh, MeshType type) {
 		d[i] = fmax(d[i],fabs(coord[i][n[i]-2]-coord[i][n[i]-1])); 
 	}
 
-	for(int i=2;i<dimension;i++){
+	for(int i=2;i<DIMENSION;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
 		coord[i][0] = bounds[i*2]; //Lower bound
 		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
@@ -142,7 +144,7 @@ void Coords(Mesh mesh, MeshType type) {
 	}
 	
 	mesh->h = 0.0;
-	for (int i=0;i<dimension;i++){
+	for (int i=0;i<DIMENSION;i++){
 		mesh->h += d[i]*d[i];
 	}
 	mesh->h = sqrt(mesh->h);
@@ -189,18 +191,19 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
-void SetUpMesh(Mesh &mesh, MeshType type) {
+void SetUpMesh(Mesh *mesh, MeshType type) {
 	// Allocates memory
 	// Computes coords of a structured mesh
 	// Assigns metric coefficients computing function
-	
+	int ierr = 0;
+
 	malloc2dY(&(mesh->coord),DIMENSION,mesh->n); CHKERR_RETURN("malloc failed");
-	Coords(Mesh mesh, MeshType type);
+	Coords(mesh, type);
 	if (type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 	if (type == NONUNIFORM) mesh->MetricCoefficients = &MetricsNonUniform;
 }
 
-void DestroyMesh(Mesh &mesh) {
+void DestroyMesh(Mesh *mesh) {
 	// Deallocates memory
 	
 	if (mesh->coord != NULL) free2dArray(&(mesh->coord));

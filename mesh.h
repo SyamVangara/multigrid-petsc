@@ -20,12 +20,12 @@ typedef enum {UNIFORM, NONUNIFORM} MeshType;
 
 typedef struct {
 	int	n[DIMENSION];
-	double	bounds[DIMENSIONS*2];
+	double	bounds[DIMENSION*2];
 	double	**coord;
 	double	h;
-	void	(*MetricCoefficients)(Mesh *mesh, double x, double y, double *metrics);
+	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
 } Mesh;
 
-void SetUpMesh(Mesh &mesh, MeshType type);
-void DestroyMesh(Mesh &mesh);
+void SetUpMesh(Mesh *mesh, MeshType type);
+void DestroyMesh(Mesh *mesh);
 #endif
