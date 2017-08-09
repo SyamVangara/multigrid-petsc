@@ -151,7 +151,6 @@ int main(int argc, char *argv[]) {
 //	}
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 
-	DestroyMesh(&mesh);
 	
 //	IsStencil = malloc(levels*sizeof(ArrayInt2d));
 //	IsResStencil = malloc(levels*sizeof(ArrayInt2d));
@@ -411,6 +410,7 @@ int main(int argc, char *argv[]) {
 //	DeleteIndexMaps(&map);
 //	free(range);
 //	free(gridId);
+	DestroyMesh(&mesh);
 	PetscFinalize();
 /*
 	if (rank==0) {

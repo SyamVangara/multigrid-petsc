@@ -11,6 +11,10 @@
 #include "petscksp.h"
 #include "array.h"
 
+typedef struct {
+
+} Assembly;
+
 extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l); 
 extern Mat restrictionMatrix(double **Is, int m, int nh, int nH);
