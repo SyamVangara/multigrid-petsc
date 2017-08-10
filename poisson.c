@@ -26,27 +26,27 @@
 //#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
 //#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
 
-typedef struct {
-	int		grids; // num of grids per level
-	ArrayInt2d	global;// global to grid map
-	ArrayInt2d	*grid; // grid to global map
-} MapLevel;
-
-typedef struct {
-	int	 levels;
-	MapLevel *level;
-} IndexMaps;
-
-typedef struct {
-	ArrayInt2d	stencil;	// global indices of stencil
-	ArrayInt2d	resStencil;	// global indices of restriction stencil
-	ArrayInt2d	proStencil;	// global indices of prolongation stencil
-} StencilLevel;
-
-typedef struct {
-	int		levels;
-	StencilLevel	*level;
-} StencilIndices;
+//typedef struct {
+//	int		grids; // num of grids per level
+//	ArrayInt2d	global;// global to grid map
+//	ArrayInt2d	*grid; // grid to global map
+//} MapLevel;
+//
+//typedef struct {
+//	int	 levels;
+//	MapLevel *level;
+//} IndexMaps;
+//
+//typedef struct {
+//	ArrayInt2d	stencil;	// global indices of stencil
+//	ArrayInt2d	resStencil;	// global indices of restriction stencil
+//	ArrayInt2d	proStencil;	// global indices of prolongation stencil
+//} StencilLevel;
+//
+//typedef struct {
+//	int		levels;
+//	StencilLevel	*level;
+//} StencilIndices;
 
 void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range);
 void GetError(double **coord, int *n, Array2d u, double *error);
@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 
-	Problem	prob;
-	Mesh	mesh;
-	
+	Problem		prob;
+	Mesh		mesh;
+	Assembly	assem;	
 	int	ierr=0, levels, grids, numIter;
 	int	procs, rank;
 	

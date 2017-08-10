@@ -6,6 +6,16 @@
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
 
+void SetUpAssembly(Assembly *assem) {
+	// Allocate memory and operations
+	
+	assem->level = malloc(assem->levels*sizeof(Level));
+	
+	for (int i=0;i<levels;i++) {
+		assem->level[i].indices.grid = malloc(assem->level[i].indices.grids);
+	}
+}
+
 static int ipow(int base, int exp) {
 
 	int result = 1;

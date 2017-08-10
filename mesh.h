@@ -28,4 +28,5 @@ typedef struct {
 
 void SetUpMesh(Mesh *mesh, MeshType type);
 void DestroyMesh(Mesh *mesh);
+
 #endif
