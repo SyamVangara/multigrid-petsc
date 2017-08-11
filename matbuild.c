@@ -6,13 +6,13 @@
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
 
-void SetUpAssembly(Assembly *assem) {
+void SetUpIndices(Indices *indices) {
 	// Allocate memory and operations
 	
-	assem->level = malloc(assem->levels*sizeof(Level));
+	indices->level = malloc(indices->levels*sizeof(Level));
 	
 	for (int i=0;i<levels;i++) {
-		assem->level[i].indices.grid = malloc(assem->level[i].indices.grids);
+		indices->level[i].gridId = malloc(indices->level[i].grids*sizeof(int));
 	}
 }
 

@@ -72,7 +72,8 @@ int main(int argc, char *argv[]) {
 
 	Problem		prob;
 	Mesh		mesh;
-	Assembly	assem;	
+	Assembly	assem;
+
 	int	ierr=0, levels, grids, numIter;
 	int	procs, rank;
 	

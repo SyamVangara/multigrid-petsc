@@ -12,25 +12,16 @@
 #include "array.h"
 
 typedef struct {
-
-} Operations;
-
-typedef struct {
 	int		grids;   // num of grids per level
 	int		*gridId; // Grid Id of each grid in a given level
 	ArrayInt2d	global;  // global to grid map
 	ArrayInt2d	*grid;   // grid to global map
-} Indices;
-
-typedef struct {
-	Indices		indices;
-	Operations	ops;
 } Level;
 
 typedef struct {
 	int	levels;
 	Level	*level;
-} Assembly;
+} Indices;
 
 extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l); 
