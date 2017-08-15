@@ -58,23 +58,23 @@ void restrictStencil2D(double ***Ih2H, int m, int n);
 int totalUnknowns(int *n, int levels);
 static void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
-void mapping(IndexMaps map, IsRange *gridId, int levels);
+//void mapping(IndexMaps map, IsRange *gridId, int levels);
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
 void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
-void GridIdRange(int levels, int grids, IsRange *gridId);
-void CreateIndexMaps(int *n, int levels, IsRange *gridId, IndexMaps *map);
-void DeleteIndexMaps(IndexMaps *map);
+//void GridIdRange(int levels, int grids, IsRange *gridId);
+//void CreateIndexMaps(int *n, int levels, IsRange *gridId, IndexMaps *map);
+//void DeleteIndexMaps(IndexMaps *map);
 void Range(int *n, IsRange *gridId, int levels, IsRange *range); 
 
 int main(int argc, char *argv[]) {
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 
-	Problem		prob;
-	Mesh		mesh;
-	Assembly	assem;
+	Problem	prob;
+	Mesh	mesh;
+	Indices	indices;
 
-	int	ierr=0, levels, grids, numIter;
+	int	ierr=0, numIter;
 	int	procs, rank;
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
@@ -119,8 +119,8 @@ int main(int argc, char *argv[]) {
 	MPI_Barrier(PETSC_COMM_WORLD);
 	scanf("%d",mesh.n);	
 	scanf("%d",&numIter);
-	scanf("%d",&grids);
-	levels = grids;
+	scanf("%d",&(indices.totalGrids));
+	indices.levels = indices.totalGrids/2;
 	
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
@@ -157,14 +157,20 @@ int main(int argc, char *argv[]) {
 //	IsResStencil = malloc(levels*sizeof(ArrayInt2d));
 //	range = malloc(levels*sizeof(IsRange));
 //	gridId = malloc(levels*sizeof(IsRange));
+	
 	// Indices maps; number of local unknowns	
-
+	
+	SetUpIndices(&mesh, &indices);
 //	GridIdRange(levels, grids, gridId);
 
-//	for (int l=0;l<levels;l++) {
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: gridId.start = %d, gridId.end = %d\n",rank,l,gridId[l].start,gridId[l].end);
-//	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	for (int l=0;l<indices.levels;l++) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; gridId:",rank,l);
+		for (int lg=0;lg<indices.level[l].grids;lg++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d",indices.level[l].gridId[lg]);
+		}
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	
 //	Range(n, gridId, levels, range);
 //	for (int l=0;l<levels;l++) {
@@ -174,26 +180,28 @@ int main(int argc, char *argv[]) {
 
 //	CreateIndexMaps(n, levels, gridId, &map);
 //	mapping(map, gridId, levels);
-
+	
 //	ln = range[1]-range[0];
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: from %d to %d; local unknowns = %d\n",rank,range[0],range[1]-1,range[1]-range[0]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	
-//	for (int l=0;l<levels;l++) {
-//		for (int g=0;g<map.level[l].grids;g++) {
-//			for (int i=0;i<map.level[l].grid[g].ni;i++) {
-//				for (int j=0;j<map.level[l].grid[g].nj;j++) {
-//					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: grid: %d (%d,%d): %d\n",rank,l,gridId[l].start+g,i,j,map.level[l].grid[g].data[i*map.level[l].grid[g].nj+j]);
-//				}
-//			}
-//		}
-//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//	
-//		for (int i=0;i<map.level[l].global.ni;i++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: global = %d:(row = %d, col = %d, grid = %d)\n",rank,l,i,map.level[l].global.data[i*map.level[l].global.nj+0], map.level[l].global.data[i*map.level[l].global.nj+1], map.level[l].global.data[i*map.level[l].global.nj+2]);
-//		}
-//	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	mapping(&indices);
+	
+	for (int l=0;l<indices.levels;l++) {
+		for (int lg=0;lg<indices.level[l].grids;lg++) {
+			for (int i=0;i<indices.level[l].grid[lg].ni;i++) {
+				for (int j=0;j<indices.level[l].grid[lg].nj;j++) {
+					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: grid[%d:%d]: (%d,%d): %d\n",rank,l,lg,indices.level[l].gridId[lg],i,j,indices.level[l].grid[lg].data[i*indices.level[l].grid[lg].nj+j]);
+				}
+			}
+		}
+		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	
+		for (int i=0;i<indices.level[l].global.ni;i++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: global[%d] = (row = %d, col = %d, grid = %d)\n",rank,l,i,indices.level[l].global.data[i*indices.level[l].global.nj+0], indices.level[l].global.data[i*indices.level[l].global.nj+1], indices.level[l].global.data[i*indices.level[l].global.nj+2]);
+		}
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	
 //	DeleteIsGridToGlobal(levels, &IsGridToGlobal); 
 //	DeleteIsGlobalToGrid(levels, &IsGlobalToGrid);
@@ -411,6 +419,7 @@ int main(int argc, char *argv[]) {
 //	DeleteIndexMaps(&map);
 //	free(range);
 //	free(gridId);
+	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
 	PetscFinalize();
 /*
@@ -443,17 +452,17 @@ PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm
 }
 
 
-void GridIdRange(int levels, int grids, IsRange *gridId) {
-	// Computes the gridId range of each level
-	
-	int q;
-
-	q = grids/levels;
-	for (int l=0;l<levels;l++) {
-		gridId[l].start = l*q;
-		gridId[l].end = (l+1)*q;
-	}
-}
+//void GridIdRange(int levels, int grids, IsRange *gridId) {
+//	// Computes the gridId range of each level
+//	
+//	int q;
+//
+//	q = grids/levels;
+//	for (int l=0;l<levels;l++) {
+//		gridId[l].start = l*q;
+//		gridId[l].end = (l+1)*q;
+//	}
+//}
 
 //void CreateStencilIndices(int *n, int levels, IsRange *range, StencilIndices &indices) {
 //	// Allocate memory to grid-to-global indices struct
@@ -487,47 +496,47 @@ void GridIdRange(int levels, int grids, IsRange *gridId) {
 //	free((*map).level);
 //}
 
-void CreateIndexMaps(int *n, int levels, IsRange *gridId, IndexMaps *map) {
-	// Allocate memory to grid-to-global indices struct
-	
-	int	temp, lg;
-	int	totaln, n0, n1;
+//void CreateIndexMaps(int *n, int levels, IsRange *gridId, IndexMaps *map) {
+//	// Allocate memory to grid-to-global indices struct
+//	
+//	int	temp, lg;
+//	int	totaln, n0, n1;
+//
+//	(*map).levels = levels;
+//	(*map).level = malloc((*map).levels*sizeof(MapLevel));
+//	
+//	for (int l=0;l<(*map).levels;l++) {
+//		(*map).level[l].grids = gridId[l].end-gridId[l].start;
+//		(*map).level[l].grid = malloc((*map).level[l].grids*sizeof(ArrayInt2d));
+//	}
+//
+//	for (int l=0;l<(*map).levels;l++) {
+//		totaln = 0;
+//		for (int g=gridId[l].start;g<gridId[l].end;g++) {
+//			temp = ipow(2,g);
+//			n0 = (n[0]-1)/temp - 1;
+//			n1 = (n[1]-1)/temp - 1;
+//			totaln = totaln + n0*n1; 
+//			lg = g-gridId[l].start;
+//			CreateArrayInt2d(n1, n0, (*map).level[l].grid+lg);
+//		}
+//		CreateArrayInt2d(totaln, 3, &((*map).level[l].global));
+//	}
+//}
 
-	(*map).levels = levels;
-	(*map).level = malloc((*map).levels*sizeof(MapLevel));
-	
-	for (int l=0;l<(*map).levels;l++) {
-		(*map).level[l].grids = gridId[l].end-gridId[l].start;
-		(*map).level[l].grid = malloc((*map).level[l].grids*sizeof(ArrayInt2d));
-	}
-
-	for (int l=0;l<(*map).levels;l++) {
-		totaln = 0;
-		for (int g=gridId[l].start;g<gridId[l].end;g++) {
-			temp = ipow(2,g);
-			n0 = (n[0]-1)/temp - 1;
-			n1 = (n[1]-1)/temp - 1;
-			totaln = totaln + n0*n1; 
-			lg = g-gridId[l].start;
-			CreateArrayInt2d(n1, n0, (*map).level[l].grid+lg);
-		}
-		CreateArrayInt2d(totaln, 3, &((*map).level[l].global));
-	}
-}
-
-void DeleteIndexMaps(IndexMaps *map) {
-	// Free memory of grid-to-global indices struct
-	
-	for (int l=0;l<(*map).levels;l++) {
-		for (int g=0;g<(*map).level[l].grids;g++) {
-			DeleteArrayInt2d((*map).level[l].grid+g);
-//			free((*IsGridToGlobal)[l].grid[g].data);
-		}
-		free((*map).level[l].grid);
-		DeleteArrayInt2d(&((*map).level[l].global));
-	}
-	free((*map).level);
-}
+//void DeleteIndexMaps(IndexMaps *map) {
+//	// Free memory of grid-to-global indices struct
+//	
+//	for (int l=0;l<(*map).levels;l++) {
+//		for (int g=0;g<(*map).level[l].grids;g++) {
+//			DeleteArrayInt2d((*map).level[l].grid+g);
+////			free((*IsGridToGlobal)[l].grid[g].data);
+//		}
+//		free((*map).level[l].grid);
+//		DeleteArrayInt2d(&((*map).level[l].global));
+//	}
+//	free((*map).level);
+//}
 
 void Range(int *n, IsRange *gridId, int levels, IsRange *range) {
 	// Computes the range of global indices in this process for all levels	
@@ -563,34 +572,34 @@ void Range(int *n, IsRange *gridId, int levels, IsRange *range) {
 	}
 }
 
-void mapping(IndexMaps map, IsRange *gridId, int levels) {
-	// Maps global indices to grid unknowns and vice-versa
-	// 
-	// IsGridToGlobal[i][j] = globalIndex
-	// IsGlobalToGrid[globalIndex][0/1] = i/j
-	// range[level].start = Starting global index in level
-	// range[level].end = 1+(ending global index) in level
-	
-	int	count;
-	ArrayInt2d	a, b;
-	
-	for (int l=0;l<levels;l++) {
-		count = 0;
-		a = map.level[l].global;
-		for (int g=0;g<map.level[l].grids;g++) {
-			b = map.level[l].grid[g];
-			for (int i=0;i<b.ni;i++) {
-				for (int j=0;j<b.nj;j++) {
-					b.data[i*b.nj+j] = count;
-					a.data[count*a.nj+0] = i;
-					a.data[count*a.nj+1] = j;
-					a.data[count*a.nj+2] = gridId[l].start + g;
-					count = count + 1;
-				}
-			}
-		}
-	}
-}
+//void mapping(IndexMaps map, IsRange *gridId, int levels) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	// 
+//	// IsGridToGlobal[i][j] = globalIndex
+//	// IsGlobalToGrid[globalIndex][0/1] = i/j
+//	// range[level].start = Starting global index in level
+//	// range[level].end = 1+(ending global index) in level
+//	
+//	int	count;
+//	ArrayInt2d	a, b;
+//	
+//	for (int l=0;l<levels;l++) {
+//		count = 0;
+//		a = map.level[l].global;
+//		for (int g=0;g<map.level[l].grids;g++) {
+//			b = map.level[l].grid[g];
+//			for (int i=0;i<b.ni;i++) {
+//				for (int j=0;j<b.nj;j++) {
+//					b.data[i*b.nj+j] = count;
+//					a.data[count*a.nj+0] = i;
+//					a.data[count*a.nj+1] = j;
+//					a.data[count*a.nj+2] = gridId[l].start + g;
+//					count = count + 1;
+//				}
+//			}
+//		}
+//	}
+//}
 
 //void stencilIndices(IndexMaps map, ArrayInt2d *IsStencil, IsRange *range, IsRange *gridId, int levels) {
 //	// Maps a global index of point in a level to global indices of points in its stencil at that level

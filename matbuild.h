@@ -10,6 +10,7 @@
 #include <math.h>
 #include "petscksp.h"
 #include "array.h"
+#include "mesh.h"
 
 typedef struct {
 	int		grids;   // num of grids per level
@@ -20,8 +21,13 @@ typedef struct {
 
 typedef struct {
 	int	levels;
+	int	totalGrids;
 	Level	*level;
 } Indices;
+
+void SetUpIndices(Mesh *mesh, Indices *indices);
+void DestroyIndices(Indices *indices);
+void mapping(Indices *indices);
 
 extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l); 

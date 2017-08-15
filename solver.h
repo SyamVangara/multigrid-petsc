@@ -11,10 +11,6 @@
 #include "array.h"
 #include <time.h>
 
-typedef struct {
-}
-
-
 void UpdateRHS(double *A, double **u, double **r, int *n);
 double Residual(double **u, double **f, double **r, double *As, int *n);
 void JacobiStep(double **u, double **f, double *As, double w, int *n);

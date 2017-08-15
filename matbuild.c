@@ -6,16 +6,6 @@
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
 
-void SetUpIndices(Indices *indices) {
-	// Allocate memory and operations
-	
-	indices->level = malloc(indices->levels*sizeof(Level));
-	
-	for (int i=0;i<levels;i++) {
-		indices->level[i].gridId = malloc(indices->level[i].grids*sizeof(int));
-	}
-}
-
 static int ipow(int base, int exp) {
 
 	int result = 1;
@@ -26,6 +16,111 @@ static int ipow(int base, int exp) {
 		base *= base;
 	}
 	return result;
+}
+
+void GridId(Indices *indices) {
+	// Computes the gridId range and number grids in each level
+	
+	int q, count;
+	
+	count = 0;
+	q = indices->totalGrids/indices->levels;
+	for (int l=0;l<indices->levels;l++) {
+		indices->level[l].grids = q;
+		indices->level[l].gridId = malloc(indices->level[l].grids*sizeof(int));
+		for (int g=0;g<indices->level[l].grids;g++) {
+			indices->level[l].gridId[g] = count;
+			count += 1;
+		}
+	}
+}
+
+void CreateIndexMaps(Mesh *mesh, Indices *indices) {
+	// Allocate memory to global-to-grid and grid-to-global maps
+	
+	int	temp, g;
+	int	totaln, n0, n1, fn0, fn1;
+	const	int	M = 3;
+
+	fn0 = mesh->n[0];
+	fn1 = mesh->n[1];
+	for (int l=0;l<indices->levels;l++) {
+		totaln = 0;
+		for (int lg=0;lg<indices->level[l].grids;lg++) {
+			g = indices->level[l].gridId[lg];
+			temp = ipow(2,g);
+			n0 = (fn0-1)/temp - 1;
+			n1 = (fn1-1)/temp - 1;
+			totaln = totaln + n0*n1; 
+			CreateArrayInt2d(n1, n0,&(indices->level[l].grid[lg]));
+		}
+		CreateArrayInt2d(totaln, M, &(indices->level[l].global));
+	}
+}
+
+void DestroyIndexMaps(Indices *indices) {
+	// Free the memory of global-to-grid and grid-to-global maps	
+	
+	for (int l=0;l<indices->levels;l++) {
+		for (int g=0;g<indices->level[l].grids;g++) {
+			DeleteArrayInt2d(&(indices->level[l].grid[g]));
+//			free((*IsGridToGlobal)[l].grid[g].data);
+		}
+		DeleteArrayInt2d(&(indices->level[l].global));
+	}
+}
+
+void SetUpIndices(Mesh *mesh, Indices *indices) {
+	// Get the GridId range, then allocate memory
+	
+	indices->level = malloc(indices->levels*sizeof(Level));
+	GridId(indices);	
+	for (int i=0;i<indices->levels;i++) {
+		indices->level[i].grid = malloc(indices->level[i].grids*sizeof(ArrayInt2d));
+	}
+	CreateIndexMaps(mesh, indices);
+}
+
+void DestroyIndices(Indices *indices) {
+	// Free the memory allocated to indices
+	
+	DestroyIndexMaps(indices);
+	for (int l=0;l<indices->levels;l++) {
+		free(indices->level[l].grid);
+		free(indices->level[l].gridId);
+	}
+	free(indices->level);
+}
+
+void mapping(Indices *indices) {
+	// Maps global indices to grid unknowns and vice-versa
+	// 
+	// IsGridToGlobal[i][j] = globalIndex
+	// IsGlobalToGrid[globalIndex][0/1] = i/j
+	// range[level].start = Starting global index in level
+	// range[level].end = 1+(ending global index) in level
+	
+	int	count;
+	int	g;
+	ArrayInt2d	a, b;
+	
+	for (int l=0;l<indices->levels;l++) {
+		count = 0;
+		a = indices->level[l].global;
+		for (int lg=0;lg<indices->level[l].grids;lg++) {
+			g = indices->level[l].gridId[lg];
+			b = indices->level[l].grid[lg];
+			for (int i=0;i<b.ni;i++) {
+				for (int j=0;j<b.nj;j++) {
+					b.data[i*b.nj+j] = count;
+					a.data[count*a.nj+0] = i;
+					a.data[count*a.nj+1] = j;
+					a.data[count*a.nj+2] = g;
+					count = count + 1;
+				}
+			}
+		}
+	}
 }
 
 void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
