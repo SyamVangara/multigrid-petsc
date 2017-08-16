@@ -40,15 +40,17 @@ void CreateIndexMaps(Mesh *mesh, Indices *indices) {
 	
 	int	temp, g;
 	int	totaln, n0, n1, fn0, fn1;
-	const	int	M = 3;
-
+	int	factor;
+	const	int	M = 3; // i,j,g
+	
+	factor = indices->coarseningFactor;
 	fn0 = mesh->n[0];
 	fn1 = mesh->n[1];
 	for (int l=0;l<indices->levels;l++) {
 		totaln = 0;
 		for (int lg=0;lg<indices->level[l].grids;lg++) {
 			g = indices->level[l].gridId[lg];
-			temp = ipow(2,g);
+			temp = ipow(factor,g);
 			n0 = (fn0-1)/temp - 1;
 			n1 = (fn1-1)/temp - 1;
 			totaln = totaln + n0*n1; 
@@ -73,6 +75,7 @@ void DestroyIndexMaps(Indices *indices) {
 void SetUpIndices(Mesh *mesh, Indices *indices) {
 	// Get the GridId range, then allocate memory
 	
+	//indices->coarseningFactor = 2;	
 	indices->level = malloc(indices->levels*sizeof(Level));
 	GridId(indices);	
 	for (int i=0;i<indices->levels;i++) {

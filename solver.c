@@ -50,6 +50,35 @@ void Range(Indices *indices, Solver *solver) {
 	}
 }
 
+void SetUpOperator(Indices *indices, Operator *op) {
+	// Allocates memory to Operator struct
+	int	order; // order of grid transfer operators
+	int	stencilSize;
+	
+	order = indices->coarseningFactor; // order of grid transfer operators is same as the coarsening factor
+	op->levels = indices->levels;
+	op->res = malloc((op->levels-1)*sizeof(ArrayInt2d));
+	op->pro = malloc((op->levels-1)*sizeof(ArrayInt2d));
+	stencilSize = 1;
+	for (int i=0;i<op->levels-1;i++) {
+		stencilSize = (stencilSize+1)*order-1;
+		CreateArrayInt2d(stencilSize, stencilSize, op->res+i);
+		CreateArrayInt2d(stencilSize, stencilSize, op->pro+i);
+	}
+
+}
+
+void DestroyOperator(Operator *op) {
+	// Free the memory in Operator struct
+	
+	for (int i=0;i<op->levels-1;i++) {
+		DestroyArrayInt2d(op->res+i);
+		DestroyArrayInt2d(op->pro+i);
+	}
+	free(op->res);
+	free(op->pro);
+}
+
 void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	// Allocates memory to Solver struct
 		

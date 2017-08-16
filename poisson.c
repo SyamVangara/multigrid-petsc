@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 //	IsResStencil = malloc(levels*sizeof(ArrayInt2d));
 	
 	// Indices maps; number of local unknowns	
-	
+	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
 //	ViewGridIdInfo(indices);
 	mapping(&indices);

@@ -22,6 +22,7 @@ typedef struct {
 typedef struct {
 	int	levels;
 	int	totalGrids;
+	int	coarseningFactor;
 	Level	*level;
 } Indices;
 
