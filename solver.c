@@ -21,6 +21,49 @@ static int ipow(int base, int exp) {
 	return result;
 }
 
+void Range(Indices *indices, Solver *solver) {
+	// Computes the range of global indices in this process for all levels	
+	//
+	// range[level][0] = Starting global index in level
+	// range[level][1] = 1+(ending global index) in level
+	
+	int	remainder, quotient, totaln;
+	int	procs, rank;
+	int	(*range)[2];
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	range = solver->range;
+	for (int l=0;l<indices->levels;l++) {
+		totaln = indices->level[l].global.ni;
+		remainder = (totaln)%procs;
+		quotient  = (totaln)/procs;
+		if (rank<remainder) {
+			range[l][0] = rank*(quotient + 1);
+			range[l][1] = range[l][0] + (quotient + 1);
+		}
+		else {
+			range[l][0] = rank*quotient + remainder;
+			range[l][1] = range[l][0] + quotient;
+		}
+	}
+}
+
+void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
+	// Allocates memory to Solver struct
+		
+	solver->range = malloc(indices->levels*sizeof(int[2]));
+	solver->cycle = cyc;
+	Range(indices, solver);
+}
+
+void DestroySolver(Solver *solver) {
+	// Free the memory in Solver struct
+	
+	free(solver->range);
+}
+
 static void GetSol(Array2d u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
 	
 	int	r;

@@ -11,6 +11,17 @@
 #include "array.h"
 #include <time.h>
 
+typedef enum {VCYCLE, ICYCLE} Cycle;
+
+typedef struct {
+	int		numIter;
+	Cycle		cycle;
+	int		(*range)[2];
+} Solver;
+
+void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
+void DestroySolver(Solver *solver);
+
 void UpdateRHS(double *A, double **u, double **r, int *n);
 double Residual(double **u, double **f, double **r, double *As, int *n);
 void JacobiStep(double **u, double **f, double *As, double w, int *n);
