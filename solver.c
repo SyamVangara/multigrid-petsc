@@ -93,6 +93,81 @@ void DestroySolver(Solver *solver) {
 	free(solver->range);
 }
 
+void ProlongationOperator(ArrayInt2d pro) {
+	// Builds prolongation 2D stencilwise operator (pro)
+	// Stencil size: pro.ni x pro.nj
+	if(pro.ni != 3 || pro.nj != 3) {printf("Error in ProlongationOperator"); return;}
+	for (int i=0;i<pro.ni;i++) {
+ 		pro.data[i*pro.nj]= 0.5 - 0.25*fabs(1-i);
+ 		pro.data[i*pro.nj+1]= 1.0 - 0.5*fabs(1-i);
+ 		pro.data[i*pro.nj+2]= 0.5 - 0.25*fabs(1-i);
+	}
+}
+
+void RestrictionOperator(ArrayInt2d res) {
+	// Builds Restriction 2D stencilwise operator (res)
+	// Stencil size: res.ni x res.nj
+	
+	if(res.ni != 3 || res.nj != 3) {printf("Error in RestrictionOperator"); return;}
+	for (int i=0;i<res.nj;i++) {
+ 		res.data[i*res.nj]= 0.0;
+ 		res.data[i*res.nj+1]= 0.0;
+ 		res.data[i*res.nj+2]= 0.0;
+	}
+	res.data[res.nj+1] = 1.0;
+}
+
+void GridTransferOperator(ArrayInt2d *Iop, int factor, int levels) {
+	// Builds stencilwise grid transfer operator between any two grids that have "x" grids inbetween
+	// where x = {0,...,levels-2}
+	
+	int ni0, nj0, *weight;
+	int nil, njl, *datal;
+	int niu, nju, *datau;
+	int iu, ju;
+	
+	ni0 = Iop[0].ni;
+	nj0 = Iop[0].nj;
+	weight = Iop[0].data;
+	for (int l=0;l<levels-2;l++) {
+		nil = Iop[l].ni;
+		njl = Iop[l].nj;
+		datal = Iop[l].data;
+		
+		niu = Iop[l+1].ni;
+		nju = Iop[l+1].nj;
+		datau = Iop[l+1].data;
+		// Initialization
+		for (int i=0;i<niu*nju;i++) {
+			datau[i] = 0;
+		}
+		// Building the operator
+		for (int il=0;il<nil;il++) {
+			for (int jl=0;jl<njl;jl++) {
+				iu = factor*(il+1)-1-ni0/2;
+				ju = factor*(jl+1)-1-nj0/2;
+				for (int i0=0;i0<ni0;i0++) {
+					for (int j0=0;j0<nj0;j0++) {
+						datau[(iu+i0)*nju+(ju+j0)] += weight[i0*nj0+j0]*datal[il*nil+jl];
+					}
+				}
+			}
+		}
+	}
+
+}
+
+void GridTransferOperators(Operator op, Indices indices) {
+	// Builds stencilwise grid transfer operators between any two grids that have "x" grids inbetween
+	// where x = {0,...,levels-2}
+	
+	RestrictionOperator(op.res[0]);
+	ProlongationOperator(op.pro[0]);
+	
+	GridTransferOperator(op.res, indices.coarseningFactor, op.levels);
+	GridTransferOperator(op.pro, indices.coarseningFactor, op.levels);
+}
+
 static void GetSol(Array2d u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
 	
 	int	r;

@@ -30,6 +30,7 @@ void DestroySolver(Solver *solver);
 void SetUpOperator(Indices *indices, Operator *op);
 void DestroyOperator(Operator *op);
 
+void GridTransferOperators(Operator op, Indices indices);
 
 void UpdateRHS(double *A, double **u, double **r, int *n);
 double Residual(double **u, double **f, double **r, double *As, int *n);
