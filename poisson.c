@@ -45,7 +45,6 @@ static void GetSol(double *u, double *px, int *n, int levels, const int *ranges,
 PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
 void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
-//void Range(int *n, IsRange *gridId, int levels, IsRange *range); 
 
 void ViewMeshInfo(Mesh mesh);
 void ViewGridIdInfo(Indices indices);
@@ -73,7 +72,7 @@ int main(int argc, char *argv[]) {
 	
 /*
 	//double	weight=(2.0/3.0);
-	int	ierr=0, levels, grids, numIter;
+	int	ierr=0;
 	Array2d	metrics;
 	double	error[3], As[5], *px, *rnorm;
 	Array2d	u;
@@ -82,13 +81,10 @@ int main(int argc, char *argv[]) {
 	
 	int	ln; //number of local unknowns
 
-	int	procs, rank;
 	int	rowStart, rowEnd;
 	
-	const 	int	*ranges;
 		IsRange	*range;
 		IsRange	*gridId;
-	IndexMaps	map;
 	StencilIndices	indices;
 //	ArrayInt2d	*IsStencil, *IsResStencil, *IsProStencil;
 	
@@ -96,10 +92,7 @@ int main(int argc, char *argv[]) {
 //	PC	pc;
 //	Mat	A;
 //	Vec	b, x;
-	
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+
 */	
 	freopen("poisson.in", "r", stdin);
 //	freopen("poisson.out", "w", stdout);
@@ -136,7 +129,7 @@ int main(int argc, char *argv[]) {
 	
 	SetUpOperator(&indices, &op);
 	GridTransferOperators(op, indices);
-	ViewOperatorInfo(op);
+//	ViewOperatorInfo(op);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
@@ -169,7 +162,7 @@ int main(int argc, char *argv[]) {
 	
 //	IsProStencil = IsResStencil; // Prolongation stencil is same as restriction stencil
 	
-//	for (int l=1;l<levels;l++) {
+//FD Lab 
 //		for (int i=range[l].start;i<range[l].end;i++) {
 //			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isPROStencil[%d]:",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start);
 //			for (int j=0;j<9;j++) { 
