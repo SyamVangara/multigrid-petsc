@@ -50,15 +50,18 @@ void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToG
 void ViewMeshInfo(Mesh mesh);
 void ViewGridIdInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
+void ViewSolverInfo(Indices indices, Solver solver);
+void ViewOperatorInfo(Operator op);
 
 int main(int argc, char *argv[]) {
 	
 	PetscInitialize(&argc, &argv, 0, 0);
 
-	Problem	prob;
-	Mesh	mesh;
-	Indices	indices;
-	Solver	solver;
+	Problem		prob;
+	Mesh		mesh;
+	Indices		indices;
+	Operator	op;
+	Solver		solver;
 
 	int	ierr=0;
 	int	procs, rank;
@@ -130,8 +133,13 @@ int main(int argc, char *argv[]) {
 //	ViewGridIdInfo(indices);
 	mapping(&indices);
 //	ViewIndexMapsInfo(indices);
+	
+	SetUpOperator(&indices, &op);
+	GridTransferOperators(op, indices);
+	ViewOperatorInfo(op);
+
 	SetUpSolver(&indices, &solver, VCYCLE);
-	ViewSolverInfo(indices, solver);
+//	ViewSolverInfo(indices, solver);
 //	ln = range[1]-range[0];
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: from %d to %d; local unknowns = %d\n",rank,range[0],range[1]-1,range[1]-range[0]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
@@ -351,6 +359,7 @@ int main(int argc, char *argv[]) {
 //	free(range);
 //	free(gridId);
 	DestroySolver(&solver);
+	DestroyOperator(&op);
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
 	PetscFinalize();
@@ -866,6 +875,35 @@ void ViewSolverInfo(Indices indices, Solver solver) {
 	}
 	for (int l=0;l<indices.levels;l++) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d: range start = %d, range end = %d\n",rank,l,solver.range[l][0],solver.range[l][1]);
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
+void ViewOperatorInfo(Operator op) {
+	// Prints the info in Operator struct
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; Total num of grids = %d:\n",rank,op.totalGrids);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	for (int l=0;l<op.totalGrids-1;l++) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; res[%d]:\n",rank,l);
+		for (int i=0;i<op.res[l].ni;i++) {
+			for (int j=0;j<op.res[l].nj;j++) {
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%f ",op.res[l].data[i*op.res[l].nj+j]);
+			}
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+		}
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; pro[%d]:\n",rank,l);
+		for (int i=0;i<op.pro[l].ni;i++) {
+			for (int j=0;j<op.pro[l].nj;j++) {
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%f ",op.pro[l].data[i*op.pro[l].nj+j]);
+			}
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+		}
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }

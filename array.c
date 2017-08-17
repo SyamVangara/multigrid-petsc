@@ -16,6 +16,19 @@ void DeleteArrayInt2d(ArrayInt2d *a) {
 	if (a->data != NULL) free(a->data);
 }
 
+void CreateArray2d(int ni, int nj, Array2d *a) {
+	//Allocates memory to a logical double 2d array		
+	a->ni = ni;
+	a->nj = nj;
+	a->data = malloc(a->ni*a->nj*sizeof(double));
+}
+
+void DeleteArray2d(Array2d *a) {
+	// Safely delete a logical 2d double array
+	
+	if (a->data != NULL) free(a->data);
+}
+
 int malloc2d(double ***a, int n, int m) {
 	// Allocate contiguous memory for 2d array "A" of (nxm) 
 	//

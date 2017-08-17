@@ -14,9 +14,9 @@
 typedef enum {VCYCLE, ICYCLE} Cycle;
 
 typedef struct {
-	int		levels;
-	ArrayInt2d	*res;
-	ArrayInt2d	*pro;
+	int	totalGrids;
+	Array2d	*res;
+	Array2d	*pro;
 } Operator;
 
 typedef struct {

@@ -56,14 +56,14 @@ void SetUpOperator(Indices *indices, Operator *op) {
 	int	stencilSize;
 	
 	order = indices->coarseningFactor; // order of grid transfer operators is same as the coarsening factor
-	op->levels = indices->levels;
-	op->res = malloc((op->levels-1)*sizeof(ArrayInt2d));
-	op->pro = malloc((op->levels-1)*sizeof(ArrayInt2d));
+	op->totalGrids = indices->totalGrids;
+	op->res = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
+	op->pro = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
 	stencilSize = 1;
-	for (int i=0;i<op->levels-1;i++) {
+	for (int i=0;i<op->totalGrids-1;i++) {
 		stencilSize = (stencilSize+1)*order-1;
-		CreateArrayInt2d(stencilSize, stencilSize, op->res+i);
-		CreateArrayInt2d(stencilSize, stencilSize, op->pro+i);
+		CreateArray2d(stencilSize, stencilSize, op->res+i);
+		CreateArray2d(stencilSize, stencilSize, op->pro+i);
 	}
 
 }
@@ -71,9 +71,9 @@ void SetUpOperator(Indices *indices, Operator *op) {
 void DestroyOperator(Operator *op) {
 	// Free the memory in Operator struct
 	
-	for (int i=0;i<op->levels-1;i++) {
-		DestroyArrayInt2d(op->res+i);
-		DestroyArrayInt2d(op->pro+i);
+	for (int i=0;i<op->totalGrids-1;i++) {
+		DeleteArray2d(op->res+i);
+		DeleteArray2d(op->pro+i);
 	}
 	free(op->res);
 	free(op->pro);
@@ -93,7 +93,7 @@ void DestroySolver(Solver *solver) {
 	free(solver->range);
 }
 
-void ProlongationOperator(ArrayInt2d pro) {
+void ProlongationOperator(Array2d pro) {
 	// Builds prolongation 2D stencilwise operator (pro)
 	// Stencil size: pro.ni x pro.nj
 	if(pro.ni != 3 || pro.nj != 3) {printf("Error in ProlongationOperator"); return;}
@@ -104,7 +104,7 @@ void ProlongationOperator(ArrayInt2d pro) {
 	}
 }
 
-void RestrictionOperator(ArrayInt2d res) {
+void RestrictionOperator(Array2d res) {
 	// Builds Restriction 2D stencilwise operator (res)
 	// Stencil size: res.ni x res.nj
 	
@@ -117,19 +117,22 @@ void RestrictionOperator(ArrayInt2d res) {
 	res.data[res.nj+1] = 1.0;
 }
 
-void GridTransferOperator(ArrayInt2d *Iop, int factor, int levels) {
+void GridTransferOperator(Array2d *Iop, int factor, int totalGrids) {
 	// Builds stencilwise grid transfer operator between any two grids that have "x" grids inbetween
-	// where x = {0,...,levels-2}
+	// where x = {0,...,totalGrids-2}
 	
-	int ni0, nj0, *weight;
-	int nil, njl, *datal;
-	int niu, nju, *datau;
-	int iu, ju;
+	int 	ni0, nj0;
+	double	*weight;
+	int 	nil, njl;
+	double	*datal;
+	int 	niu, nju;
+	double	*datau;
+	int 	iu, ju;
 	
 	ni0 = Iop[0].ni;
 	nj0 = Iop[0].nj;
 	weight = Iop[0].data;
-	for (int l=0;l<levels-2;l++) {
+	for (int l=0;l<totalGrids-2;l++) {
 		nil = Iop[l].ni;
 		njl = Iop[l].nj;
 		datal = Iop[l].data;
@@ -139,7 +142,7 @@ void GridTransferOperator(ArrayInt2d *Iop, int factor, int levels) {
 		datau = Iop[l+1].data;
 		// Initialization
 		for (int i=0;i<niu*nju;i++) {
-			datau[i] = 0;
+			datau[i] = 0.0;
 		}
 		// Building the operator
 		for (int il=0;il<nil;il++) {
@@ -164,8 +167,8 @@ void GridTransferOperators(Operator op, Indices indices) {
 	RestrictionOperator(op.res[0]);
 	ProlongationOperator(op.pro[0]);
 	
-	GridTransferOperator(op.res, indices.coarseningFactor, op.levels);
-	GridTransferOperator(op.pro, indices.coarseningFactor, op.levels);
+	GridTransferOperator(op.res, indices.coarseningFactor, op.totalGrids);
+	GridTransferOperator(op.pro, indices.coarseningFactor, op.totalGrids);
 }
 
 static void GetSol(Array2d u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
