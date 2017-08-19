@@ -14,12 +14,6 @@
 typedef enum {VCYCLE, ICYCLE} Cycle;
 
 typedef struct {
-	int	totalGrids;
-	Array2d	*res;
-	Array2d	*pro;
-} Operator;
-
-typedef struct {
 	Cycle		cycle;
 	int		numIter;
 	int		(*range)[2];
@@ -27,10 +21,6 @@ typedef struct {
 
 void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 void DestroySolver(Solver *solver);
-void SetUpOperator(Indices *indices, Operator *op);
-void DestroyOperator(Operator *op);
-
-void GridTransferOperators(Operator op, Indices indices);
 
 void UpdateRHS(double *A, double **u, double **r, int *n);
 double Residual(double **u, double **f, double **r, double *As, int *n);

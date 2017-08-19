@@ -26,9 +26,35 @@ typedef struct {
 	Level	*level;
 } Indices;
 
+typedef struct {
+	int	totalGrids;
+	Array2d	*res;
+	Array2d	*pro;
+} Operator;
+
+typedef struct {
+	Mat	A;
+	Vec	b;
+	Vec	u;
+} LinSys;
+
+typedef struct {
+	int	levels;
+	Mat 	*res;
+	Mat 	*pro;
+	LinSys	*level;
+} Assembly;
+
 void SetUpIndices(Mesh *mesh, Indices *indices);
 void DestroyIndices(Indices *indices);
 void mapping(Indices *indices);
+
+void SetUpOperator(Indices *indices, Operator *op);
+void DestroyOperator(Operator *op);
+void GridTransferOperators(Operator op, Indices indices);
+
+void SetUpAssembly(Indices *indices, Assembly *assem);
+void DestroyAssembly(Assembly *assem);
 
 extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l); 

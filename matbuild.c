@@ -126,6 +126,52 @@ void mapping(Indices *indices) {
 	}
 }
 
+void SetUpOperator(Indices *indices, Operator *op) {
+	// Allocates memory to Operator struct
+	int	order; // order of grid transfer operators
+	int	stencilSize;
+	
+	order = indices->coarseningFactor; // order of grid transfer operators is same as the coarsening factor
+	op->totalGrids = indices->totalGrids;
+	op->res = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
+	op->pro = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
+	stencilSize = 1;
+	for (int i=0;i<op->totalGrids-1;i++) {
+		stencilSize = (stencilSize+1)*order-1;
+		CreateArray2d(stencilSize, stencilSize, op->res+i);
+		CreateArray2d(stencilSize, stencilSize, op->pro+i);
+	}
+
+}
+
+void DestroyOperator(Operator *op) {
+	// Free the memory in Operator struct
+	
+	for (int i=0;i<op->totalGrids-1;i++) {
+		DeleteArray2d(op->res+i);
+		DeleteArray2d(op->pro+i);
+	}
+	free(op->res);
+	free(op->pro);
+}
+
+void SetUpAssembly(Indices *indices, Assembly *assem) {
+	// Allocate memory for Assembly struct
+	
+	assem->levels = indices->levels;
+	assem->res = malloc((assem->levels-1)*sizeof(Mat));
+	assem->pro = malloc((assem->levels-1)*sizeof(Mat));
+	assem->level = malloc((assem->levels)*sizeof(LinSys));
+}
+
+void DestroyAssembly(Assembly *assem) {
+	// Free the memory in Assembly struct
+	
+	free(assem->res);
+	free(assem->pro);
+	free(assem->level);
+}
+
 void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
 	//Insert values of sub matrix "subA" in "A"
 	//
@@ -251,6 +297,29 @@ Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
 	MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);
 
 	return A;
+}
+
+void matrixA(Mat *A, Level level, int factor) {
+	// Build matrix "A" for a given level
+	// factor - coarsening factor
+	
+	int		globalni, globalnj, globaldata;
+	ArrayInt2d	*grid;
+	int		range[2];
+	double		As[5];
+
+	globalni = level.global.ni;
+	grid	 = level.grid;
+	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, globalni, globalni, 6*levels, PETSC_NULL, 6*levels, PETSC_NULL, A);
+
+	MatGetOwnershipRange(A, range, range+1);
+	
+	for (i=range[0];i<range[1];i++) {
+		//i0 - row    - y coord
+		//j0 - column - x coord
+		//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+		
+	}
 }
 
 Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
