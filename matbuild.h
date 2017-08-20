@@ -15,6 +15,7 @@
 typedef struct {
 	int		grids;   // num of grids per level
 	int		*gridId; // Grid Id of each grid in a given level
+	double		(*h)[2]; // Delta h in reference domain
 	ArrayInt2d	global;  // global to grid map
 	ArrayInt2d	*grid;   // grid to global map
 } Level;
@@ -55,6 +56,8 @@ void GridTransferOperators(Operator op, Indices indices);
 
 void SetUpAssembly(Indices *indices, Assembly *assem);
 void DestroyAssembly(Assembly *assem);
+
+void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem);
 
 extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l); 

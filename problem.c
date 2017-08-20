@@ -1,6 +1,6 @@
 #include "problem.h"
 
-void OpA(Problem prob, double *A, double *metrics, double *h) {
+void OpA(double *A, double *metrics, double *h) {
 	//Computes the coefficients
 	//
 	//i - row    - y coord

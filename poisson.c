@@ -47,10 +47,11 @@ void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, Arra
 void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
 
 void ViewMeshInfo(Mesh mesh);
-void ViewGridIdInfo(Indices indices);
+void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
 void ViewSolverInfo(Indices indices, Solver solver);
 void ViewOperatorInfo(Operator op);
+void ViewAssemblyInfo(Assembly assem);
 
 int main(int argc, char *argv[]) {
 	
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
 	Mesh		mesh;
 	Indices		indices;
 	Operator	op;
+	Assembly	assem;
 	Solver		solver;
 
 	int	ierr=0;
@@ -123,13 +125,17 @@ int main(int argc, char *argv[]) {
 	// Indices maps; number of local unknowns	
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
-//	ViewGridIdInfo(indices);
+//	ViewGridsInfo(indices);
 	mapping(&indices);
 //	ViewIndexMapsInfo(indices);
 	
 	SetUpOperator(&indices, &op);
 	GridTransferOperators(op, indices);
 //	ViewOperatorInfo(op);
+	
+	SetUpAssembly(&indices, &assem);
+	Assemble(&prob, &mesh, &indices, &op, &assem);
+	ViewAssemblyInfo(assem);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
@@ -352,6 +358,7 @@ int main(int argc, char *argv[]) {
 //	free(range);
 //	free(gridId);
 	DestroySolver(&solver);
+	DestroyAssembly(&assem);
 	DestroyOperator(&op);
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
@@ -810,7 +817,7 @@ void ViewMeshInfo(Mesh mesh) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void ViewGridIdInfo(Indices indices) {
+void ViewGridsInfo(Indices indices) {
 	// Prints the info of GridId in each level
 	
 	int	procs, rank;
@@ -819,11 +826,9 @@ void ViewGridIdInfo(Indices indices) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	for (int l=0;l<indices.levels;l++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; gridId:",rank,l);
 		for (int lg=0;lg<indices.level[l].grids;lg++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d",indices.level[l].gridId[lg]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; gridId: %d; (ni, hi): (%d, %f); (nj, hj): (%d, %f)\n",rank,l,indices.level[l].gridId[lg], indices.level[l].grid[lg].ni, indices.level[l].h[lg][0], indices.level[l].grid[lg].nj, indices.level[l].h[lg][1]);
 		}
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
@@ -897,6 +902,21 @@ void ViewOperatorInfo(Operator op) {
 			}
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
 		}
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
+void ViewAssemblyInfo(Assembly assem) {
+	// Prints the info of Assembly struct
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	for (int l=0;l<assem.levels;l++) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; A[%d]:\n",rank, l);
+		MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
