@@ -59,6 +59,10 @@ void MetricsNonUniform(void *mesh1, double x, double y, double *metrics) {
 	double	temp;
 	double	*bounds;
 	Mesh	*mesh;
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	mesh = (Mesh*)mesh1;
 	bounds = mesh->bounds;

@@ -915,7 +915,7 @@ void ViewAssemblyInfo(Assembly assem) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	for (int l=0;l<assem.levels;l++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; A[%d]:\n",rank, l);
+		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
 		MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);

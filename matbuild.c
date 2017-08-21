@@ -175,10 +175,10 @@ void SetUpAssembly(Indices *indices, Assembly *assem) {
 void DestroyAssembly(Assembly *assem) {
 	// Free the memory in Assembly struct
 	
-	for (int l=0;l<assem->levels,l++) {
+	for (int l=0;l<assem->levels;l++) {
 		MatDestroy(&(assem->level[l].A));
-		VecDestroy(&(assem->level[l].b));
-		VecDestroy(&(assem->level[l].u));
+//		VecDestroy(&(assem->level[l].b));
+//		VecDestroy(&(assem->level[l].u));
 	}
 	free(assem->res);
 	free(assem->pro);
@@ -317,7 +317,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 	// level - contains index maps
 	// factor - coarsening factor
 	
-	double		*a, *b;
+	int		*a, *b;
 	int		ai, aj, bi, bj;
 	int		grids, *gridId;
 	int		range[2];
@@ -364,12 +364,8 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 				b  = level->grid[lg].data;
 				ifine = ipow(factor,g0)*(i0+1)-1;
 				jfine = ipow(factor,g0)*(j0+1)-1;
-				mesh->MetricCoefficients(&mesh, coord[0][ifine], coord[1][jfine], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
-				
-				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; As[%d][%d]: %f %f %f %f %f\n",rank, i0, j0, As[0], As[1], As[2], As[3], As[4]);
-				PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-
 				if (i0-1>=0) {
 					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], INSERT_VALUES);
 				}
@@ -380,7 +376,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 				if (j0+1<bj) {
 					MatSetValue(*A, row, b[i0*bj+j0+1], As[3], INSERT_VALUES);
 				}
-				if (i0+1<=bi) {
+				if (i0+1<bi) {
 					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], INSERT_VALUES);
 				}
 			}
