@@ -177,8 +177,8 @@ void DestroyAssembly(Assembly *assem) {
 	
 	for (int l=0;l<assem->levels;l++) {
 		MatDestroy(&(assem->level[l].A));
-//		VecDestroy(&(assem->level[l].b));
-//		VecDestroy(&(assem->level[l].u));
+		VecDestroy(&(assem->level[l].b));
+		VecDestroy(&(assem->level[l].u));
 	}
 	free(assem->res);
 	free(assem->pro);
@@ -530,15 +530,81 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
 }
 
+void levelvecb1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b) {
+	// Build vector "b" for a given level
+	// f - logically 2D array containing right hand side values at each grid point
+	
+	int		*a;
+	int		ai, aj;
+	double		*res;
+	int		resni, resnj;
+	int		grids, *gridId;
+	
+	int		range[2];
+	double  	**coord;
+
+	int		i0, j0, g0;
+	int		ifine, jfine;
+	int		i1, j1, g1;
+
+	double		value;
+	
+	coord = mesh->coord;
+
+	ai = level->global.ni;
+	aj = level->global.nj;
+	a  = level->global.data;
+
+	grids = level->grids;
+	gridId = level->gridId;
+		
+	g1 = gridId[0];
+	
+	VecGetOwnershipRange(*b, range, range+1);
+	for (int row=range[0];row<range[1];row++) {
+		i0 = a[row*aj];
+		j0 = a[row*aj+1];
+		g0 = a[row*aj+2];
+		if (g0==g1) {
+			ifine = ipow(factor,g1)*(i0+1)-1; 
+			jfine = ipow(factor,g1)*(j0+1)-1;
+			value = prob->Ffunc(coord[0][ifine+1], coord[1][jfine+1]);
+			VecSetValue(*b, row, value, INSERT_VALUES);
+		} else {
+			resni = op->res[g0-g1-1].ni;
+			resnj = op->res[g0-g1-1].nj;
+			res = op->res[g0-g1-1].data;
+			
+			i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (resni)/2;
+			j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (resnj)/2;	
+			value = 0.0;
+			for (int i=i1;i<i1+resni;i++) {
+				for (int j=j1;j<j1+resnj;j++) {
+					ifine = ipow(factor,g1)*(i+1)-1; 
+					jfine = ipow(factor,g1)*(j+1)-1;
+					value += (prob->Ffunc(coord[0][ifine+1], coord[1][jfine+1]))*res[(i-i1)*resnj+(j-j1)];
+				}
+			}
+			VecSetValue(*b, row, value, INSERT_VALUES);
+		}
+	}
+	VecAssemblyBegin(*b);
+	VecAssemblyEnd(*b);
+
+	//return b;
+}
+
 void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem) {
 	// Assembles matrices and vectors in all levels
 	int	factor;
 
 	factor = indices->coarseningFactor;
 	for (int l=0;l<assem->levels;l++) {
-
 		levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, &(assem->level[l].A));
+		MatCreateVecs(assem->level[l].A, &(assem->level[l].u), &(assem->level[l].b));
 	}
+	// Only the zeroth level vec b is created
+	levelvecb1(prob, mesh, op, indices->level, factor, &(assem->level[0].b));
 }
 
 //Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
@@ -887,22 +953,6 @@ void levelvecb(Vec *b, double *f) {
 
 	//return b;
 }
-
-//void levelvecb1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b) {
-//	// Build vector "b" for a given level
-//	// f - logically 2D array containing right hand side values at each grid point
-//	
-//	int	rowStart, rowEnd;
-//
-//	VecGetOwnershipRange(*b, &rowStart, &rowEnd);
-//	for (int i=rowStart;i<rowEnd;i++) {
-//		VecSetValue(*b, i, f[i-rowStart], INSERT_VALUES);
-//	}
-//	VecAssemblyBegin(*b);
-//	VecAssemblyEnd(*b);
-//
-//	//return b;
-//}
 
 
 void vecb(Vec *b, Array2d f, double **opIh2H, int n0, int levels) {

@@ -918,6 +918,7 @@ void ViewAssemblyInfo(Assembly assem, int view) {
 		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
 		if (view == 0) MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
 		if (view == 1) MatView(assem.level[l].A,PETSC_VIEWER_DRAW_WORLD);
+		VecView(assem.level[l].b,PETSC_VIEWER_STDOUT_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
