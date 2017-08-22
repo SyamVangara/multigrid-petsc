@@ -365,7 +365,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 		g0 = a[row*aj+2]; 
 		for (int lg=0;lg<grids;lg++) {
 			g1 = gridId[lg];
-			if (g1-g0 == 0) {
+			if (g1 == g0) {
 				// Fill the jacobian
 				bi = level->grid[lg].ni;
 				bj = level->grid[lg].nj;
@@ -387,7 +387,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 				if (i0+1<bi) {
 					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
 				}
-			} else if (g1-g0<0) {
+			} else if (g1 < g0) {
 				// Fill the restriction portion of the A from g1 to g0
 				bi = level->grid[lg].ni;
 				bj = level->grid[lg].nj;
@@ -421,6 +421,87 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 						}
 					}
 				}
+			}
+		}
+	}
+
+	// Column based fill
+	for (int col=range[0];col<range[1];col++) {
+		i0 = a[col*aj];
+		j0 = a[col*aj+1];
+		g0 = a[col*aj+2];
+
+		for (int lg=0;lg<grids;lg++) {
+			g1 = gridId[lg];
+			if (g1 < g0) {
+				// Fill the prolongation portion of the A
+				bi = level->grid[lg].ni;
+				bj = level->grid[lg].nj;
+				b  = level->grid[lg].data;
+				proni = op->pro[g0-g1-1].ni;
+				pronj = op->pro[g0-g1-1].nj;
+				pro = op->pro[g0-g1-1].data;
+				
+				ifine = ipow(factor,(g0-g1))*(i0+1)-1 - (proni)/2;
+				jfine = ipow(factor,(g0-g1))*(j0+1)-1 - (pronj)/2;
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; ifine: %d; jfine: %d\n",rank, ifine, jfine);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+				for (int i=1;i<proni-1;i++) {
+					for (int j=1;j<pronj-1;j++) {
+						mesh->MetricCoefficients(mesh, coord[0][i+ifine+1], coord[1][j+jfine+1], metrics);
+						prob->OpA(As, metrics, level->h[lg]);
+						weight = As[0]*pro[(i-1)*pronj+(j)] + As[1]*pro[(i)*pronj+(j-1)]+ As[2]*pro[(i)*pronj+(j)]+ As[3]*pro[(i)*pronj+(j+1)]+ As[4]*pro[(i+1)*pronj+(j)];
+						if (weight != 0.0) MatSetValue(*A, b[(i+ifine)*bj+j+jfine], col, weight, ADD_VALUES);
+					}
+				}
+
+//				printf("I am here at j");
+
+				for (int j=1;j<pronj-1;j++) {
+					mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][j+jfine+1], metrics);
+					prob->OpA(As, metrics, level->h[lg]);
+					weight = As[1]*pro[(j-1)]+ As[2]*pro[(j)]+ As[3]*pro[(j+1)]+ As[4]*pro[pronj+(j)];
+					if (weight != 0.0) MatSetValue(*A, b[(ifine)*bj+j+jfine], col, weight, ADD_VALUES);
+					
+					mesh->MetricCoefficients(mesh, coord[0][proni+ifine], coord[1][j+jfine+1], metrics);
+					prob->OpA(As, metrics, level->h[lg]);
+					weight = As[0]*pro[(proni-2)*pronj+(j)] + As[1]*pro[(proni-1)*pronj+(j-1)]+ As[2]*pro[(proni-1)*pronj+(j)]+ As[3]*pro[(proni-1)*pronj+(j+1)];
+					if (weight != 0.0) MatSetValue(*A, b[(proni-1+ifine)*bj+j+jfine], col, weight, ADD_VALUES);
+				}
+				
+//				printf("I am here at i");
+
+				for (int i=1;i<proni-1;i++) {
+					mesh->MetricCoefficients(mesh, coord[0][i+ifine+1], coord[1][jfine+1], metrics);
+					prob->OpA(As, metrics, level->h[lg]);
+					weight = As[0]*pro[(i-1)*pronj] + As[2]*pro[(i)*pronj]+ As[3]*pro[(i)*pronj+(1)]+ As[4]*pro[(i+1)*pronj];
+					if (weight != 0.0) MatSetValue(*A, b[(i+ifine)*bj+jfine], col, weight, ADD_VALUES);
+						
+					mesh->MetricCoefficients(mesh, coord[0][i+ifine+1], coord[1][pronj+jfine], metrics);
+					prob->OpA(As, metrics, level->h[lg]);
+					weight = As[0]*pro[(i-1)*pronj+(pronj-1)] + As[1]*pro[(i)*pronj+(pronj-2)]+ As[2]*pro[(i)*pronj+(pronj-1)]+ As[4]*pro[(i+1)*pronj+(pronj-1)];
+					if (weight != 0.0) MatSetValue(*A, b[(i+ifine)*bj+pronj-1+jfine], col, weight, ADD_VALUES);
+				}
+
+				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+				prob->OpA(As, metrics, level->h[lg]);
+				weight = As[2]*pro[0]+ As[3]*pro[1]+ As[4]*pro[pronj];
+				if (weight != 0.0) MatSetValue(*A, b[(ifine)*bj+jfine], col, weight, ADD_VALUES);
+				
+				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][pronj+jfine], metrics);
+				prob->OpA(As, metrics, level->h[lg]);
+				weight = As[1]*pro[(pronj-2)]+ As[2]*pro[(pronj-1)]+ As[4]*pro[pronj+(pronj-1)];
+				if (weight != 0.0) MatSetValue(*A, b[(ifine)*bj+pronj-1+jfine], col, weight, ADD_VALUES);
+				
+				mesh->MetricCoefficients(mesh, coord[0][proni+ifine], coord[1][jfine+1], metrics);
+				prob->OpA(As, metrics, level->h[lg]);
+				weight = As[0]*pro[(proni-2)*pronj] + As[2]*pro[(proni-1)*pronj]+ As[3]*pro[(proni-1)*pronj+(1)];
+				if (weight != 0.0) MatSetValue(*A, b[(proni-1+ifine)*bj+jfine], col, weight, ADD_VALUES);
+				
+				mesh->MetricCoefficients(mesh, coord[0][proni+ifine], coord[1][pronj+jfine], metrics);
+				prob->OpA(As, metrics, level->h[lg]);
+				weight = As[0]*pro[(proni-2)*pronj+(pronj-1)] + As[1]*pro[(proni-1)*pronj+(pronj-2)]+ As[2]*pro[(proni-1)*pronj+(pronj-1)];
+				if (weight != 0.0) MatSetValue(*A, b[(proni-1+ifine)*bj+pronj-1+jfine], col, weight, ADD_VALUES);
 			}
 		}
 	}

@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 	
 	SetUpAssembly(&indices, &assem);
 	Assemble(&prob, &mesh, &indices, &op, &assem);
-//	ViewAssemblyInfo(assem, 0);
+	ViewAssemblyInfo(assem, 0);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
