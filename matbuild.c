@@ -312,13 +312,17 @@ Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
 	return A;
 }
 
-void levelMatrixA1(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) {
+void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
 	// Build matrix "A" for a given level
 	// level - contains index maps
 	// factor - coarsening factor
 	
 	int		*a, *b;
 	int		ai, aj, bi, bj;
+	double		*res, *pro;
+	double		weight;
+	int		resni, resnj, proni, pronj;
+	
 	int		grids, *gridId;
 	int		range[2];
 	double		As[5];
@@ -343,6 +347,10 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 	grids = level->grids;
 	gridId = level->gridId;
 	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; size of A: %d\n",rank,ai);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; grids: 	%d\n",rank,grids);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, ai, ai, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
 
 	MatGetOwnershipRange(*A, range, range+1);
@@ -367,17 +375,51 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				if (i0-1>=0) {
-					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], INSERT_VALUES);
+					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
 				}
 				if (j0-1>=0) {
-					MatSetValue(*A, row, b[i0*bj+j0-1], As[1], INSERT_VALUES);
+					MatSetValue(*A, row, b[i0*bj+j0-1], As[1], ADD_VALUES);
 				}
-				MatSetValue(*A, row, row, As[2], INSERT_VALUES);
+				MatSetValue(*A, row, row, As[2], ADD_VALUES);
 				if (j0+1<bj) {
-					MatSetValue(*A, row, b[i0*bj+j0+1], As[3], INSERT_VALUES);
+					MatSetValue(*A, row, b[i0*bj+j0+1], As[3], ADD_VALUES);
 				}
 				if (i0+1<bi) {
-					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], INSERT_VALUES);
+					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
+				}
+			} else if (g1-g0<0) {
+				// Fill the restriction portion of the A from g1 to g0
+				bi = level->grid[lg].ni;
+				bj = level->grid[lg].nj;
+				b  = level->grid[lg].data;
+				resni = op->res[g0-g1-1].ni;
+				resnj = op->res[g0-g1-1].nj;
+				res = op->res[g0-g1-1].data;
+
+				ifine = ipow(factor,(g0-g1))*(i0+1)-1 - (resni)/2;
+				jfine = ipow(factor,(g0-g1))*(j0+1)-1 - (resnj)/2;
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; ifine: %d; jfine: %d\n",rank, ifine, jfine);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+				for (int i=ifine;i<ifine + resni;i++) {
+					for (int j=jfine;j<jfine + resnj;j++) {
+						mesh->MetricCoefficients(mesh, coord[0][i+1], coord[1][j+1], metrics);
+						prob->OpA(As, metrics, level->h[lg]);
+						weight = res[(i-ifine)*resnj+(j-jfine)];
+						if (weight == 0.0) continue;
+						if (i-1>=0) {
+							MatSetValue(*A, row, b[(i-1)*bj+j], weight*As[0], ADD_VALUES);
+						}
+						if (j-1>=0) {
+							MatSetValue(*A, row, b[i*bj+j-1], weight*As[1], ADD_VALUES);
+						}
+						MatSetValue(*A, row, b[i*bj+j], weight*As[2], ADD_VALUES);
+						if (j+1<bj) {
+							MatSetValue(*A, row, b[i*bj+j+1], weight*As[3], ADD_VALUES);
+						}
+						if (i+1<bi) {
+							MatSetValue(*A, row, b[(i+1)*bj+j], weight*As[4], ADD_VALUES);
+						}
+					}
 				}
 			}
 		}
@@ -394,7 +436,7 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembl
 	factor = indices->coarseningFactor;
 	for (int l=0;l<assem->levels;l++) {
 
-		levelMatrixA1(prob, mesh, &(indices->level[l]), factor, &(assem->level[l].A));
+		levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, &(assem->level[l].A));
 	}
 }
 

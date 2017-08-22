@@ -51,7 +51,7 @@ void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
 void ViewSolverInfo(Indices indices, Solver solver);
 void ViewOperatorInfo(Operator op);
-void ViewAssemblyInfo(Assembly assem);
+void ViewAssemblyInfo(Assembly assem, int view);
 
 int main(int argc, char *argv[]) {
 	
@@ -115,8 +115,8 @@ int main(int argc, char *argv[]) {
 	}
 	
 
-//	SetUpMesh(&mesh, UNIFORM);
-	SetUpMesh(&mesh, NONUNIFORM);
+	SetUpMesh(&mesh, UNIFORM);
+//	SetUpMesh(&mesh, NONUNIFORM);
 //	ViewMeshInfo(mesh);
 	
 //	IsStencil = malloc(levels*sizeof(ArrayInt2d));
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 	
 	SetUpAssembly(&indices, &assem);
 	Assemble(&prob, &mesh, &indices, &op, &assem);
-	ViewAssemblyInfo(assem);
+//	ViewAssemblyInfo(assem, 0);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
@@ -906,7 +906,7 @@ void ViewOperatorInfo(Operator op) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void ViewAssemblyInfo(Assembly assem) {
+void ViewAssemblyInfo(Assembly assem, int view) {
 	// Prints the info of Assembly struct
 	
 	int	procs, rank;
@@ -916,7 +916,8 @@ void ViewAssemblyInfo(Assembly assem) {
 	
 	for (int l=0;l<assem.levels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
-		MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 0) MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 1) MatView(assem.level[l].A,PETSC_VIEWER_DRAW_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
