@@ -115,8 +115,8 @@ int main(int argc, char *argv[]) {
 	}
 	
 
-	SetUpMesh(&mesh, UNIFORM);
-//	SetUpMesh(&mesh, NONUNIFORM);
+//	SetUpMesh(&mesh, UNIFORM);
+	SetUpMesh(&mesh, NONUNIFORM);
 //	ViewMeshInfo(mesh);
 	
 //	IsStencil = malloc(levels*sizeof(ArrayInt2d));
