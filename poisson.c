@@ -938,6 +938,9 @@ void ViewGridTransferMatsInfo(Assembly assem, int view) {
 		PetscPrintf(PETSC_COMM_WORLD,"res[%d]:\n",l);
 		if (view == 0) MatView(assem.res[l],PETSC_VIEWER_STDOUT_WORLD);
 		if (view == 1) MatView(assem.res[l],PETSC_VIEWER_DRAW_WORLD);
+		PetscPrintf(PETSC_COMM_WORLD,"pro[%d]:\n",l);
+		if (view == 0) MatView(assem.pro[l],PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 1) MatView(assem.pro[l],PETSC_VIEWER_DRAW_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }

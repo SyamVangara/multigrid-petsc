@@ -182,6 +182,7 @@ void DestroyAssembly(Assembly *assem) {
 	}
 	for (int l=0;l<assem->levels-1;l++) {
 		MatDestroy(assem->res+l);
+		MatDestroy(assem->pro+l);
 	}
 	free(assem->res);
 	free(assem->pro);
@@ -658,6 +659,67 @@ void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	}
 }
 
+void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {
+	// Assembles the prolongation matrix for level 1 to 0
+	
+	int	levels;
+	
+	levels = assem->levels;
+	for (int l=0;l<levels;l++) {	
+		if (indices->level[l].grids>1) {
+			PetscPrintf(PETSC_COMM_WORLD, "For now, only 1 grid per level is allowed in std multigrid\n");
+			return;
+		}
+	}
+
+	ArrayInt2d	grid0, grid1;
+	ArrayInt2d	global0, global1;
+	int		g0, g1;
+	int		i0, j0, i1, j1;
+	int		range0[2], range1[2];
+	Mat		*pro;
+	int		opProni, opPronj;
+	double		*opPro;
+	double		weight;
+	
+	pro = assem->pro;
+	for (int l=0;l<levels-1;l++) {
+		g0 = indices->level[l].gridId[0];
+		g1 = indices->level[l+1].gridId[0];
+
+		opProni = op->pro[g1-g0-1].ni;
+		opPronj = op->pro[g1-g0-1].nj;
+		opPro = op->pro[g1-g0-1].data;
+
+		global0 = indices->level[l].global;
+		global1 = indices->level[l+1].global;
+		
+		grid0 = indices->level[l].grid[0];
+		grid1 = indices->level[l+1].grid[0];
+		
+		VecGetOwnershipRange(assem->level[l].b, range0, range0+1);	
+		VecGetOwnershipRange(assem->level[l+1].b, range1, range1+1);	
+		
+		MatCreateAIJ(PETSC_COMM_WORLD, range0[1]-range0[0], range1[1]-range1[0], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro+l);
+		for (int col=range1[0];col<range1[1];col++) {
+			i1 = global1.data[col*global1.nj];
+			j1 = global1.data[col*global1.nj+1];
+
+			i0 = ipow(factor,(g1-g0))*(i1+1)-1-(opProni)/2;
+			j0 = ipow(factor,(g1-g0))*(j1+1)-1-(opPronj)/2;
+			for (int i=i0;i<i0+opProni;i++) {
+				for (int j=j0;j<j0+opPronj;j++) {
+					weight = opPro[(i-i0)*opPronj+(j-j0)];
+					if (weight != 0.0) MatSetValue(pro[l], grid0.data[i*grid0.nj+j], col, weight, ADD_VALUES);
+				}
+			}
+		}
+	
+		MatAssemblyBegin(pro[l], MAT_FINAL_ASSEMBLY);
+		MatAssemblyEnd(pro[l], MAT_FINAL_ASSEMBLY);
+	}
+}
+
 void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem) {
 	// Assembles matrices and vectors in all levels
 	int	factor;
@@ -670,6 +732,7 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembl
 	// Only the zeroth level vec b is created
 	levelvecb1(prob, mesh, op, indices->level, factor, &(assem->level[0].b));
 	Res(indices, op, factor, assem);
+	Pro(indices, op, factor, assem);
 }
 
 //Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels) {
