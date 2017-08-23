@@ -51,7 +51,8 @@ void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
 void ViewSolverInfo(Indices indices, Solver solver);
 void ViewOperatorInfo(Operator op);
-void ViewAssemblyInfo(Assembly assem, int view);
+void ViewLinSysInfo(Assembly assem, int view);
+void ViewGridTransferMatsInfo(Assembly assem, int view);
 
 int main(int argc, char *argv[]) {
 	
@@ -104,7 +105,7 @@ int main(int argc, char *argv[]) {
 	scanf("%d",mesh.n);	
 	scanf("%d",&(solver.numIter));
 	scanf("%d",&(indices.totalGrids));
-	indices.levels = indices.totalGrids/2;
+	indices.levels = indices.totalGrids;
 	
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
@@ -135,7 +136,9 @@ int main(int argc, char *argv[]) {
 	
 	SetUpAssembly(&indices, &assem);
 	Assemble(&prob, &mesh, &indices, &op, &assem);
-	ViewAssemblyInfo(assem, 0);
+//	ViewLinSysInfo(assem, 0);
+//	printf("I am here\n");
+	ViewGridTransferMatsInfo(assem, 0);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
@@ -906,7 +909,7 @@ void ViewOperatorInfo(Operator op) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void ViewAssemblyInfo(Assembly assem, int view) {
+void ViewLinSysInfo(Assembly assem, int view) {
 	// Prints the info of Assembly struct
 	
 	int	procs, rank;
@@ -919,6 +922,22 @@ void ViewAssemblyInfo(Assembly assem, int view) {
 		if (view == 0) MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
 		if (view == 1) MatView(assem.level[l].A,PETSC_VIEWER_DRAW_WORLD);
 		VecView(assem.level[l].b,PETSC_VIEWER_STDOUT_WORLD);
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
+void ViewGridTransferMatsInfo(Assembly assem, int view) {
+	// Prints the info of Assembly struct
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	for (int l=0;l<assem.levels-1;l++) {
+		PetscPrintf(PETSC_COMM_WORLD,"res[%d]:\n",l);
+		if (view == 0) MatView(assem.res[l],PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 1) MatView(assem.res[l],PETSC_VIEWER_DRAW_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
