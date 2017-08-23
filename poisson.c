@@ -22,17 +22,6 @@
 #define isRESSTENCIL(l,i,j) (IsResStencil[l].data[((i)*IsResStencil[l].nj+(j))])
 #define isPROSTENCIL(l,i,j) (IsProStencil[l].data[((i)*IsProStencil[l].nj+(j))])
 
-//typedef struct {
-//	ArrayInt2d	stencil;	// global indices of stencil
-//	ArrayInt2d	resStencil;	// global indices of restriction stencil
-//	ArrayInt2d	proStencil;	// global indices of prolongation stencil
-//} StencilLevel;
-//
-//typedef struct {
-//	int		levels;
-//	StencilLevel	*level;
-//} StencilIndices;
-
 void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range);
 void GetError(double **coord, int *n, Array2d u, double *error);
 void UpdateBC(double **coord, double *u, int *n);
@@ -64,6 +53,7 @@ int main(int argc, char *argv[]) {
 	Operator	op;
 	Assembly	assem;
 	Solver		solver;
+	PostProcess	pp;	
 
 	int	ierr=0;
 	int	procs, rank;
@@ -636,24 +626,6 @@ void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRa
 
 }
 
-void GetError(double **coord, int *n, Array2d u, double *error) {
-	
-	// u(x,y) = sin(Pi*x)*sin(pi*y)	
-	double	diff;
-	error[0] = 0.0;
-	error[1] = 0.0;
-	error[2] = 0.0;
-	for (int i=0;i<u.ni;i++) {
-		for (int j=0;j<u.nj;j++) {
-			diff = fabs(U(i,j)-SOL(i+1,j+1));
-			error[0] = fmax(diff,error[0]);
-			error[1] = error[1] + diff;
-			error[2] = error[2] + diff*diff;
-		}
-	}
-	error[2] = sqrt(error[2]);
-}
-
 void UpdateBC(double **coord, double *u, int *n) {
 
 	int iend;
@@ -674,8 +646,6 @@ void UpdateBC(double **coord, double *u, int *n) {
 	}
 	
 }
-
-
 
 int ipow(int base, int exp) {
 

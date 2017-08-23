@@ -53,6 +53,7 @@ void Range(Indices *indices, Solver *solver) {
 void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	// Allocates memory to Solver struct
 		
+	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
 	solver->range = malloc(indices->levels*sizeof(int[2]));
 	solver->cycle = cyc;
 	Range(indices, solver);
@@ -61,7 +62,119 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 void DestroySolver(Solver *solver) {
 	// Free the memory in Solver struct
 	
+	free(solver->rnorm);
 	free(solver->range);
+}
+
+void SetPostProcess(PostProcess *pp) {
+	// Allocates memory to PostProcess struct
+		
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	if (rank == 0) {
+		pp->solData = fopen("uData.dat","w");
+		pp->resData = fopen("rData.dat","w");
+		pp->errData = fopen("eData.dat","w");
+	}
+}
+
+void DestroyPostProcess(PostProcess *pp) {
+	// Free the memory in PostProcess struct
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	if (rank == 0) {
+		fclose(pp->solData);
+		fclose(pp->resData);
+		fclose(pp->errData);
+	}
+}
+
+void GetError(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, double *error) {
+	
+	// u(x,y) = sin(Pi*x)*sin(pi*y)	
+	double		diff, sol;
+	double		*u;
+	int		range[2];
+	ArrayInt2d	*grid;
+	int		gridId;
+	int		globalni, globalnj, *global;
+	int		ifine, jfine;
+	int		i, j, g;
+	double		**coord;
+	double		localError[3];
+
+	int		rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	VecGetOwnershipRange(assem->level[0].u, range, range+1);
+	VecGetArray(assem->level[0].u, &u);
+	
+	globalni = indices->level[0].global.ni;
+	globalnj = indices->level[0].global.nj;
+	global   = indices->level[0].global.data;
+	gridId   = indices->level[0].gridId[0];
+
+	coord = mesh->coord;
+
+	localError[0] = 0.0;
+	localError[1] = 0.0;
+	localError[2] = 0.0;
+	for (int row=range[0];row<range[1];row++) {
+		i = global[row*globalnj    ];
+		j = global[row*globalnj + 1];
+		g = global[row*globalnj + 2];
+		if (g != gridId) continue;
+		sol = prob->SOLfunc(coord[0][j+1], coord[1][i+1]);
+		diff = fabs(u[row-range[0]]-sol);
+		localError[0] = fmax(diff,localError[0]);
+		localError[1] += diff;
+		localError[2] += diff*diff;
+	}
+	MPI_Reduce(localError, error, 1, MPI_DOUBLE, MPI_MAX, 0, PETSC_COMM_WORLD);
+	MPI_Reduce(localError+1, error+1, 2, MPI_DOUBLE, MPI_SUM, 0, PETSC_COMM_WORLD);
+	if (rank == 0) error[2] = sqrt(error[2]);
+	
+	VecRestoreArray(assem->level[0].u, &u);
+}
+
+void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, PostProcess *pp) {
+	// Computes error and writes data to files
+	
+	int		rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	GetError(prob, mesh, indices, assem, pp->error);
+	
+	if (rank==0) {	
+	
+	pp->solData = fopen("uData.dat","w");
+	pp->resData = fopen("rData.dat","w");
+	pp->errData = fopen("eData.dat","w");
+	
+	for(int i=0;i<3;i++){
+		printf("\nerror[%d] = %.16e\n", i, pp->error[i]);
+		fprintf(pp->errData,"%.16e\n",pp->error[i]);
+	}
+
+	for (int i=0;i<u.ni;i++) {
+		for (int j=0;j<u.nj;j++) {
+			fprintf(solData,"%.16e ",U(i,j));
+		}
+		fprintf(solData,"\n");
+	}
+		
+	for (int i=0;i<numIter;i++) {
+		fprintf(resData,"%.16e ",rnorm[i]);
+	}
+	fprintf(resData,"\n");
+	}
 }
 
 void ProlongationOperator(Array2d pro) {

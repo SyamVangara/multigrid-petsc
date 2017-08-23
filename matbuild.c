@@ -376,7 +376,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 				b  = level->grid[lg].data;
 				ifine = ipow(factor,g0)*(i0+1)-1;
 				jfine = ipow(factor,g0)*(j0+1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				if (i0-1>=0) {
 					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
@@ -408,7 +408,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 					for (int j=j1;j<j1 + resnj;j++) {
 						ifine = ipow(factor,(g1))*(i+1)-1;
 						jfine = ipow(factor,(g1))*(j+1)-1;
-						mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+						mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 						prob->OpA(As, metrics, level->h[lg]);
 						weight = res[(i-i1)*resnj+(j-j1)];
 						if (weight == 0.0) continue;
@@ -456,7 +456,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 					for (int j=1;j<pronj-1;j++) {
 						ifine = ipow(factor,(g1))*(i+i1+1)-1;
 						jfine = ipow(factor,(g1))*(j+j1+1)-1;
-						mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+						mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 						prob->OpA(As, metrics, level->h[lg]);
 						weight = As[0]*pro[(i-1)*pronj+(j)] + As[1]*pro[(i)*pronj+(j-1)]+ As[2]*pro[(i)*pronj+(j)]+ As[3]*pro[(i)*pronj+(j+1)]+ As[4]*pro[(i+1)*pronj+(j)];
 						if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+j+j1], col, weight, ADD_VALUES);
@@ -468,14 +468,14 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 				for (int j=1;j<pronj-1;j++) {
 					ifine = ipow(factor,(g1))*(i1+1)-1;
 					jfine = ipow(factor,(g1))*(j+j1+1)-1;
-					mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 					prob->OpA(As, metrics, level->h[lg]);
 					weight = As[1]*pro[(j-1)]+ As[2]*pro[(j)]+ As[3]*pro[(j+1)]+ As[4]*pro[pronj+(j)];
 					if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+j+j1], col, weight, ADD_VALUES);
 					
 					ifine = ipow(factor,(g1))*(proni+i1)-1;
 					jfine = ipow(factor,(g1))*(j+j1+1)-1;
-					mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 					prob->OpA(As, metrics, level->h[lg]);
 					weight = As[0]*pro[(proni-2)*pronj+(j)] + As[1]*pro[(proni-1)*pronj+(j-1)]+ As[2]*pro[(proni-1)*pronj+(j)]+ As[3]*pro[(proni-1)*pronj+(j+1)];
 					if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+j+j1], col, weight, ADD_VALUES);
@@ -486,14 +486,14 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 				for (int i=1;i<proni-1;i++) {
 					ifine = ipow(factor,(g1))*(i+i1+1)-1;
 					jfine = ipow(factor,(g1))*(j1+1)-1;
-					mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 					prob->OpA(As, metrics, level->h[lg]);
 					weight = As[0]*pro[(i-1)*pronj] + As[2]*pro[(i)*pronj]+ As[3]*pro[(i)*pronj+(1)]+ As[4]*pro[(i+1)*pronj];
 					if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+j1], col, weight, ADD_VALUES);
 						
 					ifine = ipow(factor,(g1))*(i+i1+1)-1;
 					jfine = ipow(factor,(g1))*(pronj+j1)-1;
-					mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 					prob->OpA(As, metrics, level->h[lg]);
 					weight = As[0]*pro[(i-1)*pronj+(pronj-1)] + As[1]*pro[(i)*pronj+(pronj-2)]+ As[2]*pro[(i)*pronj+(pronj-1)]+ As[4]*pro[(i+1)*pronj+(pronj-1)];
 					if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
@@ -501,28 +501,28 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 
 				ifine = ipow(factor,(g1))*(i1+1)-1;
 				jfine = ipow(factor,(g1))*(j1+1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				weight = As[2]*pro[0]+ As[3]*pro[1]+ As[4]*pro[pronj];
 				if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+j1], col, weight, ADD_VALUES);
 				
 				ifine = ipow(factor,(g1))*(i1+1)-1;
 				jfine = ipow(factor,(g1))*(pronj+j1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+j1], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+j1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				weight = As[1]*pro[(pronj-2)]+ As[2]*pro[(pronj-1)]+ As[4]*pro[pronj+(pronj-1)];
 				if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
 				
 				ifine = ipow(factor,(g1))*(proni+i1)-1;
 				jfine = ipow(factor,(g1))*(j1+1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				weight = As[0]*pro[(proni-2)*pronj] + As[2]*pro[(proni-1)*pronj]+ As[3]*pro[(proni-1)*pronj+(1)];
 				if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+j1], col, weight, ADD_VALUES);
 				
 				ifine = ipow(factor,(g1))*(proni+i1)-1;
 				jfine = ipow(factor,(g1))*(pronj+j1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][ifine+1], coord[1][jfine+1], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				weight = As[0]*pro[(proni-2)*pronj+(pronj-1)] + As[1]*pro[(proni-1)*pronj+(pronj-2)]+ As[2]*pro[(proni-1)*pronj+(pronj-1)];
 				if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
@@ -572,7 +572,7 @@ void levelvecb1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int facto
 		if (g0==g1) {
 			ifine = ipow(factor,g1)*(i0+1)-1; 
 			jfine = ipow(factor,g1)*(j0+1)-1;
-			value = prob->Ffunc(coord[0][ifine+1], coord[1][jfine+1]);
+			value = prob->Ffunc(coord[0][jfine+1], coord[1][ifine+1]);
 			VecSetValue(*b, row, value, INSERT_VALUES);
 		} else {
 			resni = op->res[g0-g1-1].ni;
@@ -586,7 +586,7 @@ void levelvecb1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int facto
 				for (int j=j1;j<j1+resnj;j++) {
 					ifine = ipow(factor,g1)*(i+1)-1; 
 					jfine = ipow(factor,g1)*(j+1)-1;
-					value += (prob->Ffunc(coord[0][ifine+1], coord[1][jfine+1]))*res[(i-i1)*resnj+(j-j1)];
+					value += (prob->Ffunc(coord[0][jfine+1], coord[1][ifine+1]))*res[(i-i1)*resnj+(j-j1)];
 				}
 			}
 			VecSetValue(*b, row, value, INSERT_VALUES);
