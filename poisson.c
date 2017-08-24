@@ -128,10 +128,12 @@ int main(int argc, char *argv[]) {
 	Assemble(&prob, &mesh, &indices, &op, &assem);
 //	ViewLinSysInfo(assem, 0);
 //	printf("I am here\n");
-	ViewGridTransferMatsInfo(assem, 0);
+//	ViewGridTransferMatsInfo(assem, 0);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
+	SetPostProcess(&pp);
+	Postprocessing(&prob, &mesh, &indices, &assem, &solver, &pp);
 //	ln = range[1]-range[0];
 //	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: from %d to %d; local unknowns = %d\n",rank,range[0],range[1]-1,range[1]-range[0]);
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
@@ -350,6 +352,7 @@ int main(int argc, char *argv[]) {
 //	DeleteIndexMaps(&map);
 //	free(range);
 //	free(gridId);
+	DestroyPostProcess(&pp);
 	DestroySolver(&solver);
 	DestroyAssembly(&assem);
 	DestroyOperator(&op);

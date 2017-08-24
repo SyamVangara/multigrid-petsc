@@ -31,6 +31,7 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 void DestroySolver(Solver *solver);
 void SetPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);
+void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, Solver *solver, PostProcess *pp);
 
 void UpdateRHS(double *A, double **u, double **r, int *n);
 double Residual(double **u, double **f, double **r, double *As, int *n);
