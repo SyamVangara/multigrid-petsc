@@ -111,6 +111,7 @@ void GetError(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, doub
 	double		localError[3];
 
 	int		rank;
+	
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	VecGetOwnershipRange(assem->level[0].u, range, range+1);
@@ -144,12 +145,89 @@ void GetError(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, doub
 	VecRestoreArray(assem->level[0].u, &u);
 }
 
+static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
+	
+	int		r;
+	double		*px;
+	double		*buffer;
+	const	int	*ranges;
+	int		gridId;
+	int		globalni, globalnj, *global;
+	int		i, j, g;
+	int		count;
+
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	VecGetArray(assem->level[0].u, &px);
+	VecGetOwnershipRangs(assem->level[0].u, &ranges);
+	
+	globalni = indices->level[0].global.ni;
+	globalnj = indices->level[0].global.nj;
+	global   = indices->level[0].global.data;
+	gridId   = indices->level[0].gridId[0];
+	
+	if (rank!=0) {
+		buffer = malloc((ranges[rank+1]-ranges[rank])*sizeof(double));
+		count = 0;
+		for (int row=ranges[rank+1];row<range[rank];row++) {
+			g = global[row*globalnj + 2];
+			if (g != gridId) continue;
+			buffer[count] = px[row-range[0]];
+			count += 1;
+		}
+
+		MPI_Send(buffer, ranges[rank+1]-ranges[rank], MPI_DOUBLE, 0, rank, PETSC_COMM_WORLD);
+		free(buffer);
+	}
+	else if (rank==0) {
+		int	totalN;
+		int	gridni, gridnj;
+		int	*grid;
+		
+		gridni = indices->level[0].grid[0].ni;
+		gridnj = indices->level[0].grid[0].nj;
+		grid   = indices->level[0].grid[0].data;
+		totalN = (gridni*gridnj);
+		buffer = malloc(totalN*sizeof(double));
+		
+		count = 0;
+		for (int row=ranges[0];row<ranges[1];row++) {
+			g = global[row*globalnj + 2];
+			if (g != gridId) continue;
+			buffer[count] = px[row-range[0]];
+			count += 1;
+		}
+
+		for (int i=1;i<procs;i++) {
+			MPI_Recv(&(buffer[ranges[i]]), ranges[i+1]-ranges[i], MPI_DOUBLE, i, i, PETSC_COMM_WORLD, MPI_STATUS_IGNORE);
+		}
+	
+		for (int row=range[0];row<range[procs+1];row++) {
+			i = global[row*globalnj    ];
+			j = global[row*globalnj + 1];
+			g = global[row*globalnj + 2];
+			if (g != gridId) continue;
+			u[i*u.nj+j] = buffer[row];
+		}
+		free(buffer);
+	}
+	VecRestoreArray(assem->level[0].u, &px);
+
+}
+
 void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, PostProcess *pp) {
 	// Computes error and writes data to files
 	
 	int		rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+
+	Array2d		u;
 	
+	u = indices->level[0].grid[0];
+	GetSol1(indices, assem, u);
 	GetError(prob, mesh, indices, assem, pp->error);
 	
 	if (rank==0) {	
