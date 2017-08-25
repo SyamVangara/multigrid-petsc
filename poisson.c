@@ -40,7 +40,7 @@ void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
 void ViewSolverInfo(Indices indices, Solver solver);
 void ViewOperatorInfo(Operator op);
-void ViewLinSysInfo(Assembly assem, int view);
+void ViewLinSysMatsInfo(Assembly assem, int view);
 void ViewGridTransferMatsInfo(Assembly assem, int view);
 
 int main(int argc, char *argv[]) {
@@ -54,6 +54,8 @@ int main(int argc, char *argv[]) {
 	Assembly	assem;
 	Solver		solver;
 	PostProcess	pp;	
+	
+	int	gridsPerLevel;
 
 	int	ierr=0;
 	int	procs, rank;
@@ -95,7 +97,8 @@ int main(int argc, char *argv[]) {
 	scanf("%d",mesh.n);	
 	scanf("%d",&(solver.numIter));
 	scanf("%d",&(indices.totalGrids));
-	indices.levels = indices.totalGrids;
+	scanf("%d",&(gridsPerLevel));
+	indices.levels = indices.totalGrids/gridsPerLevel;
 	
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
@@ -126,8 +129,7 @@ int main(int argc, char *argv[]) {
 	
 	SetUpAssembly(&indices, &assem);
 	Assemble(&prob, &mesh, &indices, &op, &assem);
-//	ViewLinSysInfo(assem, 0);
-//	printf("I am here\n");
+//	ViewLinSysMatsInfo(assem, 0);
 //	ViewGridTransferMatsInfo(assem, 0);
 
 	SetUpSolver(&indices, &solver, VCYCLE);
@@ -882,7 +884,7 @@ void ViewOperatorInfo(Operator op) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void ViewLinSysInfo(Assembly assem, int view) {
+void ViewLinSysMatsInfo(Assembly assem, int view) {
 	// Prints the info of Assembly struct
 	
 	int	procs, rank;
@@ -892,9 +894,9 @@ void ViewLinSysInfo(Assembly assem, int view) {
 	
 	for (int l=0;l<assem.levels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
-		if (view == 0) MatView(assem.level[l].A,PETSC_VIEWER_STDOUT_WORLD);
-		if (view == 1) MatView(assem.level[l].A,PETSC_VIEWER_DRAW_WORLD);
-		VecView(assem.level[l].b,PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 0) MatView(assem.A[l],PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 1) MatView(assem.A[l],PETSC_VIEWER_DRAW_WORLD);
+		VecView(assem.b[l],PETSC_VIEWER_STDOUT_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }

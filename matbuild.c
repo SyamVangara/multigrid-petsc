@@ -169,16 +169,18 @@ void SetUpAssembly(Indices *indices, Assembly *assem) {
 	assem->levels = indices->levels;
 	assem->res = malloc((assem->levels-1)*sizeof(Mat));
 	assem->pro = malloc((assem->levels-1)*sizeof(Mat));
-	assem->level = malloc((assem->levels)*sizeof(LinSys));
+	assem->A = malloc((assem->levels)*sizeof(Mat));
+	assem->u = malloc((assem->levels)*sizeof(Vec));
+	assem->b = malloc((assem->levels)*sizeof(Vec));
 }
 
 void DestroyAssembly(Assembly *assem) {
 	// Free the memory in Assembly struct
 	
 	for (int l=0;l<assem->levels;l++) {
-		MatDestroy(&(assem->level[l].A));
-		VecDestroy(&(assem->level[l].b));
-		VecDestroy(&(assem->level[l].u));
+		MatDestroy(assem->A+l);
+		VecDestroy(assem->b+l);
+		VecDestroy(assem->u+l);
 	}
 	for (int l=0;l<assem->levels-1;l++) {
 		MatDestroy(assem->res+l);
@@ -186,7 +188,9 @@ void DestroyAssembly(Assembly *assem) {
 	}
 	free(assem->res);
 	free(assem->pro);
-	free(assem->level);
+	free(assem->A);
+	free(assem->b);
+	free(assem->u);
 }
 
 void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {
@@ -636,8 +640,8 @@ void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 		grid0 = indices->level[l].grid[0];
 		grid1 = indices->level[l+1].grid[0];
 		
-		VecGetOwnershipRange(assem->level[l].b, range0, range0+1);	
-		VecGetOwnershipRange(assem->level[l+1].b, range1, range1+1);	
+		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
+		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
 		
 		MatCreateAIJ(PETSC_COMM_WORLD, range1[1]-range1[0], range0[1]-range0[0], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res+l);
 		for (int row=range1[0];row<range1[1];row++) {
@@ -697,8 +701,8 @@ void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {
 		grid0 = indices->level[l].grid[0];
 		grid1 = indices->level[l+1].grid[0];
 		
-		VecGetOwnershipRange(assem->level[l].b, range0, range0+1);	
-		VecGetOwnershipRange(assem->level[l+1].b, range1, range1+1);	
+		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
+		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
 		
 		MatCreateAIJ(PETSC_COMM_WORLD, range0[1]-range0[0], range1[1]-range1[0], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro+l);
 		for (int col=range1[0];col<range1[1];col++) {
@@ -726,11 +730,13 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembl
 
 	factor = indices->coarseningFactor;
 	for (int l=0;l<assem->levels;l++) {
-		levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, &(assem->level[l].A));
-		MatCreateVecs(assem->level[l].A, &(assem->level[l].u), &(assem->level[l].b));
+		levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
+		MatCreateVecs(assem->A[l], assem->u+l, assem->b+l);
 	}
 	// Only the zeroth level vec b is created
-	levelvecb1(prob, mesh, op, indices->level, factor, &(assem->level[0].b));
+	levelvecb1(prob, mesh, op, indices->level, factor, assem->b);
+
+	if (assem->levels < 2) return; 
 	Res(indices, op, factor, assem);
 	Pro(indices, op, factor, assem);
 }
