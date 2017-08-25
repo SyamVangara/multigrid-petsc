@@ -512,7 +512,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 				
 				ifine = ipow(factor,(g1))*(i1+1)-1;
 				jfine = ipow(factor,(g1))*(pronj+j1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+j1], metrics);
+				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 				prob->OpA(As, metrics, level->h[lg]);
 				weight = As[1]*pro[(pronj-2)]+ As[2]*pro[(pronj-1)]+ As[4]*pro[pronj+(pronj-1)];
 				if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);

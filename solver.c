@@ -173,7 +173,7 @@ void GetError(Problem *prob, Mesh *mesh, Array2d u1, double *error) {
 //	VecRestoreArray(assem->level[0].u, &u);
 //}
 
-static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
+void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 	
 	int		r;
 	double		*px;
@@ -198,7 +198,6 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 	gridId   = indices->level[0].gridId[0];
 	
 	if (rank!=0) {
-		printf("rank: %d; range: %d, I am here\n", rank, ranges[rank+1]-ranges[rank]);
 		buffer = malloc((ranges[rank+1]-ranges[rank])*sizeof(double));
 		count = 0;
 		for (int row=ranges[rank];row<ranges[rank+1];row++) {
@@ -208,7 +207,8 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 			count += 1;
 		}
 
-		MPI_Send(buffer, ranges[rank+1]-ranges[rank], MPI_DOUBLE, 0, rank, PETSC_COMM_WORLD);
+		MPI_Send(&count, 1, MPI_DOUBLE, 0, rank, PETSC_COMM_WORLD);
+		MPI_Send(buffer, count, MPI_DOUBLE, 0, rank*(count+1), PETSC_COMM_WORLD);
 		free(buffer);
 	}
 	else if (rank==0) {
@@ -232,7 +232,8 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 		}
 
 		for (int i=1;i<procs;i++) {
-			MPI_Recv(buffer+ranges[i], ranges[i+1]-ranges[i], MPI_DOUBLE, i, i, PETSC_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(&count, 1, MPI_DOUBLE, i, i, PETSC_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(buffer+ranges[i], count, MPI_DOUBLE, i, i*(count+1), PETSC_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 	
 		for (int row=ranges[0];row<ranges[procs];row++) {
@@ -243,7 +244,6 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 			u.data[i*u.nj+j] = buffer[row-ranges[0]];
 		}
 		free(buffer);
-		printf("rank: %d; I am here\n", rank);
 	}
 	VecRestoreArray(assem->u[0], &px);
 
