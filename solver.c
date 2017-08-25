@@ -198,6 +198,7 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 	gridId   = indices->level[0].gridId[0];
 	
 	if (rank!=0) {
+		printf("rank: %d; range: %d, I am here\n", rank, ranges[rank+1]-ranges[rank]);
 		buffer = malloc((ranges[rank+1]-ranges[rank])*sizeof(double));
 		count = 0;
 		for (int row=ranges[rank];row<ranges[rank+1];row++) {
@@ -209,7 +210,6 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 
 		MPI_Send(buffer, ranges[rank+1]-ranges[rank], MPI_DOUBLE, 0, rank, PETSC_COMM_WORLD);
 		free(buffer);
-		printf("rank: %d; I am here\n", rank);
 	}
 	else if (rank==0) {
 		int	totalN;
@@ -240,7 +240,7 @@ static void GetSol1(Indices *indices, Assembly *assem, Array2d u) {
 			j = global[row*globalnj + 1];
 			g = global[row*globalnj + 2];
 			if (g != gridId) continue;
-			u.data[i*u.nj+j] = buffer[row];
+			u.data[i*u.nj+j] = buffer[row-ranges[0]];
 		}
 		free(buffer);
 		printf("rank: %d; I am here\n", rank);
