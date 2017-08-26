@@ -29,7 +29,7 @@ static int ipow(int base, int exp);
 void CreateArrayOfIS(int n, int levels, IS *idx);
 void prolongStencil2D(double ***IH2h, int m, int n);
 void restrictStencil2D(double ***Ih2H, int m, int n);
-int totalUnknowns(int *n, int levels);
+int totalUnknowns(int *n, int totalGrids);
 static void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
 PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
@@ -55,6 +55,7 @@ int main(int argc, char *argv[]) {
 	Solver		solver;
 	PostProcess	pp;	
 	
+	Cycle	cyc;
 	int	gridsPerLevel;
 
 	int	ierr=0;
@@ -98,6 +99,7 @@ int main(int argc, char *argv[]) {
 	scanf("%d",&(solver.numIter));
 	scanf("%d",&(indices.totalGrids));
 	scanf("%d",&(gridsPerLevel));
+	scanf("%d",&(cyc));
 	indices.levels = indices.totalGrids/gridsPerLevel;
 	
 	for (int i=1;i<DIMENSION;i++) { 
@@ -132,7 +134,7 @@ int main(int argc, char *argv[]) {
 //	ViewLinSysMatsInfo(assem, 0);
 //	ViewGridTransferMatsInfo(assem, 0);
 
-	SetUpSolver(&indices, &solver, VCYCLE);
+	SetUpSolver(&indices, &solver, cyc);
 //	ViewSolverInfo(indices, solver);
 	Solve(&assem, &solver);
 	SetPostProcess(&pp);
@@ -362,35 +364,24 @@ int main(int argc, char *argv[]) {
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
 	PetscFinalize();
-/*
+
 	if (rank==0) {
 	int temp;
-	temp = totalUnknowns(n,levels);
+	temp = totalUnknowns(mesh.n,op.totalGrids);
 	
 	printf("=============================================================\n");
-	printf("Size:			%d^2\n",n[0]);
-	printf("Number of unknowns:	%d\n",temp);
-	printf("Number of levels:	%d\n",levels);
-	printf("Number of processes:	%d\n",procs);
-	printf("Number of iterations:	%d\n",numIter);
+	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
+	printf("Number of unknowns:		%d\n",temp);
+	printf("Number of grids:		%d\n",op.totalGrids);
+	printf("Number of levels:		%d\n",assem.levels);
+	printf("Number of grids per level:	%d\n",gridsPerLevel);
+	printf("Number of processes:		%d\n",procs);
+	printf("Number of iterations:		%d\n",solver.numIter);
 	printf("=============================================================\n");
 	}
-*/
+
 	return 0;
 }
-
-PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm) {
-	//Writes the l2-norm of residual at each iteration to an array
-	//
-	//rnorm[n] = rnormInstant
-	
-	int	rank;
-
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	if (rank==0) rnorm[n] = rnormAtn;
-	return 0;
-}
-
 
 //void CreateStencilIndices(int *n, int levels, IsRange *range, StencilIndices &indices) {
 //	// Allocate memory to grid-to-global indices struct
@@ -715,13 +706,13 @@ void restrictStencil2D(double ***Ih2H, int m, int n){
 	(*Ih2H)[1][1] = 1.0;
 }
 
-int totalUnknowns(int *n, int levels) {
+int totalUnknowns(int *n, int totalGrids) {
 		
 	int length, n0;
 
 	n0 = n[0]-2;
 	length=n0*n0;
-	for (int i=1;i<levels;i++) {
+	for (int i=1;i<totalGrids;i++) {
 		n0 = (n0-1)/2;
 		length = length + n0*n0;
 	}

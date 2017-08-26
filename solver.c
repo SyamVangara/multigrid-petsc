@@ -593,11 +593,21 @@ void Multigrid(double **u, double **f, double **r, double *As, double w, double 
 
 }
 
+PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm) {
+	//Writes the l2-norm of residual at each iteration to an array
+	//
+	//rnorm[n] = rnormInstant
+	
+	int	rank;
+
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	if (rank==0) rnorm[n] = rnormAtn;
+	return 0;
+}
+
 void MultigridVcycle(Assembly *assem, Solver *solver) {
 
 	int	v[2];
-//	int	n[levels];
-//	Mat	A[levels], prolongMatrix[levels-1], restrictMatrix[levels-1];
 	int	iter;
 	double	rnormchk, bnorm;
 	
@@ -611,9 +621,6 @@ void MultigridVcycle(Assembly *assem, Solver *solver) {
 	Vec	*b;
 	Vec	*u;
 	
-//	double	*px;
-//	const	int	*ranges;
-
 	int	size, rank;
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &size);
@@ -640,20 +647,10 @@ void MultigridVcycle(Assembly *assem, Solver *solver) {
 	//printf("Enter the number of coarse grid sweeps = ");
 	scanf("%d",v+1);
 
-//	printf("rank = %d; v[0] = %d\n",rank,v[0]);
-//	printf("rank = %d; v[1] = %d\n",rank,v[1]);
-
-//	n[0] = fulln[0]-2;
-//	for (int i=1;i<levels;i++) {
-//		n[i] = (n[i-1]-1)/2;
-//	}
-
 	for (int i=0;i<levels;i++) {
 		VecDuplicate(b[i],&(rv[i]));
 	}
 	VecNorm(b[0], NORM_2, &bnorm);
-//	printf("rank = %d, bnorm = %f\n", rank, bnorm);
-//	VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
 	
 	KSPCreate(PETSC_COMM_WORLD, &(ksp[0]));
 //	KSPSetType(ksp[0],KSPGMRES);
@@ -711,42 +708,20 @@ void MultigridVcycle(Assembly *assem, Solver *solver) {
 	while (iter<maxIter && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
 		KSPSolve(ksp[0], b[0], u[0]);
 		if (iter==0) KSPSetInitialGuessNonzero(ksp[0],PETSC_TRUE);
-//		KSPBuildResidual(solver[0],NULL,NULL,&(r[0]));
-//		VecView(r[0], PETSC_VIEWER_STDOUT_WORLD);
-//		MatMult(restrictMatrix[0],r[0],b[1]);
-//		VecView(b[1], PETSC_VIEWER_STDOUT_WORLD);
-//		for (int l=1;l<levels-1;l++) {
 		for (int l=1;l<levels;l++) {
 			KSPBuildResidual(ksp[l-1],NULL,rv[l-1],&(r[l-1]));
 			MatMult(res[l-1],r[l-1],b[l]);
 			KSPSolve(ksp[l], b[l], u[l]);
 			if (l!=levels-1) KSPSetInitialGuessNonzero(ksp[l],PETSC_TRUE);
-//			KSPBuildResidual(ksp[l],NULL,NULL,&(r[l]));
-//			MatMult(restrictMatrix[l],r[l],b[l+1]);
 		}
-//		KSPSolve(ksp[levels-1], b[levels-1], x[levels-1]);
-//		VecView(x[levels-1], PETSC_VIEWER_STDOUT_WORLD);
 		for (int l=levels-2;l>=0;l=l-1) {
-//			MatMult(prolongMatrix[l],x[l+1],xbuf[l]);
-//			VecAXPY(x[l],1.0,xbuf[l]);
 			MatMult(pro[l],u[l+1],rv[l]);
 			VecAXPY(u[l],1.0,rv[l]);
 			KSPSolve(ksp[l], b[l], u[l]);
-//			KSPBuildResidual(ksp[l],NULL,NULL,&(r[l]));
 			if (l!=0) KSPSetInitialGuessNonzero(ksp[l],PETSC_FALSE);
 		}
-//		MatMult(prolongMatrix[0],x[1],xbuf[0]);
-//		VecView(xbuf[0], PETSC_VIEWER_STDOUT_WORLD);
-//		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
-//		VecAXPY(x[0],1.0,xbuf[0]);
-//		VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
-//		KSPSolve(ksp[0], b[0], x[0]);
-
 		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
 		VecNorm(r[0], NORM_2, &rnormchk);	
-//		KSPGetResidualNorm(ksp[0],&(rnormchk));
-		
-//		printf("rank = %d; iter: %d, ul = %f, rnorm = %f, ll = %f\n", rank, iter, 100000000*bnorm, rnormchk, (1.e-7)*bnorm);
 		iter = iter + 1;
 		if (rank==0) rnorm[iter] = rnormchk/bnorm;
 	}
@@ -760,30 +735,9 @@ void MultigridVcycle(Assembly *assem, Solver *solver) {
 		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
 		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 	}
-//	VecView(x[0], PETSC_VIEWER_STDOUT_WORLD);
-
-//	rnorm[0] = Residual(u,f,r,As,n);
-//	for (int i=1;i<m+1;i++) {
-//		Vcycle(u,f,r,As,w,v,levels,n);
-//		rnorm[i] = Residual(u,f,r,As,n); 
-//	}
-//	printf("residual = %.16e\n",rnorm[m]);
-//	VecGetArray(x[0],&px);
-//	VecGetOwnershipRanges(x[0],&ranges);
-//	GetSol(u,px,fulln,levels,ranges,size,rank);
-//	VecRestoreArray(x[0],&px);
-	
 	for (int i=0;i<levels;i++) {
-//		MatDestroy(&(A[i]));
 		VecDestroy(&(rv[i]));
-//		VecDestroy(&(x[i]));
-//		VecDestroy(&(b[i]));
 	}
-//	for (int l=0;l<levels-1;l++) {
-//		MatDestroy(&(restrictMatrix[l]));
-//		MatDestroy(&(prolongMatrix[l]));
-//	}
-	
 	for (int i=0;i<levels;i++) {
 		KSPDestroy(&(ksp[i]));
 	}
@@ -793,10 +747,61 @@ void MultigridVcycle(Assembly *assem, Solver *solver) {
 
 }
 
+void MultigridIcycle(Assembly *assem, Solver *solver) {
+
+	Mat	*A;
+	Vec	*b;
+	Vec	*u;
+	
+	int	size, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	A	= assem->A;
+	b	= assem->b;
+	u	= assem->u;
+	
+	KSP	ksp;
+	PC	pc;
+	
+	PetscLogStage	stage, stageSolve;
+	
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetOperators(ksp, *A, *A);
+	KSPGetPC(ksp,&pc);
+	PCSetType(pc,PCASM);
+	KSPMonitorSet(ksp, myMonitor, solver->rnorm, NULL);
+	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, solver->numIter);
+	KSPSetFromOptions(ksp);
+
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
+	
+	KSPSolve(ksp, *b, *u);
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	KSPGetIterationNumber(ksp, &(solver->numIter));
+
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+	KSPDestroy(&ksp);
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
 void Solve(Assembly *assem, Solver *solver){
 	// Solves the problem with chosen multigrid cycle
 	
 	if (solver->cycle == VCYCLE) MultigridVcycle(assem, solver);
+	if (solver->cycle == ICYCLE) MultigridIcycle(assem, solver);
 }
 
 void MultigridPetsc(Array2d u, Array2d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d *IsStencil, ArrayInt2d *IsResStencil, ArrayInt2d *IsProStencil, IsRange *range, double *rnorm, int levels, int *fulln, int *m) {
