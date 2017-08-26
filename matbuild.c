@@ -291,29 +291,6 @@ Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
 			MatSetValue(A, i, col[4], As[4], INSERT_VALUES);
 		}
 	}
-//	for (int i=0; i<rows; i++) {
-////		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
-////		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
-//		idummy = ipow(2,l)*((i/n)+1)-1;
-//		jdummy = ipow(2,l)*((i%n)+1)-1;
-//		OpA(As,PMETRICS(idummy, jdummy),h);
-//	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
-//		if (i-n>=0) {
-//			MatSetValue(A, i, i-n, As[0], INSERT_VALUES);
-//		}
-//		if (i-1>=0 && i%n!=0) {
-//			MatSetValue(A, i, i-1, As[1], INSERT_VALUES); 
-//		}
-//		MatSetValue(A, i, i, As[2], INSERT_VALUES);
-//		if (i+1<=rows-1 && (i+1)%n!=0) {
-//			MatSetValue(A, i, i+1, As[3], INSERT_VALUES);
-//		}
-//		if (i+n<=rows-1) {
-//			MatSetValue(A, i, i+n, As[4], INSERT_VALUES);
-//		}
-//	}
-
-//	}
 	MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);
 
@@ -355,10 +332,6 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 	grids = level->grids;
 	gridId = level->gridId;
 	
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; size of A: %d\n",rank,ai);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; grids: 	%d\n",rank,grids);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, ai, ai, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
 
 	MatGetOwnershipRange(*A, range, range+1);
@@ -406,8 +379,6 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 
 				i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (resni)/2;
 				j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (resnj)/2;	
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; ifine: %d; jfine: %d\n",rank, ifine, jfine);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 				for (int i=i1;i<i1 + resni;i++) {
 					for (int j=j1;j<j1 + resnj;j++) {
 						ifine = ipow(factor,(g1))*(i+1)-1;
@@ -454,8 +425,6 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 				
 				i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (proni)/2;
 				j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (pronj)/2;
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; ifine: %d; jfine: %d\n",rank, ifine, jfine);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 				for (int i=1;i<proni-1;i++) {
 					for (int j=1;j<pronj-1;j++) {
 						ifine = ipow(factor,(g1))*(i+i1+1)-1;
@@ -466,8 +435,6 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 						if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+j+j1], col, weight, ADD_VALUES);
 					}
 				}
-
-//				printf("I am here at j");
 
 				for (int j=1;j<pronj-1;j++) {
 					ifine = ipow(factor,(g1))*(i1+1)-1;
@@ -485,8 +452,6 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 					if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+j+j1], col, weight, ADD_VALUES);
 				}
 				
-//				printf("I am here at i");
-
 				for (int i=1;i<proni-1;i++) {
 					ifine = ipow(factor,(g1))*(i+i1+1)-1;
 					jfine = ipow(factor,(g1))*(j1+1)-1;

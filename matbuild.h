@@ -33,19 +33,6 @@ typedef struct {
 	Array2d	*pro;
 } Operator;
 
-//typedef struct {
-//	Mat	A;
-//	Vec	b;
-//	Vec	u;
-//} LinSys;
-//
-//typedef struct {
-//	int	levels;
-//	Mat 	*res;
-//	Mat 	*pro;
-//	LinSys	*level;
-//} Assembly;
-
 typedef struct {
 	int	levels;
 	Mat 	*res;
