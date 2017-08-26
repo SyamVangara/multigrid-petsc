@@ -103,13 +103,44 @@ void DestroyIndices(Indices *indices) {
 	free(indices->level);
 }
 
-void mapping(Indices *indices) {
+void mappingThroughGrids(Indices *indices) {
 	// Maps global indices to grid unknowns and vice-versa
-	// 
-	// IsGridToGlobal[i][j] = globalIndex
-	// IsGlobalToGrid[globalIndex][0/1] = i/j
-	// range[level].start = Starting global index in level
-	// range[level].end = 1+(ending global index) in level
+	// Mapping style: places points across grids corresponding to same (x, y) physical coordinates next to each other
+	
+	int	count, factor, gfactor;
+	int	ig, jg;
+	int	gfine, g;
+	ArrayInt2d	a, b, fine;
+	
+	factor = indices->coarseningFactor;
+	for (int l=0;l<indices->levels;l++) {
+		count = 0;
+		a = indices->level[l].global;
+		gfine = indices->level[l].gridId[0];
+		fine = indices->level[l].grid[0];
+		for (int i=0;i<fine.ni;i++) {
+			for (int j=0;j<fine.nj;j++) {
+				for (int lg=0;lg<indices->level[l].grids;lg++) {
+					g = indices->level[l].gridId[lg];
+					gfactor = ipow(factor, g-gfine);
+					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue;
+					ig = (i+1)/gfactor-1;
+					jg = (j+1)/gfactor-1;
+					b = indices->level[l].grid[lg];
+					b.data[ig*b.nj+jg] = count;
+					a.data[count*a.nj+0] = ig;
+					a.data[count*a.nj+1] = jg;
+					a.data[count*a.nj+2] = g;
+					count = count + 1;
+				}
+			}
+		}
+	}
+}
+
+void mappingGridAfterGrid(Indices *indices) {
+	// Maps global indices to grid unknowns and vice-versa
+	// Mapping style: places all the points of a grid together
 	
 	int	count;
 	int	g;
@@ -132,7 +163,21 @@ void mapping(Indices *indices) {
 			}
 		}
 	}
+
 }
+
+void mapping(Indices *indices, int mappingStyleflag) {
+	// Maps global indices to grid unknowns and vice-versa
+	
+       	if (mappingStyleflag == 0) {
+		mappingGridAfterGrid(indices);
+	} else if (mappingStyleflag == 1) {
+		mappingThroughGrids(indices);
+	} else {
+		printf("Unknown indices mapping style\n");
+	}
+}
+
 
 void SetUpOperator(Indices *indices, Operator *op) {
 	// Allocates memory to Operator struct

@@ -44,7 +44,7 @@ typedef struct {
 
 void SetUpIndices(Mesh *mesh, Indices *indices);
 void DestroyIndices(Indices *indices);
-void mapping(Indices *indices);
+void mapping(Indices *indices, int mappingStyleflag);
 
 void SetUpOperator(Indices *indices, Operator *op);
 void DestroyOperator(Operator *op);

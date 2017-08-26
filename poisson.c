@@ -55,8 +55,9 @@ int main(int argc, char *argv[]) {
 	Solver		solver;
 	PostProcess	pp;	
 	
-	Cycle	cyc;
+	int	cyc;
 	int	gridsPerLevel;
+	int	mappingStyleflag;
 
 	int	ierr=0;
 	int	procs, rank;
@@ -76,6 +77,7 @@ int main(int argc, char *argv[]) {
 	scanf("%d",&(indices.totalGrids));
 	scanf("%d",&(gridsPerLevel));
 	scanf("%d",&(cyc));
+	scanf("%d",&(mappingStyleflag));
 	indices.levels = indices.totalGrids/gridsPerLevel;
 	
 	for (int i=1;i<DIMENSION;i++) { 
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
 //	ViewGridsInfo(indices);
-	mapping(&indices);
+	mapping(&indices, mappingStyleflag);
 //	ViewIndexMapsInfo(indices);
 	
 	SetUpOperator(&indices, &op);
@@ -110,7 +112,8 @@ int main(int argc, char *argv[]) {
 //	ViewLinSysMatsInfo(assem, 0);
 //	ViewGridTransferMatsInfo(assem, 0);
 
-	SetUpSolver(&indices, &solver, cyc);
+	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
+	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
 //	ViewSolverInfo(indices, solver);
 	Solve(&assem, &solver);
 	SetPostProcess(&pp);
