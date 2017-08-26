@@ -134,6 +134,7 @@ int main(int argc, char *argv[]) {
 
 	SetUpSolver(&indices, &solver, VCYCLE);
 //	ViewSolverInfo(indices, solver);
+	Solve(&assem, &solver);
 	SetPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &assem, &solver, &pp);
 //	ln = range[1]-range[0];

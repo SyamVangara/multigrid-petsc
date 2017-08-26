@@ -29,6 +29,8 @@ typedef struct {
 
 void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 void DestroySolver(Solver *solver);
+void Solve(Assembly *assem, Solver *solver);
+
 void SetPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);
 void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, Solver *solver, PostProcess *pp);
