@@ -601,7 +601,8 @@ void levelvecb(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor
 }
 
 void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
-	// Assembles the restriction matrix for level0 to level1
+	// Assembles the restriction matrices
+	// Restriction is only from primary grid of one level to all grids of the next level
 	
 	int	levels;
 	

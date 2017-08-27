@@ -10,7 +10,6 @@ tags
 *.e
 *.sh
 valgrind*
-relegated*
 
 # Compiled source #
 ###################
