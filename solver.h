@@ -17,7 +17,6 @@ typedef struct {
 	Cycle		cycle;
 	int		numIter;
 	double		*rnorm;
-	int		(*range)[2];
 } Solver;
 
 typedef struct {

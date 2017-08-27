@@ -13,9 +13,10 @@
 #include "mesh.h"
 
 typedef struct {
-	int		grids;   // num of grids per level
+	int		grids;   // num of grids in this level
 	int		*gridId; // Grid Id of each grid in a given level
 	double		(*h)[2]; // Delta h in reference domain
+	int		*ranges; // ranges of global indices processes
 	ArrayInt2d	global;  // global to grid map
 	ArrayInt2d	*grid;   // grid to global map
 } Level;
