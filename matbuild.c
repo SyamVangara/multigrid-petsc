@@ -329,74 +329,7 @@ void insertSubVecValues(Vec *subV, Vec *V, int i0) {
 	VecRestoreArray(*subV, &vals);
 }
 
-Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
-	// Builds matrix "A" at a given multigrid level
-	// metrics	- metric terms in global index array
-	// n		- number of unknowns per dimension
-	// l		- level
-	
-//	int	rows, cols, idummy, jdummy;
-	double	As[5], h[2];
-	Mat	A;
-	
-	int 	procs, rank;
-//	int	ln;
-//	int	stencilsize;
-	int	*col;
-	int	range[2];
-
-//	rows = n*n;
-//	cols = rows;
-//	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-//	if (rank<(n*n)%procs) {
-//		ln = (n*n)/procs + 1;
-//	}
-//	else {
-//		ln = (n*n)/procs;
-//	}
-
-	MatCreateAIJ(PETSC_COMM_WORLD, IsStencil.ni, IsStencil.ni, PETSC_DETERMINE, PETSC_DETERMINE, 5, PETSC_NULL, 4, PETSC_NULL, &A);
-//	MatCreateSeqAIJ(PETSC_COMM_SELF, rows, cols, 5, NULL, A);
-//	MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
-//	printf("level: %d\n",l);
-	MatGetOwnershipRange(A, range, range+1);
-//	if (rank==0) {
-
-	h[0] = 1.0/(n+1);
-	h[1] = h[0];
-	for (int i=range[0]; i<range[1]; i++) {
-//		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
-//		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
-//		idummy = ipow(2,l)*((i/n)+1)-1;
-//		jdummy = ipow(2,l)*((i%n)+1)-1;
-//		OpA(As,PMETRICS(idummy, jdummy),h);
-		OpA(As,PMETRICS(i-range[0]),h);
-	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
-		col = IsStencil.data+((i-range[0])*IsStencil.nj);
-		if (col[0]>-1) {
-			MatSetValue(A, i, col[0], As[0], INSERT_VALUES);
-		}
-		if (col[1]>-1) {
-			MatSetValue(A, i, col[1], As[1], INSERT_VALUES); 
-		}
-		MatSetValue(A, i, i, As[2], INSERT_VALUES);
-		if (col[3]>-1) {
-			MatSetValue(A, i, col[3], As[3], INSERT_VALUES);
-		}
-		if (col[4]>-1) {
-			MatSetValue(A, i, col[4], As[4], INSERT_VALUES);
-		}
-	}
-	MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);
-
-	return A;
-}
-
-void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
+void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
 	// Build matrix "A" for a given level
 	// level - contains index maps
 	// factor - coarsening factor
@@ -603,7 +536,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
 }
 
-void levelvecb1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b) {
+void levelvecb(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b) {
 	// Build vector "b" for a given level
 	// f - logically 2D array containing right hand side values at each grid point
 	
@@ -795,11 +728,11 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembl
 
 	factor = indices->coarseningFactor;
 	for (int l=0;l<assem->levels;l++) {
-		levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
+		levelMatrixA(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
 		MatCreateVecs(assem->A[l], assem->u+l, assem->b+l);
 	}
 	// Only the zeroth level vec b is created
-	levelvecb1(prob, mesh, op, indices->level, factor, assem->b);
+	levelvecb(prob, mesh, op, indices->level, factor, assem->b);
 
 	if (assem->levels < 2) return; 
 	Res(indices, op, factor, assem);
@@ -1135,22 +1068,6 @@ Mat prolongationMatrixMPI(double **Is, int m, IsRange rangeh, IsRange rangeH, Ar
 	MatAssemblyEnd(matI, MAT_FINAL_ASSEMBLY);
 	//MatView(matI, PETSC_VIEWER_STDOUT_WORLD);
 	return matI;
-}
-
-void levelvecb(Vec *b, double *f) {
-	// Build vector "b" for fine grid
-	// f - logically 2D array containing right hand side values at each grid point
-	
-	int	rowStart, rowEnd;
-
-	VecGetOwnershipRange(*b, &rowStart, &rowEnd);
-	for (int i=rowStart;i<rowEnd;i++) {
-		VecSetValue(*b, i, f[i-rowStart], INSERT_VALUES);
-	}
-	VecAssemblyBegin(*b);
-	VecAssemblyEnd(*b);
-
-	//return b;
 }
 
 
