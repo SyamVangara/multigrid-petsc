@@ -118,6 +118,29 @@ int main(int argc, char *argv[]) {
 	SetPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &assem, &solver, &pp);
 	
+	if (rank==0) {
+//	int temp;
+//	temp = totalUnknowns(mesh.n,op.totalGrids);
+	
+	printf("=============================================================\n");
+	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
+	printf("Number of grids:		%d\n",op.totalGrids);
+	printf("Number of levels:		%d\n",assem.levels);
+	printf("Number of grids per level:	");
+	for (int l=0;l<indices.levels;l++) {
+		printf("%d	", indices.level[l].grids);
+	}
+	printf("\n");
+	printf("Number of unknowns per level:	");
+	for (int l=0;l<indices.levels;l++) {
+		printf("%d	", indices.level[l].global.ni);
+	}
+	printf("\n");
+	printf("Number of processes:		%d\n",procs);
+	printf("Number of iterations:		%d\n",solver.numIter);
+	printf("=============================================================\n");
+	}
+
 	DestroyPostProcess(&pp);
 	DestroySolver(&solver);
 	DestroyAssembly(&assem);
@@ -125,21 +148,6 @@ int main(int argc, char *argv[]) {
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
 	PetscFinalize();
-
-	if (rank==0) {
-	int temp;
-	temp = totalUnknowns(mesh.n,op.totalGrids);
-	
-	printf("=============================================================\n");
-	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
-	printf("Number of unknowns:		%d\n",temp);
-	printf("Number of grids:		%d\n",op.totalGrids);
-	printf("Number of levels:		%d\n",assem.levels);
-	printf("Number of grids per level:	%d\n",gridsPerLevel);
-	printf("Number of processes:		%d\n",procs);
-	printf("Number of iterations:		%d\n",solver.numIter);
-	printf("=============================================================\n");
-	}
 
 	return 0;
 }
