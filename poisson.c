@@ -57,7 +57,6 @@ int main(int argc, char *argv[]) {
 	PostProcess	pp;	
 	
 	int	cyc;
-	int	gridsPerLevel;
 	int	mappingStyleflag;
 
 	int	ierr=0;
@@ -76,10 +75,10 @@ int main(int argc, char *argv[]) {
 	scanf("%d",mesh.n);	
 	scanf("%d",&(solver.numIter));
 	scanf("%d",&(indices.totalGrids));
-	scanf("%d",&(gridsPerLevel));
+	scanf("%d",&(indices.levels));
 	scanf("%d",&(cyc));
 	scanf("%d",&(mappingStyleflag));
-	indices.levels = indices.totalGrids/gridsPerLevel;
+//	indices.levels = 2;
 	
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
@@ -92,35 +91,41 @@ int main(int argc, char *argv[]) {
 
 //	SetUpMesh(&mesh, UNIFORM);
 	SetUpMesh(&mesh, NONUNIFORM);
+
 //	ViewMeshInfo(mesh);
 	
 	// Indices maps; number of local unknowns	
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
+
 //	ViewGridsInfo(indices);
+
 	mapping(&indices, mappingStyleflag);
+
 //	ViewIndexMapsInfo(indices);
 //	ViewRangesInfo(indices);
 	
 	SetUpOperator(&indices, &op);
 	GridTransferOperators(op, indices);
+
 //	ViewOperatorInfo(op);
 	
 	SetUpAssembly(&indices, &assem);
 	Assemble(&prob, &mesh, &indices, &op, &assem);
+
 //	ViewLinSysMatsInfo(assem, 0);
 //	ViewGridTransferMatsInfo(assem, 0);
 
 	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
 	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
+
 //	ViewSolverInfo(indices, solver);
+
 	Solve(&assem, &solver);
 	SetPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &assem, &solver, &pp);
 	
 	if (rank==0) {
-//	int temp;
-//	temp = totalUnknowns(mesh.n,op.totalGrids);
 	
 	printf("=============================================================\n");
 	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);

@@ -56,13 +56,11 @@ void DestroyAssembly(Assembly *assem);
 
 void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem);
 
-extern Mat matrixA(double *metrics, double **opIH2h, double **opIh2H, int n0, int levels);
 extern Mat restrictionMatrix(double **Is, int m, int nh, int nH);
 extern Mat prolongationMatrix(double **Is, int m, int nh, int nH);
 Mat restrictionMatrixMPI(double **Is, int m, IsRange rangeh, IsRange rangeH, ArrayInt2d IsResStencil);
 Mat prolongationMatrixMPI(double **Is, int m, IsRange rangeh, IsRange rangeH, ArrayInt2d IsProStencil);
 extern Mat GridTransferMatrix(double **Is, int m, int nh, int nH, char *type);
-extern void vecb(Vec *b, Array2d f, double **opIh2H, int n0, int levels);
 
 #endif
 
