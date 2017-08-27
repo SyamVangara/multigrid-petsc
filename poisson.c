@@ -38,6 +38,7 @@ void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToG
 void ViewMeshInfo(Mesh mesh);
 void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
+void ViewRangesInfo(Indices indices);
 void ViewSolverInfo(Indices indices, Solver solver);
 void ViewOperatorInfo(Operator op);
 void ViewLinSysMatsInfo(Assembly assem, int view);
@@ -93,15 +94,13 @@ int main(int argc, char *argv[]) {
 	SetUpMesh(&mesh, NONUNIFORM);
 //	ViewMeshInfo(mesh);
 	
-//	IsStencil = malloc(levels*sizeof(ArrayInt2d));
-//	IsResStencil = malloc(levels*sizeof(ArrayInt2d));
-	
 	// Indices maps; number of local unknowns	
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
 //	ViewGridsInfo(indices);
 	mapping(&indices, mappingStyleflag);
 //	ViewIndexMapsInfo(indices);
+//	ViewRangesInfo(indices);
 	
 	SetUpOperator(&indices, &op);
 	GridTransferOperators(op, indices);
@@ -295,6 +294,11 @@ void ViewIndexMapsInfo(Indices indices) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	for (int l=0;l<indices.levels;l++) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
+		for (int p=0;p<procs+1;p++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",indices.level[l].ranges[p]);
+		}
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
 		for (int lg=0;lg<indices.level[l].grids;lg++) {
 			for (int i=0;i<indices.level[l].grid[lg].ni;i++) {
 				for (int j=0;j<indices.level[l].grid[lg].nj;j++) {
@@ -311,6 +315,24 @@ void ViewIndexMapsInfo(Indices indices) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
+void ViewRangesInfo(Indices indices) {
+	// Prints the info of index maps between global and grids
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	for (int l=0;l<indices.levels;l++) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
+		for (int p=0;p<procs+1;p++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",indices.level[l].ranges[p]);
+		}
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
 void ViewSolverInfo(Indices indices, Solver solver) {
 	// Prints the info in Solver struct
 	
@@ -323,9 +345,6 @@ void ViewSolverInfo(Indices indices, Solver solver) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; numIter = %d; Cycle = VCYCLE\n",rank,solver.numIter);
 	} else {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; numIter = %d; Cycle = ICYCLE\n",rank,solver.numIter);
-	}
-	for (int l=0;l<indices.levels;l++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d: range start = %d, range end = %d\n",rank,l,solver.range[l][0],solver.range[l][1]);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }

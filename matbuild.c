@@ -138,14 +138,19 @@ void GetRanges(int *ranges, int totaln) {
 
 void mappingThroughGrids(Indices *indices) {
 	// Maps global indices to grid unknowns and vice-versa
-	// Mapping style: places points across grids corresponding to same (x, y) physical coordinates next to each other
+	// Mapping style: places points of any grid corresponding to same (x, y) physical coordinates next to each other
 	
-	int	count, fcount, rank;
+	int	count, fcount;
 	int	factor, gfactor;
 	int	ig, jg;
 	int	gfine, g;
 	int	*ranges;
 	ArrayInt2d	a, b, fine;
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	factor = indices->coarseningFactor;
 	for (int l=0;l<indices->levels;l++) {
@@ -155,7 +160,7 @@ void mappingThroughGrids(Indices *indices) {
 		gfine 	= indices->level[l].gridId[0];
 		fine 	= indices->level[l].grid[0];
 
-		// Compute the fine grid indices division between processes
+		// Compute the ranges of fine grid indices for processes
 		GetRanges(ranges, fine.ni*fine.nj);
 		fcount = 0; // counts number of fine grid points mapped
 		rank = 0; // Keeps track of the rank
@@ -190,11 +195,13 @@ void mappingGridAfterGrid(Indices *indices) {
 	
 	int	count;
 	int	g;
+	int	*ranges;
 	ArrayInt2d	a, b;
 	
 	for (int l=0;l<indices->levels;l++) {
 		count = 0;
 		a = indices->level[l].global;
+		ranges 	= indices->level[l].ranges;
 		for (int lg=0;lg<indices->level[l].grids;lg++) {
 			g = indices->level[l].gridId[lg];
 			b = indices->level[l].grid[lg];
@@ -208,6 +215,7 @@ void mappingGridAfterGrid(Indices *indices) {
 				}
 			}
 		}
+		GetRanges(ranges, count);
 	}
 
 }
@@ -400,7 +408,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 	int		resni, resnj, proni, pronj;
 	
 	int		grids, *gridId;
-	int		range[2];
+	int		*ranges;
 	double		As[5];
 
 	int		i0, j0, g0;
@@ -422,13 +430,14 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 
 	grids = level->grids;
 	gridId = level->gridId;
-	
-	MatCreateAIJ(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, ai, ai, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
 
-	MatGetOwnershipRange(*A, range, range+1);
+	ranges = level->ranges;	
+	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
+
+//	MatGetOwnershipRange(*A, range, range+1);
 	
 	// Row-based fill:
-	for (int row=range[0];row<range[1];row++) {
+	for (int row=ranges[rank];row<ranges[rank+1];row++) {
 		//i0 - row    - y coord
 		//j0 - column - x coord
 		//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
@@ -498,7 +507,7 @@ void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fa
 	}
 
 	// Column based fill
-	for (int col=range[0];col<range[1];col++) {
+	for (int col=ranges[rank];col<ranges[rank+1];col++) {
 		i0 = a[col*aj];
 		j0 = a[col*aj+1];
 		g0 = a[col*aj+2];
