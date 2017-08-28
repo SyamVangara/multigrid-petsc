@@ -306,10 +306,34 @@ void GridTransferOperator(Array2d *Iop, int factor, int totalGrids) {
 
 }
 
+void ProlongationOperator(Array2d pro) {
+	// Builds prolongation 2D stencilwise operator (pro)
+	// Stencil size: pro.ni x pro.nj
+	if(pro.ni != 3 || pro.nj != 3) {printf("Error in ProlongationOperator\n"); return;}
+	for (int i=0;i<pro.ni;i++) {
+ 		pro.data[i*pro.nj]= 0.5 - 0.25*fabs(1-i);
+ 		pro.data[i*pro.nj+1]= 1.0 - 0.5*fabs(1-i);
+ 		pro.data[i*pro.nj+2]= 0.5 - 0.25*fabs(1-i);
+	}
+}
+
+void RestrictionOperator(Array2d res) {
+	// Builds Restriction 2D stencilwise operator (res)
+	// Stencil size: res.ni x res.nj
+	
+	if(res.ni != 3 || res.nj != 3) {printf("Error in RestrictionOperator\n"); return;}
+	for (int i=0;i<res.nj;i++) {
+ 		res.data[i*res.nj]= 0.0;
+ 		res.data[i*res.nj+1]= 0.0;
+ 		res.data[i*res.nj+2]= 0.0;
+	}
+	res.data[res.nj+1] = 1.0;
+}
+
 void GridTransferOperators(Operator op, Indices indices) {
 	// Builds stencilwise grid transfer operators between any two grids that have "x" grids inbetween
 	// where x = {0,...,levels-2}
-	
+	if (op.totalGrids < 2) return;
 	RestrictionOperator(op.res[0]);
 	ProlongationOperator(op.pro[0]);
 	

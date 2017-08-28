@@ -1,6 +1,6 @@
--n 65
+-n 257
 -iter 100000
--grids 5
+-grids 6
 -levels 1
 # cycle: [0: V-Cycle, 1: I-Cycle]
 -cycle 1

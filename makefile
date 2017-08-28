@@ -1,5 +1,5 @@
 
-CFLAGS     = -std=c99 -g #-O3 
+CFLAGS     = -std=c99 -O3 
 CPPFLAGS   =
 LIBFILES   =
 TARGET     = poisson

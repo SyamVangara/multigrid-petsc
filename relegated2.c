@@ -9,6 +9,38 @@ PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm)
 void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
 void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
 
+void prolongStencil2D(double ***IH2h, int m, int n){
+	// Builds prolongation 2D stencilwise operator (*IH2h)
+	// Stencil size: m x n
+	
+	//double	**IH2h;
+	int	ierr;
+
+	ierr = malloc2d(IH2h,m,n); CHKERR_PRNT("malloc failed");
+	for (int lj=0;lj<3;lj++) {
+ 		(*IH2h)[0][lj]= 0.5 - 0.25*fabs(1-lj);
+ 		(*IH2h)[1][lj]= 1.0 - 0.5*fabs(1-lj);
+ 		(*IH2h)[2][lj]= 0.5 - 0.25*fabs(1-lj);
+	}
+	//return IH2h;
+}
+
+void restrictStencil2D(double ***Ih2H, int m, int n){
+	// Builds prolongation 2D stencilwise operator
+	// Stencil size: m x n
+	
+	//double **Ih2H;
+	int	ierr;
+
+	ierr = malloc2d(Ih2H,m,n); CHKERR_PRNT("malloc failed");
+	for (int lj=0;lj<3;lj++) {
+ 		(*Ih2H)[0][lj]= 0.0;
+ 		(*Ih2H)[1][lj]= 0.0;
+ 		(*Ih2H)[2][lj]= 0.0;
+	}
+	(*Ih2H)[1][1] = 1.0;
+}
+
 void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
 	
 	int	r;
