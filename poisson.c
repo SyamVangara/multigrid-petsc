@@ -13,27 +13,8 @@
 #define FUNC(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 #define SOL(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 
-#define METRICS(i,j) (metrics.data[(i)*metrics.nj+(j)])
-#define F(i,j) (f.data[((i)*f.nj+(j))])
-#define U(i,j) (u.data[((i)*u.nj+(j))])
-#define isGRIDtoGLOBAL(l,i,j) (IsGridToGlobal[l].data[((i)*IsGridToGlobal[l].nj+(j))])
-#define isGLOBALtoGRID(l,i,j) (IsGlobalToGrid[l].data[((i)*IsGlobalToGrid[l].nj+(j))])
-#define isSTENCIL(l,i,j) (IsStencil[l].data[((i)*IsStencil[l].nj+(j))])
-#define isRESSTENCIL(l,i,j) (IsResStencil[l].data[((i)*IsResStencil[l].nj+(j))])
-#define isPROSTENCIL(l,i,j) (IsProStencil[l].data[((i)*IsProStencil[l].nj+(j))])
-
-void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range);
-void GetError(double **coord, int *n, Array2d u, double *error);
-void UpdateBC(double **coord, double *u, int *n);
 static int ipow(int base, int exp);
-void CreateArrayOfIS(int n, int levels, IS *idx);
-void prolongStencil2D(double ***IH2h, int m, int n);
-void restrictStencil2D(double ***Ih2H, int m, int n);
 int totalUnknowns(int *n, int totalGrids);
-static void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank);
-PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);
-void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);
-void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);
 
 void ViewMeshInfo(Mesh mesh);
 void ViewGridsInfo(Indices indices);
@@ -56,9 +37,10 @@ int main(int argc, char *argv[]) {
 	Solver		solver;
 	PostProcess	pp;	
 	
-	int	cyc;
-	int	mappingStyleflag;
-	int	vmax = 2;
+	int		cyc;
+	int		mappingStyleflag;
+	MeshType	meshtype = NONUNIFORM;
+	int		vmax = 2;
 
 	int	ierr=0;
 	int	procs, rank;
@@ -100,8 +82,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 
-//	SetUpMesh(&mesh, UNIFORM);
-	SetUpMesh(&mesh, NONUNIFORM);
+	SetUpMesh(&mesh, meshtype);
 
 //	ViewMeshInfo(mesh);
 	
@@ -139,6 +120,8 @@ int main(int argc, char *argv[]) {
 	if (rank==0) {
 	printf("=============================================================\n");
 	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
+	if (meshtype==UNIFORM) printf("Mesh Type:			Uniform\n");
+	if (meshtype==NONUNIFORM) printf("Mesh Type:			Non Uniform\n");
 	printf("Number of grids:		%d\n",op.totalGrids);
 	printf("Number of levels:		%d\n",assem.levels);
 	printf("Number of grids per level:	");
@@ -227,47 +210,6 @@ int totalUnknowns(int *n, int totalGrids) {
 		length = length + n0*n0;
 	}
 	return length;
-}
-
-void GetSol(double *u, double *px, int *n, int levels, const int *ranges, int numProcs, int rank) {
-	
-	int	r;
-	
-	if (rank!=0) {
-		MPI_Send(px, ranges[rank+1]-ranges[rank], MPI_DOUBLE, 0, rank, PETSC_COMM_WORLD);
-	}
-	else if (rank==0) {
-	
-		int	length, n0;
-		double	*x;
-	
-//		n0 = n[0]-2;
-//		length=n0*n0;
-//		for (int i=1;i<levels;i++) {
-//			n0 = (n0-1)/2;
-//			length = length + n0*n0;
-//		}
-		length = totalUnknowns(n, levels);
-//		length = ((n0+1)*(n0+1)*(ipow(4,levels)-1))/(3*ipow(4,levels-1))-(2*(n0+1)*(ipow(2,levels)-1))/(ipow(2,levels-1))+levels;
-		x = (double *)malloc(length*sizeof(double)); 
-		
-		for (int i=0;i<ranges[1];i++) x[i] = px[i];
-		
-		for (int i=1;i<numProcs;i++) {
-			MPI_Recv(&(x[ranges[i]]), ranges[i+1]-ranges[i], MPI_DOUBLE, i, i, PETSC_COMM_WORLD, MPI_STATUS_IGNORE);
-		}
-	
-		r = 0;
-		for (int i=1;i<n[1]-1;i++) {
-			for (int j=1;j<n[0]-1;j++) {
-				u[i*n[0]+j] = x[r];
-				r = r+1;
-			}
-		}
-		
-		free(x);
-	}
-
 }
 
 void ViewMeshInfo(Mesh mesh) {
