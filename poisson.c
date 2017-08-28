@@ -58,27 +58,38 @@ int main(int argc, char *argv[]) {
 	
 	int	cyc;
 	int	mappingStyleflag;
+	int	vmax = 2;
 
 	int	ierr=0;
 	int	procs, rank;
+
+//	PetscBool	pflag;
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	SetUpProblem(&prob);
 	
-	freopen("poisson.in", "r", stdin);
-//	freopen("poisson.out", "w", stdout);
-//	freopen("poisson.err", "w", stderr);
+//	freopen("poisson.in", "r", stdin);
+	freopen("poisson.out", "w", stdout);
+	freopen("poisson.err", "w", stderr);
 	
 	MPI_Barrier(PETSC_COMM_WORLD);
-	scanf("%d",mesh.n);	
-	scanf("%d",&(solver.numIter));
-	scanf("%d",&(indices.totalGrids));
-	scanf("%d",&(indices.levels));
-	scanf("%d",&(cyc));
-	scanf("%d",&(mappingStyleflag));
+//	scanf("%d",mesh.n);	
+//	scanf("%d",&(solver.numIter));
+//	scanf("%d",&(indices.totalGrids));
+//	scanf("%d",&(indices.levels));
+//	scanf("%d",&(cyc));
+//	scanf("%d",&(mappingStyleflag));
 //	indices.levels = 2;
+	
+	PetscOptionsGetInt(NULL, NULL, "-n", &(mesh.n), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
+	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
 	
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
@@ -122,11 +133,10 @@ int main(int argc, char *argv[]) {
 //	ViewSolverInfo(indices, solver);
 
 	Solve(&assem, &solver);
-	SetPostProcess(&pp);
+	SetUpPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &assem, &solver, &pp);
 	
 	if (rank==0) {
-	
 	printf("=============================================================\n");
 	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
 	printf("Number of grids:		%d\n",op.totalGrids);
@@ -141,6 +151,11 @@ int main(int argc, char *argv[]) {
 		printf("%d	", indices.level[l].global.ni);
 	}
 	printf("\n");
+	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
+	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
+	if (cyc == 1) printf("Cycle :				I-Cycle\n");
+	if (cyc == 0) printf("Cycle :				V-Cycle\n");
+	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
 	printf("Number of processes:		%d\n",procs);
 	printf("Number of iterations:		%d\n",solver.numIter);
 	printf("=============================================================\n");

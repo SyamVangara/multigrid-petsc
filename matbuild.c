@@ -71,7 +71,6 @@ void DestroyIndexMaps(Indices *indices) {
 	for (int l=0;l<indices->levels;l++) {
 		for (int g=0;g<indices->level[l].grids;g++) {
 			DeleteArrayInt2d(&(indices->level[l].grid[g]));
-//			free((*IsGridToGlobal)[l].grid[g].data);
 		}
 		DeleteArrayInt2d(&(indices->level[l].global));
 	}
@@ -83,9 +82,7 @@ void SetUpIndices(Mesh *mesh, Indices *indices) {
 	int	procs;
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	
-	//indices->coarseningFactor = 2;	
 	indices->level = malloc(indices->levels*sizeof(Level));
-//	indices->range = malloc(indices->levels*sizeof(int[2]));
 	GridId(indices);	
 	for (int i=0;i<indices->levels;i++) {
 		indices->level[i].ranges = malloc((procs+1)*sizeof(int));
@@ -111,7 +108,6 @@ void DestroyIndices(Indices *indices) {
 		free(indices->level[l].gridId);
 		free(indices->level[l].ranges);
 	}
-//	free(indices->range);
 	free(indices->level);
 }
 
@@ -265,6 +261,60 @@ void DestroyOperator(Operator *op) {
 	}
 	free(op->res);
 	free(op->pro);
+}
+
+void GridTransferOperator(Array2d *Iop, int factor, int totalGrids) {
+	// Builds stencilwise grid transfer operator between any two grids that have "x" grids inbetween
+	// where x = {0,...,totalGrids-2}
+	
+	int 	ni0, nj0;
+	double	*weight;
+	int 	nil, njl;
+	double	*datal;
+	int 	niu, nju;
+	double	*datau;
+	int 	iu, ju;
+	
+	ni0 = Iop[0].ni;
+	nj0 = Iop[0].nj;
+	weight = Iop[0].data;
+	for (int l=0;l<totalGrids-2;l++) {
+		nil = Iop[l].ni;
+		njl = Iop[l].nj;
+		datal = Iop[l].data;
+		
+		niu = Iop[l+1].ni;
+		nju = Iop[l+1].nj;
+		datau = Iop[l+1].data;
+		// Initialization
+		for (int i=0;i<niu*nju;i++) {
+			datau[i] = 0.0;
+		}
+		// Building the operator
+		for (int il=0;il<nil;il++) {
+			for (int jl=0;jl<njl;jl++) {
+				iu = factor*(il+1)-1-ni0/2;
+				ju = factor*(jl+1)-1-nj0/2;
+				for (int i0=0;i0<ni0;i0++) {
+					for (int j0=0;j0<nj0;j0++) {
+						datau[(iu+i0)*nju+(ju+j0)] += weight[i0*nj0+j0]*datal[il*nil+jl];
+					}
+				}
+			}
+		}
+	}
+
+}
+
+void GridTransferOperators(Operator op, Indices indices) {
+	// Builds stencilwise grid transfer operators between any two grids that have "x" grids inbetween
+	// where x = {0,...,levels-2}
+	
+	RestrictionOperator(op.res[0]);
+	ProlongationOperator(op.pro[0]);
+	
+	GridTransferOperator(op.res, indices.coarseningFactor, op.totalGrids);
+	GridTransferOperator(op.pro, indices.coarseningFactor, op.totalGrids);
 }
 
 void SetUpAssembly(Indices *indices, Assembly *assem) {
@@ -596,17 +646,11 @@ void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	res = assem->res;
 	for (int l=0;l<levels-1;l++) {
 		g0 = indices->level[l].gridId[0];
-//		g1 = indices->level[l+1].gridId[0];
-
-//		opResni = op->res[g1-g0-1].ni;
-//		opResnj = op->res[g1-g0-1].nj;
-//		opRes = op->res[g1-g0-1].data;
 
 		global0 = indices->level[l].global;
 		global1 = indices->level[l+1].global;
 		
 		grid0 = indices->level[l].grid[0];
-//		grid1 = indices->level[l+1].grid[0];
 		
 		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
 		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
@@ -634,53 +678,6 @@ void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 		MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
 		MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
 	}
-	
-//	ArrayInt2d	grid0, grid1;
-//	ArrayInt2d	global0, global1;
-//	int		g0, g1;
-//	int		i0, j0, i1, j1;
-//	int		range0[2], range1[2];
-//	Mat		*res;
-//	int		opResni, opResnj;
-//	double		*opRes;
-//	double		weight;
-//	
-//	res = assem->res;
-//	for (int l=0;l<levels-1;l++) {
-//		g0 = indices->level[l].gridId[0];
-//		g1 = indices->level[l+1].gridId[0];
-//
-//		opResni = op->res[g1-g0-1].ni;
-//		opResnj = op->res[g1-g0-1].nj;
-//		opRes = op->res[g1-g0-1].data;
-//
-//		global0 = indices->level[l].global;
-//		global1 = indices->level[l+1].global;
-//		
-//		grid0 = indices->level[l].grid[0];
-//		grid1 = indices->level[l+1].grid[0];
-//		
-//		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
-//		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
-//		
-//		MatCreateAIJ(PETSC_COMM_WORLD, range1[1]-range1[0], range0[1]-range0[0], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res+l);
-//		for (int row=range1[0];row<range1[1];row++) {
-//			i1 = global1.data[row*global1.nj];
-//			j1 = global1.data[row*global1.nj+1];
-//
-//			i0 = ipow(factor,(g1-g0))*(i1+1)-1-(opResni)/2;
-//			j0 = ipow(factor,(g1-g0))*(j1+1)-1-(opResnj)/2;
-//			for (int i=i0;i<i0+opResni;i++) {
-//				for (int j=j0;j<j0+opResnj;j++) {
-//					weight = opRes[(i-i0)*opResnj+(j-j0)];
-//					if (weight != 0.0) MatSetValue(res[l], row, grid0.data[i*grid0.nj+j], weight, ADD_VALUES);
-//				}
-//			}
-//		}
-//	
-//		MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
-//		MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
-//	}
 }
 
 void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {
@@ -709,17 +706,11 @@ void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	pro = assem->pro;
 	for (int l=0;l<levels-1;l++) {
 		g0 = indices->level[l].gridId[0];
-//		g1 = indices->level[l+1].gridId[0];
-
-//		opProni = op->pro[g1-g0-1].ni;
-//		opPronj = op->pro[g1-g0-1].nj;
-//		opPro = op->pro[g1-g0-1].data;
 
 		global0 = indices->level[l].global;
 		global1 = indices->level[l+1].global;
 		
 		grid0 = indices->level[l].grid[0];
-//		grid1 = indices->level[l+1].grid[0];
 		
 		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
 		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
@@ -747,53 +738,6 @@ void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {
 		MatAssemblyBegin(pro[l], MAT_FINAL_ASSEMBLY);
 		MatAssemblyEnd(pro[l], MAT_FINAL_ASSEMBLY);
 	}
-	
-//	ArrayInt2d	grid0, grid1;
-//	ArrayInt2d	global0, global1;
-//	int		g0, g1;
-//	int		i0, j0, i1, j1;
-//	int		range0[2], range1[2];
-//	Mat		*pro;
-//	int		opProni, opPronj;
-//	double		*opPro;
-//	double		weight;
-//	
-//	pro = assem->pro;
-//	for (int l=0;l<levels-1;l++) {
-//		g0 = indices->level[l].gridId[0];
-//		g1 = indices->level[l+1].gridId[0];
-//
-//		opProni = op->pro[g1-g0-1].ni;
-//		opPronj = op->pro[g1-g0-1].nj;
-//		opPro = op->pro[g1-g0-1].data;
-//
-//		global0 = indices->level[l].global;
-//		global1 = indices->level[l+1].global;
-//		
-//		grid0 = indices->level[l].grid[0];
-//		grid1 = indices->level[l+1].grid[0];
-//		
-//		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
-//		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
-//		
-//		MatCreateAIJ(PETSC_COMM_WORLD, range0[1]-range0[0], range1[1]-range1[0], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro+l);
-//		for (int col=range1[0];col<range1[1];col++) {
-//			i1 = global1.data[col*global1.nj];
-//			j1 = global1.data[col*global1.nj+1];
-//
-//			i0 = ipow(factor,(g1-g0))*(i1+1)-1-(opProni)/2;
-//			j0 = ipow(factor,(g1-g0))*(j1+1)-1-(opPronj)/2;
-//			for (int i=i0;i<i0+opProni;i++) {
-//				for (int j=j0;j<j0+opPronj;j++) {
-//					weight = opPro[(i-i0)*opPronj+(j-j0)];
-//					if (weight != 0.0) MatSetValue(pro[l], grid0.data[i*grid0.nj+j], col, weight, ADD_VALUES);
-//				}
-//			}
-//		}
-//	
-//		MatAssemblyBegin(pro[l], MAT_FINAL_ASSEMBLY);
-//		MatAssemblyEnd(pro[l], MAT_FINAL_ASSEMBLY);
-//	}
 }
 
 void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem) {
