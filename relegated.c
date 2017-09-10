@@ -1302,3 +1302,638 @@ int JacobiMalloc(double ***f, double ***u, double ***r, int *n) {
 }
 
 
+/*
+	//double	weight=(2.0/3.0);
+	int	ierr=0;
+	Array2d	metrics;
+	double	error[3], As[5], *px, *rnorm;
+	Array2d	u;
+	double	**opIH2h, **opIh2H;
+	FILE	*solData, *errData, *resData;
+	
+	int	ln; //number of local unknowns
+
+	int	rowStart, rowEnd;
+	
+		IsRange	*range;
+		IsRange	*gridId;
+	StencilIndices	indices;
+//	ArrayInt2d	*IsStencil, *IsResStencil, *IsProStencil;
+	
+//	KSP	solver;
+//	PC	pc;
+//	Mat	A;
+//	Vec	b, x;
+
+*/	
+//////////////////////////////////
+//	stencilIndices(IsGlobalToGrid, IsGridToGlobal, IsStencil, range, levels);
+
+//	for (int l=0;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isStencil[%d]: %d %d %d %d %d\n",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start,isSTENCIL(l,i-range[l].start,0),isSTENCIL(l,i-range[l].start,1),isSTENCIL(l,i-range[l].start,2),isSTENCIL(l,i-range[l].start,3),isSTENCIL(l,i-range[l].start,4));
+//		}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	}
+
+//	restrictionStencilIndices(IsGlobalToGrid, IsGridToGlobal, IsResStencil, range, levels);
+
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isResStencil[%d]:",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start);
+//			for (int j=0;j<9;j++) { 
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d ",isRESSTENCIL(l-1,i-range[l].start,j));
+//			}
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//		}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	}
+	
+//	IsProStencil = IsResStencil; // Prolongation stencil is same as restriction stencil
+	
+//FD Lab 
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (%d,%d): isPROStencil[%d]:",rank,l,isGLOBALtoGRID(l,i,0),isGLOBALtoGRID(l,i,1),i-range[l].start);
+//			for (int j=0;j<9;j++) { 
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d ",isPROSTENCIL(l-1,i-range[l].start,j));
+//			}
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//		}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	}
+/*	
+	if (rank==0) {	
+	
+	// Memory allocation of RHS, solution and residual
+//	f.ni = n[1]-2;
+//	f.nj = n[0]-2;
+//	f.data = malloc(f.ni*f.nj*sizeof(double));if (f.data==NULL) ERROR_MSG("malloc failed");
+	u.ni = n[1]-2;
+	u.nj = n[0]-2;
+	u.data = malloc(u.ni*u.nj*sizeof(double));if (u.data==NULL) ERROR_MSG("malloc failed");
+	rnorm = malloc((numIter+1)*sizeof(double));if (rnorm==NULL) ERROR_MSG("malloc failed");
+//	GetFuncValues2d(coord,n,f);
+//	UpdateBC(coord,u,n);
+	
+	}	
+	
+	// Solver
+	prolongStencil2D(&opIH2h, 3, 3);
+	restrictStencil2D(&opIh2H, 3, 3);
+
+	MPI_Barrier(PETSC_COMM_WORLD);
+	MultigridPetsc(u, metrics, f, opIH2h, opIh2H, IsStencil, IsResStencil, IsProStencil, range, rnorm, levels, n, &numIter);
+*/	
+/**********************************************************************************/	
+/*
+	PetscLogStage	stage, stageSolve;
+	
+//	if (rank==0) printf("Matrix and vector constructions: ");
+	MPI_Barrier(PETSC_COMM_WORLD);
+
+	double initAWallTime = MPI_Wtime();
+	clock_t initAT = clock();
+	PetscLogStageRegister("Setup A", &stage);
+	PetscLogStagePush(stage);
+	
+	A = matrixA(metrics, opIH2h, opIh2H, (n[0]-2), levels);
+	MatGetOwnershipRange(A, &rowStart, &rowEnd);
+	
+	PetscLogStagePop();
+	clock_t endAT = clock();
+	double endAWallTime = MPI_Wtime();
+
+//	MatView(A, PETSC_VIEWER_STDOUT_WORLD);
+
+	MatCreateVecs(A,&x,&b);
+	vecb(&b, f, opIh2H, (n[0]-2), levels);
+//	VecView(b, PETSC_VIEWER_STDOUT_WORLD);
+	MPI_Barrier(PETSC_COMM_WORLD);
+//	if (rank==0) printf("done\n");
+
+//	if (rank==0) printf("Solving...\n");
+	MPI_Barrier(PETSC_COMM_WORLD);
+	
+	KSPCreate(PETSC_COMM_WORLD, &solver);
+	KSPSetOperators(solver, A, A);
+	KSPGetPC(solver,&pc);
+	PCSetType(pc,PCASM);
+	KSPMonitorSet(solver, myMonitor, rnorm, NULL);
+	KSPSetTolerances(solver, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
+	KSPSetFromOptions(solver);
+
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
+	
+	KSPSolve(solver, b, x);
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	
+	MPI_Barrier(PETSC_COMM_WORLD);
+//	if (rank==0) printf("\nSolver done\n");
+	
+//	VecView(x,PETSC_VIEWER_STDOUT_WORLD);
+	KSPGetIterationNumber(solver, &numIter);
+	VecGetArray(x,&px);
+	//VecGetOwnershipRange(x, &rowStart, &rowEnd);
+	VecGetOwnershipRanges(x,&ranges);
+	GetSol(u,px,n,levels,ranges,size,rank);
+	VecRestoreArray(x,&px);
+	
+	MatDestroy(&A); VecDestroy(&b); VecDestroy(&x);
+	KSPDestroy(&solver);
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction cputime:        %lf\n",rank,(double)(endAT-initAT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; A construction walltime:       %lf\n",rank,endAWallTime-initAWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+*/
+/**********************************************************************************/	
+/*
+	if (rank==0) {	
+	// Error computation
+//	printf("Post-processing: ");
+
+	GetError(coord,n,u,error);
+	
+	// Output
+	solData = fopen("uData.dat","w");
+	resData = fopen("rData.dat","w");
+	errData = fopen("eData.dat","w");
+	
+	for(int i=0;i<3;i++){
+		printf("\nerror[%d] = %.16e\n",i,error[i]);
+		fprintf(errData,"%.16e\n",error[i]);
+	}
+
+	for (int i=0;i<u.ni;i++) {
+		for (int j=0;j<u.nj;j++) {
+			fprintf(solData,"%.16e ",U(i,j));
+		}
+		fprintf(solData,"\n");
+	}
+		
+	for (int i=0;i<numIter;i++) {
+		fprintf(resData,"%.16e ",rnorm[i]);
+	}
+	fprintf(resData,"\n");
+
+//	printf("done\n");
+	}
+	
+	free(metrics.data);
+	if (rank==0) {
+	fclose(solData);
+	fclose(resData);
+	fclose(errData);
+//	free2dArray(&coord);
+//	free(f);
+//	free(u);
+//	free(metrics);
+//	free(f.data);
+	free(u.data);
+	free(rnorm);
+	}
+//	
+//	free(ln);
+	for (int i=0;i<levels-1;i++) {
+		free(IsResStencil[i].data);
+	}
+	for (int i=0;i<levels;i++) {
+		free(IsStencil[i].data);
+		free(IsGlobalToGrid[i].data);
+		free(IsGridToGlobal[i].data);
+	}
+	free(range);
+	free(IsGlobalToGrid);
+	free(IsGridToGlobal);
+	free(IsResStencil);
+	free(IsStencil);
+	free2dArray(&coord);
+	free(f);
+	free2dArray(&opIH2h);	
+	free2dArray(&opIh2H);
+*/
+//	DeleteIndexMaps(&map);
+//	free(range);
+//	free(gridId);
+/********************************************************/
+//void CreateStencilIndices(int *n, int levels, IsRange *range, StencilIndices &indices) {
+//	// Allocate memory to grid-to-global indices struct
+//	
+//	int	temp, lg;
+//	int	totaln, n0, n1;
+//	int	stencilSize = 5;
+//
+//	(*indices).levels = levels;
+//	(*indices).level = malloc((*indices).levels*sizeof(StencilLevel));
+//	for (int l=0;l<((*indices).levels);l++) {
+//		CreateArrayInt2d(range[i].end-range[i].start, stencilSize, &((*indices).level[l].stencil));
+//	}
+//	
+//		IsResStencil[i-1].ni = range[i].end-range[i].start;
+//		IsResStencil[i-1].nj = stencilSize;
+//		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
+//}
+//
+//void DeleteStencilIndices( *map) {
+//	// Free memory of grid-to-global indices struct
+//	
+//	for (int l=0;l<(*map).levels;l++) {
+//		for (int g=0;g<(*map).level[l].grids;g++) {
+//			DeleteArrayInt2d((*map).level[l].grid+g);
+////			free((*IsGridToGlobal)[l].grid[g].data);
+//		}
+//		free((*map).level[l].grid);
+//		DeleteArrayInt2d(&((*map).level[l].global));
+//	}
+//	free((*map).level);
+//}
+
+//void Range(int *n, IsRange *gridId, int levels, IsRange *range) {
+//	// Computes the range of global indices in this process for all levels	
+//	//
+//	// range[level].start = Starting global index in level
+//	// range[level].end = 1+(ending global index) in level
+//	
+//	int	remainder, quotient;
+//	int	procs, rank;
+//	int	totaln, temp, n0, n1;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	for (int l=0;l<levels;l++) {
+//		totaln = 0;
+//		for (int g=gridId[l].start;g<gridId[l].end;g++) {
+//			temp = ipow(2,g);
+//			n0 = (n[0]-1)/temp - 1;
+//			n1 = (n[0]-1)/temp - 1;
+//			totaln = totaln + n0*n1; 
+//		}
+//		remainder = (totaln)%procs;
+//		quotient  = (totaln)/procs;
+//		if (rank<remainder) {
+//			range[l].start = rank*(quotient + 1);
+//			range[l].end = range[l].start + (quotient + 1);
+//		}
+//		else {
+//			range[l].start = rank*quotient + remainder;
+//			range[l].end = range[l].start + quotient;
+//		}
+//	}
+//}
+
+//void stencilIndices(IndexMaps map, ArrayInt2d *IsStencil, IsRange *range, IsRange *gridId, int levels) {
+//	// Maps a global index of point in a level to global indices of points in its stencil at that level
+//	//
+//	// IsGridToGlobal[level][i][j] = globalIndex
+//	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+//	//
+//	// levels - num of multigrid levels
+//	// range[level].start - level global index start
+//	// range[level].end   - (level global index end + 1) 
+//	// IsStencil[level].data[i][j] - global indices of points (j) in stencil at point (i) in a given level
+//	
+//	int	i0, j0, g0, itemp;
+//	int	stencilSize = 5; //Stencil size
+//	double	*a, *b;
+//	int	aj, bj;
+//
+//	for (int i=0;i<levels;i++) {
+//		IsStencil[i].ni = range[i].end-range[i].start;
+//		IsStencil[i].nj = stencilSize;
+//		IsStencil[i].data = malloc(IsStencil[i].ni*IsStencil[i].nj*sizeof(int));
+//	}
+//	
+//	for (int l=0;l<map.levels;l++) {
+//		a  = map.level[l].global.data;
+//		aj = map.level[l].global.nj;
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			//i0 - row    - y coord
+//			//j0 - column - x coord
+//			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+////			i0 = isGLOBALtoGRID(l,i,0);
+////			j0 = isGLOBALtoGRID(l,i,1);
+//			i0 = a[i*aj];
+//			j0 = a[i*aj+1];
+//			g0 = a[i*aj+2]-gridId[l].start;
+//
+//			b  = map.level[l].grid[g0].data;
+//			bj = map.level[l].grid[g0].nj;
+//			itemp = i-range[l].start;
+//			if (i0-1<0) {
+//				isSTENCIL(l,itemp,0) = -1; 
+//			}
+//			else {
+//				isSTENCIL(l,itemp,0) = b[(i0-1)*bj+j0];//isGRIDtoGLOBAL(l,i0-1,j0); 
+//			}
+//
+//			if (j0-1<0) {
+//				isSTENCIL(l,itemp,1) = -1; 
+//			}
+//			else {
+//				isSTENCIL(l,itemp,1) = b[(i0)*bj+j0-1];//isGRIDtoGLOBAL(l,i0,j0-1); 
+//			}
+//
+//			if (j0+1>IsGridToGlobal[l].nj-1) {
+//				isSTENCIL(l,itemp,3) = -1; 
+//			}
+//			else {
+//				isSTENCIL(l,itemp,3) = b[(i0)*bj+j0+1];//isGRIDtoGLOBAL(l,i0,j0+1); 
+//			}
+//
+//			if (i0+1>IsGridToGlobal[l].ni-1) {
+//				isSTENCIL(l,itemp,4) = -1;
+//			}
+//			else {
+//				isSTENCIL(l,itemp,4) = b[(i0+1)*bj+j0];//isGRIDtoGLOBAL(l,i0+1,j0);
+//			}
+//			
+//			i0 = ipow(2,l)*(i0+1)-1; // fine grid index // knowledge of coarsening strategy used
+//			j0 = ipow(2,l)*(j0+1)-1; // fine grid index // knowledge of coarsening strategy used
+//			isSTENCIL(l,itemp,2) = b[(i0)*bj+j0];//isGRIDtoGLOBAL(0,i0,j0); // Inserting fine grid global index instead of current level global index
+//		}
+//	}
+//}
+//
+//void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels) {
+//	// Maps a global index of point in a coarse level to global indices of points in its restriction stencil (likely from a fine grid level)
+//	//
+//	// IsGridToGlobal[level][i][j] = globalIndex
+//	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+//	//
+//	// levels - num of multigrid levels
+//	// range[level].start - level global index start
+//	// range[level].end   - (level global index end + 1) 
+//	// IsResStencil[level].data[i][j] - global indices of points (j) in restriction stencil at point (i) in a given level
+//	
+//	int	i0, j0, itemp, count;
+//	int	stencilSize = 9; //Stencil size
+//	int	n = 3; //stencil size per dimension
+//
+//	for (int i=1;i<levels;i++) {
+//		IsResStencil[i-1].ni = range[i].end-range[i].start;
+//		IsResStencil[i-1].nj = stencilSize;
+//		IsResStencil[i-1].data = malloc(IsResStencil[i-1].ni*IsResStencil[i-1].nj*sizeof(int));
+//	}
+//	
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			
+//			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+//			i0 = isGLOBALtoGRID(l,i,0); // l-level grid x-index
+//			j0 = isGLOBALtoGRID(l,i,1); // l-level grid y-index
+//
+//			i0 = 2*(i0+1)-1; // l-level grid x-index // knowledge of coarsening strategy used
+//			j0 = 2*(j0+1)-1; // l-level grid y-index // knowledge of coarsening strategy used
+//			itemp = i-range[l].start;
+//			count = 0;
+//			for (int id=-1;id<2;id++) {
+//				for (int jd=-1;jd<2;jd++) {
+//					isRESSTENCIL(l-1,itemp,count) = isGRIDtoGLOBAL(l-1,i0+id,j0+jd);
+//					count = count + 1;
+//				}
+//			}
+//		}
+//	}
+//}
+
+//void prolongationStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsProStencil, IsRange *range, int levels) {
+//	// Maps a global index of point in a coarse level to global indices of points in its prolongation stencil (likely from a fine grid level)
+//	//
+//	// IsGridToGlobal[level][i][j] = globalIndex
+//	// IsGlobalToGrid[level][globalIndex][0/1] = i/j
+//	//
+//	// levels - num of multigrid levels
+//	// range[level].start - level global index start
+//	// range[level].end   - (level global index end + 1) 
+//	// IsProStencil[level].data[i][j] - global indices of points (j) in prolongation stencil at point (i) in a given level
+//	
+//	int	i0, j0, itemp, count;
+//	int	stencilSize = 9; //Stencil size
+//	int	n = 3; //stencil size per dimension
+//
+//	for (int i=1;i<levels;i++) {
+//		IsProStencil[i-1].ni = range[i].end-range[i].start;
+//		IsProStencil[i-1].nj = stencilSize;
+//		IsProStencil[i-1].data = malloc(IsProStencil[i-1].ni*IsProStencil[i-1].nj*sizeof(int));
+//	}
+//	
+//	for (int l=1;l<levels;l++) {
+//		for (int i=range[l].start;i<range[l].end;i++) {
+//			
+//			//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+//			i0 = isGLOBALtoGRID(l,i,0); // l-level grid x-index
+//			j0 = isGLOBALtoGRID(l,i,1); // l-level grid y-index
+//
+//			i0 = 2*(i0+1)-1; // l-level grid x-index // knowledge of coarsening strategy used
+//			j0 = 2*(j0+1)-1; // l-level grid y-index // knowledge of coarsening strategy used
+//			itemp = i-range[l].start;
+//			count = 0;
+//			for (int id=-1;id<2;id++) {
+//				for (int jd=-1;jd<2;jd++) {
+//					isRESSTENCIL(l-1,itemp,count) = isGRIDtoGLOBAL(l-1,i0+id,j0+jd);
+//					count = count + 1;
+//				}
+//			}
+//		}
+//	}
+//}
+
+/***************************************************/
+void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range) {
+
+	// f(x,y) = -2*PI^2*sin(Pi*x)*sin(pi*y)	
+//	for (int i=0;i<f.ni;i++) {
+//		for (int j=0;j<f.nj;j++) {
+//			F(i,j) = FUNC(i+1,j+1);
+//		}
+//	}
+	int	i, j;
+	for (int ig=range[0].start;ig<range[0].end;ig++) {
+		i = isGLOBALtoGRID(0,ig,0);
+		j = isGLOBALtoGRID(0,ig,1);
+		f[ig-range[0].start] = FUNC(i+1,j+1);
+	}
+
+}
+
+void UpdateBC(double **coord, double *u, int *n) {
+
+	int iend;
+	
+	for (int j=0;j<n[0];j++) {
+		u[j] = SOL(0,j);
+	}
+	
+	iend = n[0]-1;
+	for (int i=1;i<n[1]-1;i++) {
+		u[i*n[0]] = SOL(i,0);
+		u[i*n[0]+iend] = SOL(i,iend);
+	}
+
+	iend = n[1]-1;
+	for (int j=0;j<n[0];j++) {
+		u[iend*n[0]+j] = SOL(iend,j);
+	}
+	
+}
+
+/*
+double func(double x, double y) {
+	return -2.0*PI*PI*sin(PI*x)*sin(PI*y);
+}
+*/
+void CreateArrayOfIS(int n, int levels, IS *idx) {
+	//Gives block indices range for 2D case, where block size is n*n
+	
+	int first;
+
+	first = 0;
+	for (int i=0;i<levels;i++) {
+		ISCreateStride(PETSC_COMM_SELF,n*n,first,1,&(idx[i]));
+		first	= n*n;
+		n	= (n-1)/2;
+	}
+}
+
+//void GetError(Problem *prob, Mesh *mesh, Indices *indices, Assembly *assem, double *error) {
+//	
+//	// u(x,y) = sin(Pi*x)*sin(pi*y)	
+//	double		diff, sol;
+//	double		*u;
+//	int		range[2];
+//	ArrayInt2d	*grid;
+//	int		gridId;
+//	int		globalni, globalnj, *global;
+//	int		ifine, jfine;
+//	int		i, j, g;
+//	double		**coord;
+//	double		localError[3];
+//
+//	int		rank;
+//	
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	VecGetOwnershipRange(assem->level[0].u, range, range+1);
+//	VecGetArray(assem->level[0].u, &u);
+//	
+//	globalni = indices->level[0].global.ni;
+//	globalnj = indices->level[0].global.nj;
+//	global   = indices->level[0].global.data;
+//	gridId   = indices->level[0].gridId[0];
+//
+//	coord = mesh->coord;
+//
+//	localError[0] = 0.0;
+//	localError[1] = 0.0;
+//	localError[2] = 0.0;
+//	for (int row=range[0];row<range[1];row++) {
+//		i = global[row*globalnj    ];
+//		j = global[row*globalnj + 1];
+//		g = global[row*globalnj + 2];
+//		if (g != gridId) continue;
+//		sol = prob->SOLfunc(coord[0][j+1], coord[1][i+1]);
+//		diff = fabs(u[row-range[0]]-sol);
+//		localError[0] = fmax(diff,localError[0]);
+//		localError[1] += diff;
+//		localError[2] += diff*diff;
+//	}
+//	MPI_Reduce(localError, error, 1, MPI_DOUBLE, MPI_MAX, 0, PETSC_COMM_WORLD);
+//	MPI_Reduce(localError+1, error+1, 2, MPI_DOUBLE, MPI_SUM, 0, PETSC_COMM_WORLD);
+//	if (rank == 0) error[2] = sqrt(error[2]);
+//	
+//	VecRestoreArray(assem->level[0].u, &u);
+//}
+
+Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {
+	// Builds matrix "A" at a given multigrid level
+	// metrics	- metric terms in global index array
+	// n		- number of unknowns per dimension
+	// l		- level
+	
+//	int	rows, cols, idummy, jdummy;
+	double	As[5], h[2];
+	Mat	A;
+	
+	int 	procs, rank;
+//	int	ln;
+//	int	stencilsize;
+	int	*col;
+	int	range[2];
+
+//	rows = n*n;
+//	cols = rows;
+//	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+//	if (rank<(n*n)%procs) {
+//		ln = (n*n)/procs + 1;
+//	}
+//	else {
+//		ln = (n*n)/procs;
+//	}
+
+	MatCreateAIJ(PETSC_COMM_WORLD, IsStencil.ni, IsStencil.ni, PETSC_DETERMINE, PETSC_DETERMINE, 5, PETSC_NULL, 4, PETSC_NULL, &A);
+//	MatCreateSeqAIJ(PETSC_COMM_SELF, rows, cols, 5, NULL, A);
+//	MatGetOwnershipRange(subA[l], &rowStart, &rowEnd);
+//	printf("level: %d\n",l);
+	MatGetOwnershipRange(A, range, range+1);
+//	if (rank==0) {
+
+	h[0] = 1.0/(n+1);
+	h[1] = h[0];
+	for (int i=range[0]; i<range[1]; i++) {
+//		printf("\ni = %d, im = %d, jm = %d\n",i,ipow(2,l)*((i/n[l])+1)-1,ipow(2,l)*((i%n[l])+1)-1);	
+//		OpA(As,metrics[ipow(2,l)*((i/n)+1)-1][ipow(2,l)*((i%n)+1)-1],h);
+//		idummy = ipow(2,l)*((i/n)+1)-1;
+//		jdummy = ipow(2,l)*((i%n)+1)-1;
+//		OpA(As,PMETRICS(idummy, jdummy),h);
+		OpA(As,PMETRICS(i-range[0]),h);
+	//	printf("\nrow = %d; As[0] = %f\n",i,As[0]);
+		col = IsStencil.data+((i-range[0])*IsStencil.nj);
+		if (col[0]>-1) {
+			MatSetValue(A, i, col[0], As[0], INSERT_VALUES);
+		}
+		if (col[1]>-1) {
+			MatSetValue(A, i, col[1], As[1], INSERT_VALUES); 
+		}
+		MatSetValue(A, i, i, As[2], INSERT_VALUES);
+		if (col[3]>-1) {
+			MatSetValue(A, i, col[3], As[3], INSERT_VALUES);
+		}
+		if (col[4]>-1) {
+			MatSetValue(A, i, col[4], As[4], INSERT_VALUES);
+		}
+	}
+	MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);
+
+	return A;
+}
+
+void levelvecb(Vec *b, double *f) {
+	// Build vector "b" for fine grid
+	// f - logically 2D array containing right hand side values at each grid point
+	
+	int	rowStart, rowEnd;
+
+	VecGetOwnershipRange(*b, &rowStart, &rowEnd);
+	for (int i=rowStart;i<rowEnd;i++) {
+		VecSetValue(*b, i, f[i-rowStart], INSERT_VALUES);
+	}
+	VecAssemblyBegin(*b);
+	VecAssemblyEnd(*b);
+
+	//return b;
+}
+
+
