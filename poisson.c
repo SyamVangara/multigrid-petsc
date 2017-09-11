@@ -1,7 +1,4 @@
 #include "header.h"
-#include <time.h>
-#include <string.h>
-#include <petscksp.h>
 
 #define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
@@ -33,7 +30,7 @@ int main(int argc, char *argv[]) {
 	Mesh		mesh;
 	Indices		indices;
 	Operator	op;
-	Assembly	assem;
+//	Assembly	assem;
 	Solver		solver;
 	PostProcess	pp;	
 	
@@ -54,7 +51,6 @@ int main(int argc, char *argv[]) {
 	freopen("poisson.out", "w", stdout);
 	freopen("poisson.err", "w", stderr);
 	
-	MPI_Barrier(PETSC_COMM_WORLD);
 //	scanf("%d",mesh.n);	
 //	scanf("%d",&(solver.numIter));
 //	scanf("%d",&(indices.totalGrids));
@@ -63,7 +59,7 @@ int main(int argc, char *argv[]) {
 //	scanf("%d",&(mappingStyleflag));
 //	indices.levels = 2;
 	
-	PetscOptionsGetInt(NULL, NULL, "-n", &(mesh.n), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-n", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
@@ -100,20 +96,21 @@ int main(int argc, char *argv[]) {
 
 //	ViewOperatorInfo(op);
 	
-	SetUpAssembly(&indices, &assem);
-	Assemble(&prob, &mesh, &indices, &op, &assem);
-
-//	ViewLinSysMatsInfo(assem, 0);
-//	ViewGridTransferMatsInfo(assem, 0);
+//	SetUpAssembly(&indices, &assem);
+//	Assemble(&prob, &mesh, &indices, &op, &assem);
 
 	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
 	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
 
 //	ViewSolverInfo(indices, solver);
 
-	Solve(&assem, &solver);
+	Assemble(&prob, &mesh, &indices, &op, &solver);
+//	ViewLinSysMatsInfo(*(solver.assem), 0);
+//	ViewGridTransferMatsInfo(*(solver.assem), 0);
+	
+	Solve(&solver);
 	SetUpPostProcess(&pp);
-	Postprocessing(&prob, &mesh, &indices, &assem, &solver, &pp);
+	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
 	
 	if (rank==0) {
 	printf("=============================================================\n");
@@ -121,7 +118,7 @@ int main(int argc, char *argv[]) {
 	if (meshtype==UNIFORM) printf("Mesh Type:			Uniform\n");
 	if (meshtype==NONUNIFORM) printf("Mesh Type:			Non Uniform\n");
 	printf("Number of grids:		%d\n",op.totalGrids);
-	printf("Number of levels:		%d\n",assem.levels);
+	printf("Number of levels:		%d\n",solver.assem->levels);
 	printf("Number of grids per level:	");
 	for (int l=0;l<indices.levels;l++) {
 		printf("%d	", indices.level[l].grids);
@@ -144,7 +141,7 @@ int main(int argc, char *argv[]) {
 
 	DestroyPostProcess(&pp);
 	DestroySolver(&solver);
-	DestroyAssembly(&assem);
+//	DestroyAssembly(&assem);
 	DestroyOperator(&op);
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
@@ -195,7 +192,7 @@ void ViewMeshInfo(Mesh mesh) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: h = %f\n", rank, mesh.h);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
       
-	for (int i;i<DIMENSION;i++) {
+	for (int i=0;i<DIMENSION;i++) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: coord[%d]:",rank,i);
 		for (int j=0;j<mesh.n[i];j++) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);

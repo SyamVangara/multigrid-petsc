@@ -95,7 +95,7 @@ int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimensi
 	return ierr;
 }
 
-void Coords(Mesh *mesh, MeshType type) {
+int Coords(Mesh *mesh, MeshType type) {
 	// computes coords in each direction of the structured grid
 	//
 	// MeshType type: {UNIFORM, NONUNIFORM}
@@ -153,7 +153,7 @@ void Coords(Mesh *mesh, MeshType type) {
 	}
 	mesh->h = sqrt(mesh->h);
 
-//	return ierr;
+	return ierr;
 }
 
 int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalToGrid, IsRange *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {
@@ -201,10 +201,12 @@ void SetUpMesh(Mesh *mesh, MeshType type) {
 	// Assigns metric coefficients computing function
 	int ierr = 0;
 
-	malloc2dY(&(mesh->coord),DIMENSION,mesh->n); CHKERR_RETURN("malloc failed");
-	Coords(mesh, type);
+	ierr = malloc2dY(&(mesh->coord),DIMENSION,mesh->n); CHKERR_PRNT("malloc failed");
+	ierr = Coords(mesh, type); CHKERR_PRNT("Meshing failed");
 	if (type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 	if (type == NONUNIFORM) mesh->MetricCoefficients = &MetricsNonUniform;
+
+//	return ierr;
 }
 
 void DestroyMesh(Mesh *mesh) {

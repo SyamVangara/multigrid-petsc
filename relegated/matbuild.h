@@ -34,15 +34,6 @@ typedef struct {
 	Array2d	*pro;
 } Operator;
 
-typedef struct {
-	int	levels;
-	Mat 	*res;
-	Mat 	*pro;
-	Mat	*A;
-	Vec	*b;
-	Vec	*u;
-} Assembly;
-
 void SetUpIndices(Mesh *mesh, Indices *indices);
 void DestroyIndices(Indices *indices);
 void mapping(Indices *indices, int mappingStyleflag);
@@ -51,10 +42,10 @@ void SetUpOperator(Indices *indices, Operator *op);
 void DestroyOperator(Operator *op);
 void GridTransferOperators(Operator op, Indices indices);
 
-void SetUpAssembly(Indices *indices, Assembly *assem);
-void DestroyAssembly(Assembly *assem);
-
-void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem);
+//void SetUpAssembly(Indices *indices, Assembly *assem);
+//void DestroyAssembly(Assembly *assem);
+//
+//void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem);
 
 #endif
 
