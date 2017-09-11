@@ -35,8 +35,9 @@ int main(int argc, char *argv[]) {
 	PostProcess	pp;	
 	
 	int		cyc;
+	int		meshflag;
 	int		mappingStyleflag;
-	MeshType	meshtype = NONUNIFORM;
+//	MeshType	meshtype = NONUNIFORM;
 	int		vmax = 2;
 
 	int	ierr=0;
@@ -59,7 +60,8 @@ int main(int argc, char *argv[]) {
 //	scanf("%d",&(mappingStyleflag));
 //	indices.levels = 2;
 	
-	PetscOptionsGetInt(NULL, NULL, "-n", mesh.n, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-NperDim", mesh.n, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
@@ -76,7 +78,8 @@ int main(int argc, char *argv[]) {
 	}
 	
 
-	SetUpMesh(&mesh, meshtype);
+	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
+	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM);
 
 //	ViewMeshInfo(mesh);
 	
@@ -101,11 +104,12 @@ int main(int argc, char *argv[]) {
 
 	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
 	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
+	if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);
 
 //	ViewSolverInfo(indices, solver);
 
 	Assemble(&prob, &mesh, &indices, &op, &solver);
-//	ViewLinSysMatsInfo(*(solver.assem), 0);
+	ViewLinSysMatsInfo(*(solver.assem), 0);
 //	ViewGridTransferMatsInfo(*(solver.assem), 0);
 	
 	Solve(&solver);
@@ -115,8 +119,8 @@ int main(int argc, char *argv[]) {
 	if (rank==0) {
 	printf("=============================================================\n");
 	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
-	if (meshtype==UNIFORM) printf("Mesh Type:			Uniform\n");
-	if (meshtype==NONUNIFORM) printf("Mesh Type:			Non Uniform\n");
+	if (meshflag==0) printf("Mesh Type:			Uniform\n");
+	if (meshflag==1) printf("Mesh Type:			Non Uniform\n");
 	printf("Number of grids:		%d\n",op.totalGrids);
 	printf("Number of levels:		%d\n",solver.assem->levels);
 	printf("Number of grids per level:	");
@@ -131,6 +135,7 @@ int main(int argc, char *argv[]) {
 	printf("\n");
 	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
 	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
+	if (cyc == 2) printf("Cycle :				E-Cycle\n");
 	if (cyc == 1) printf("Cycle :				I-Cycle\n");
 	if (cyc == 0) printf("Cycle :				V-Cycle\n");
 	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);

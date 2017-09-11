@@ -41,11 +41,12 @@ typedef struct {
 	Mat 	*res;
 	Mat 	*pro;
 	Mat	*A;
+	Mat	*A2;
 	Vec	*b;
 	Vec	*u;
 } Assembly;
 
-typedef enum {VCYCLE, ICYCLE} Cycle;
+typedef enum {VCYCLE, ICYCLE, ECYCLE} Cycle;
 
 typedef struct {
 	Cycle		cycle;

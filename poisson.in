@@ -1,4 +1,6 @@
--n 65
+-NperDim 65
+# mesh: [0: Uniform, 1: Non-uniform]
+-mesh	0
 -iter 100000
 -grids 3
 -levels 2

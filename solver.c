@@ -21,22 +21,24 @@ static int ipow(int base, int exp) {
 	return result;
 }
 
-void SetUpAssembly(Indices *indices, Assembly *assem) {
+void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 	// Allocate memory for Assembly struct
 	
 	assem->levels = indices->levels;
 	assem->res = malloc((assem->levels-1)*sizeof(Mat));
 	assem->pro = malloc((assem->levels-1)*sizeof(Mat));
 	assem->A = malloc((assem->levels)*sizeof(Mat));
+	if (cycle == ECYCLE) assem->A2 = malloc((assem->levels)*sizeof(Mat)); 
 	assem->u = malloc((assem->levels)*sizeof(Vec));
 	assem->b = malloc((assem->levels)*sizeof(Vec));
 }
 
-void DestroyAssembly(Assembly *assem) {
+void DestroyAssembly(Assembly *assem, Cycle cycle) {
 	// Free the memory in Assembly struct
 	
 	for (int l=0;l<assem->levels;l++) {
 		MatDestroy(assem->A+l);
+		if (cycle == ECYCLE) MatDestroy(assem->A2+l);
 		VecDestroy(assem->b+l);
 		VecDestroy(assem->u+l);
 	}
@@ -47,6 +49,7 @@ void DestroyAssembly(Assembly *assem) {
 	free(assem->res);
 	free(assem->pro);
 	free(assem->A);
+	if (cycle == ECYCLE) free(assem->A2); 
 	free(assem->b);
 	free(assem->u);
 }
@@ -54,7 +57,7 @@ void DestroyAssembly(Assembly *assem) {
 void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	// Allocates memory to Solver struct
 	solver->assem = malloc(sizeof(Assembly));		
-	SetUpAssembly(indices, solver->assem);
+	SetUpAssembly(indices, solver->assem, cyc);
 	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
 	solver->cycle = cyc;
 }
@@ -62,7 +65,7 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 void DestroySolver(Solver *solver) {
 	// Free the memory in Solver struct
 	
-	DestroyAssembly(solver->assem);
+	DestroyAssembly(solver->assem, solver->cycle);
 	free(solver->assem);
 	free(solver->rnorm);
 }
@@ -97,9 +100,79 @@ void DestroyPostProcess(PostProcess *pp) {
 	}
 }
 
+void fillJacobians(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) {
+	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids this level possesses
+
+	int		*a, *b;
+	int		ai, aj, bi, bj;
+	int		lg;
+	
+	int		grids, *gridId;
+	int		*ranges;
+	double		As[5];
+
+	int		i0, j0, g0;
+	int		ifine, jfine;
+
+	double		metrics[5], **coord;
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	coord = mesh->coord;
+
+	ai = level->global.ni;
+	aj = level->global.nj;
+	a  = level->global.data;
+
+	grids = level->grids;
+	gridId = level->gridId;
+
+	ranges = level->ranges;	
+	
+	// Row-based fill:
+	for (int row=ranges[rank];row<ranges[rank+1];row++) {
+		//i0 - row    - y coord
+		//j0 - column - x coord
+		//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
+		i0 = a[row*aj];
+		j0 = a[row*aj+1];
+		g0 = a[row*aj+2]; 
+		for (lg=0;lg<grids;lg++) {if (g0 == gridId[lg]) break;} 
+		
+		bi = level->grid[lg].ni;
+		bj = level->grid[lg].nj;
+		b  = level->grid[lg].data;
+		// fine grid point corresponding to (i0, j0)
+		ifine = ipow(factor,g0)*(i0+1)-1;
+		jfine = ipow(factor,g0)*(j0+1)-1;
+		
+		// Compute metrics (analytically) at fine grid point
+		mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
+		prob->OpA(As, metrics, level->h[lg]); // Get coefficients
+
+		// Fill the matrix
+		if (i0-1>=0) {
+			MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
+		}
+		if (j0-1>=0) {
+			MatSetValue(*A, row, b[i0*bj+j0-1], As[1], ADD_VALUES);
+		}
+		MatSetValue(*A, row, row, As[2], ADD_VALUES);
+		if (j0+1<bj) {
+			MatSetValue(*A, row, b[i0*bj+j0+1], As[3], ADD_VALUES);
+		}
+		if (i0+1<bi) {
+			MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
+		}
+	}
+}
+
 void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
 	// Build matrix "A" for a given level
-	// level - contains index maps
+	// level - contains global-to-grid, grid-to-global index maps
 	// factor - coarsening factor
 	
 	int		*a, *b;
@@ -135,8 +208,9 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 	ranges = level->ranges;	
 	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
 
-//	MatGetOwnershipRange(*A, range, range+1);
-	
+	// Fill the Jacobian submatrices of Mat A
+	fillJacobians(prob, mesh, level, factor, A);
+
 	// Row-based fill:
 	for (int row=ranges[rank];row<ranges[rank+1];row++) {
 		//i0 - row    - y coord
@@ -147,29 +221,30 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 		g0 = a[row*aj+2]; 
 		for (int lg=0;lg<grids;lg++) {
 			g1 = gridId[lg];
-			if (g1 == g0) {
-				// Fill the jacobian
-				bi = level->grid[lg].ni;
-				bj = level->grid[lg].nj;
-				b  = level->grid[lg].data;
-				ifine = ipow(factor,g0)*(i0+1)-1;
-				jfine = ipow(factor,g0)*(j0+1)-1;
-				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-				prob->OpA(As, metrics, level->h[lg]);
-				if (i0-1>=0) {
-					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
-				}
-				if (j0-1>=0) {
-					MatSetValue(*A, row, b[i0*bj+j0-1], As[1], ADD_VALUES);
-				}
-				MatSetValue(*A, row, row, As[2], ADD_VALUES);
-				if (j0+1<bj) {
-					MatSetValue(*A, row, b[i0*bj+j0+1], As[3], ADD_VALUES);
-				}
-				if (i0+1<bi) {
-					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
-				}
-			} else if (g1 < g0) {
+//			if (g1 == g0) {
+//				// Fill the jacobian
+//				bi = level->grid[lg].ni;
+//				bj = level->grid[lg].nj;
+//				b  = level->grid[lg].data;
+//				ifine = ipow(factor,g0)*(i0+1)-1;
+//				jfine = ipow(factor,g0)*(j0+1)-1;
+//				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
+//				prob->OpA(As, metrics, level->h[lg]);
+//				if (i0-1>=0) {
+//					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
+//				}
+//				if (j0-1>=0) {
+//					MatSetValue(*A, row, b[i0*bj+j0-1], As[1], ADD_VALUES);
+//				}
+//				MatSetValue(*A, row, row, As[2], ADD_VALUES);
+//				if (j0+1<bj) {
+//					MatSetValue(*A, row, b[i0*bj+j0+1], As[3], ADD_VALUES);
+//				}
+//				if (i0+1<bi) {
+//					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
+//				}
+//			} else if (g1 < g0) {
+			if (g1 < g0) {	
 				// Fill the restriction portion of the A from g1 to g0
 				bi = level->grid[lg].ni;
 				bj = level->grid[lg].nj;
