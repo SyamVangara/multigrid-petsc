@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 //	ViewSolverInfo(indices, solver);
 
 	Assemble(&prob, &mesh, &indices, &op, &solver);
-	ViewLinSysMatsInfo(*(solver.assem), 0);
+//	ViewLinSysMatsInfo(*(solver.assem), 0);
 //	ViewGridTransferMatsInfo(*(solver.assem), 0);
 	
 	Solve(&solver);

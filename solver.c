@@ -149,7 +149,7 @@ void fillJacobians(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 		ifine = ipow(factor,g0)*(i0+1)-1;
 		jfine = ipow(factor,g0)*(j0+1)-1;
 		
-		// Compute metrics (analytically) at fine grid point
+		// Compute metrics (analytically) at physical point corresponding to fine grid point
 		mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
 		prob->OpA(As, metrics, level->h[lg]); // Get coefficients
 
@@ -170,16 +170,14 @@ void fillJacobians(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) 
 	}
 }
 
-void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
-	// Build matrix "A" for a given level
-	// level - contains global-to-grid, grid-to-global index maps
-	// factor - coarsening factor
+void fillRestrictionPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
+	// Fills restriction portions (such as I_h^H A_h) of level Mat A
 	
 	int		*a, *b;
 	int		ai, aj, bi, bj;
 	double		*res, *pro;
 	double		weight;
-	int		resni, resnj, proni, pronj;
+	int		resni, resnj;
 	
 	int		grids, *gridId;
 	int		*ranges;
@@ -206,10 +204,6 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 	gridId = level->gridId;
 
 	ranges = level->ranges;	
-	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
-
-	// Fill the Jacobian submatrices of Mat A
-	fillJacobians(prob, mesh, level, factor, A);
 
 	// Row-based fill:
 	for (int row=ranges[rank];row<ranges[rank+1];row++) {
@@ -221,46 +215,31 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 		g0 = a[row*aj+2]; 
 		for (int lg=0;lg<grids;lg++) {
 			g1 = gridId[lg];
-//			if (g1 == g0) {
-//				// Fill the jacobian
-//				bi = level->grid[lg].ni;
-//				bj = level->grid[lg].nj;
-//				b  = level->grid[lg].data;
-//				ifine = ipow(factor,g0)*(i0+1)-1;
-//				jfine = ipow(factor,g0)*(j0+1)-1;
-//				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//				prob->OpA(As, metrics, level->h[lg]);
-//				if (i0-1>=0) {
-//					MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
-//				}
-//				if (j0-1>=0) {
-//					MatSetValue(*A, row, b[i0*bj+j0-1], As[1], ADD_VALUES);
-//				}
-//				MatSetValue(*A, row, row, As[2], ADD_VALUES);
-//				if (j0+1<bj) {
-//					MatSetValue(*A, row, b[i0*bj+j0+1], As[3], ADD_VALUES);
-//				}
-//				if (i0+1<bi) {
-//					MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
-//				}
-//			} else if (g1 < g0) {
 			if (g1 < g0) {	
-				// Fill the restriction portion of the A from g1 to g0
+				// grid-to-global index map
 				bi = level->grid[lg].ni;
 				bj = level->grid[lg].nj;
 				b  = level->grid[lg].data;
+
+				// Restriction operator from g1 to g0
 				resni = op->res[g0-g1-1].ni;
 				resnj = op->res[g0-g1-1].nj;
 				res = op->res[g0-g1-1].data;
-
+				
+				// (i1, j1) in grid g1 corresponding to (i0, j0) in grid g0
 				i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (resni)/2;
 				j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (resnj)/2;	
 				for (int i=i1;i<i1 + resni;i++) {
 					for (int j=j1;j<j1 + resnj;j++) {
+						// fine grid point corresponding to (i, j) in grid g1
 						ifine = ipow(factor,(g1))*(i+1)-1;
 						jfine = ipow(factor,(g1))*(j+1)-1;
+
+						// Compute metrics at physical point corresponding to fine grid point
 						mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-						prob->OpA(As, metrics, level->h[lg]);
+						prob->OpA(As, metrics, level->h[lg]);// Get the coefficients 
+						
+						// Fill the values corresponding to restriction from (i, j) to (i0, j0)
 						weight = res[(i-i1)*resnj+(j-j1)];
 						if (weight == 0.0) continue;
 						if (i-1>=0) {
@@ -281,7 +260,44 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 			}
 		}
 	}
+}
 
+void fillProlongationPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
+	// Fills prolongation portions (such as A_h I_H^h) of level Mat A
+	
+	int		*a, *b;
+	int		ai, aj, bi, bj;
+	double		*res, *pro;
+	double		weight;
+	int		proni, pronj;
+	
+	int		grids, *gridId;
+	int		*ranges;
+	double		As[5];
+
+	int		i0, j0, g0;
+	int		ifine, jfine;
+	int		i1, j1, g1;
+
+	double		metrics[5], **coord;
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	coord = mesh->coord;
+
+	// Global-to-grid index map
+	ai = level->global.ni;
+	aj = level->global.nj;
+	a  = level->global.data;
+
+	grids = level->grids;
+	gridId = level->gridId;
+
+	ranges = level->ranges;	
+		
 	// Column based fill
 	for (int col=ranges[rank];col<ranges[rank+1];col++) {
 		i0 = a[col*aj];
@@ -291,27 +307,38 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 		for (int lg=0;lg<grids;lg++) {
 			g1 = gridId[lg];
 			if (g1 < g0) {
-				// Fill the prolongation portion of the A
+				// Grid-to-global index map
 				bi = level->grid[lg].ni;
 				bj = level->grid[lg].nj;
 				b  = level->grid[lg].data;
+				
+				// Prolongation operator from g0 to g1
 				proni = op->pro[g0-g1-1].ni;
 				pronj = op->pro[g0-g1-1].nj;
 				pro = op->pro[g0-g1-1].data;
 				
+				// (i1, j1) on g1 corresponding to (i0, j0) on g0
 				i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (proni)/2;
 				j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (pronj)/2;
+
+				// Fill the values associated to interior points in 2d stencil 
 				for (int i=1;i<proni-1;i++) {
 					for (int j=1;j<pronj-1;j++) {
+						// fine grid point corresponding to (i+i1, j+j1) on g1
 						ifine = ipow(factor,(g1))*(i+i1+1)-1;
 						jfine = ipow(factor,(g1))*(j+j1+1)-1;
+
+						// Compute metrics at physical point correspoding to fine grid point
 						mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-						prob->OpA(As, metrics, level->h[lg]);
+						prob->OpA(As, metrics, level->h[lg]); // Get coefficients
+
+						// Fill the values
 						weight = As[0]*pro[(i-1)*pronj+(j)] + As[1]*pro[(i)*pronj+(j-1)]+ As[2]*pro[(i)*pronj+(j)]+ As[3]*pro[(i)*pronj+(j+1)]+ As[4]*pro[(i+1)*pronj+(j)];
 						if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+j+j1], col, weight, ADD_VALUES);
 					}
 				}
 
+				// Fill the values associated to edges in 2d stencil except corners
 				for (int j=1;j<pronj-1;j++) {
 					ifine = ipow(factor,(g1))*(i1+1)-1;
 					jfine = ipow(factor,(g1))*(j+j1+1)-1;
@@ -343,7 +370,8 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 					weight = As[0]*pro[(i-1)*pronj+(pronj-1)] + As[1]*pro[(i)*pronj+(pronj-2)]+ As[2]*pro[(i)*pronj+(pronj-1)]+ As[4]*pro[(i+1)*pronj+(pronj-1)];
 					if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
 				}
-
+				
+				// Fill the values associated to corners in 2d stencil
 				ifine = ipow(factor,(g1))*(i1+1)-1;
 				jfine = ipow(factor,(g1))*(j1+1)-1;
 				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
@@ -374,6 +402,26 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 			}
 		}
 	}
+}
+
+void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
+	// Build matrix "A" for a given level
+	// level - contains global-to-grid, grid-to-global index maps
+	// factor - coarsening factor
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int		grids;
+	int		*ranges;
+	grids = level->grids;
+	ranges = level->ranges;	
+	
+	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
+
+	fillJacobians(prob, mesh, level, factor, A);
+	fillRestrictionPortion(prob, mesh, op, level, factor, A);
+	fillProlongationPortion(prob, mesh, op, level, factor, A);
 	
 	MatAssemblyBegin(*A,MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
