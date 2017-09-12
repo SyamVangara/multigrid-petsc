@@ -1,11 +1,11 @@
--NperDim 65
+-NperDim 5
 # mesh: [0: Uniform, 1: Non-uniform]
 -mesh	0
 -iter 100000
--grids 3
--levels 2
-# cycle: [0: V-Cycle, 1: I-Cycle]
--cycle 0
+-grids 2
+-levels 1
+# cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle]
+-cycle 2
 # map: [0: GridAfterGrid, 1: ThroughGrids]
 -map 1
--v 3,3
+-v 2,3

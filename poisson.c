@@ -138,6 +138,8 @@ int main(int argc, char *argv[]) {
 	if (cyc == 2) printf("Cycle :				E-Cycle\n");
 	if (cyc == 1) printf("Cycle :				I-Cycle\n");
 	if (cyc == 0) printf("Cycle :				V-Cycle\n");
+	
+	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
 	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
 	printf("Number of processes:		%d\n",procs);
 	printf("Number of iterations:		%d\n",solver.numIter);
@@ -326,8 +328,14 @@ void ViewLinSysMatsInfo(Assembly assem, int view) {
 	
 	for (int l=0;l<assem.levels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
-		if (view == 0) MatView(assem.A[l],PETSC_VIEWER_STDOUT_WORLD);
-		if (view == 1) MatView(assem.A[l],PETSC_VIEWER_DRAW_WORLD);
+		if (view == 0) {
+			MatView(assem.A[l],PETSC_VIEWER_STDOUT_WORLD);
+			MatView(assem.A2[l],PETSC_VIEWER_STDOUT_WORLD);
+		}
+		if (view == 1) {
+			MatView(assem.A[l],PETSC_VIEWER_DRAW_WORLD);
+			MatView(assem.A2[l],PETSC_VIEWER_DRAW_WORLD);
+		}
 		VecView(assem.b[l],PETSC_VIEWER_STDOUT_WORLD);
 	}
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);

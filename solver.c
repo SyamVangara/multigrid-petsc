@@ -427,6 +427,52 @@ void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int fac
 	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
 }
 
+void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
+	// Build matrix "A" for a given level
+	// level - contains global-to-grid, grid-to-global index maps
+	// factor - coarsening factor
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int		grids;
+	int		*ranges;
+	grids = level->grids;
+	ranges = level->ranges;	
+	
+	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6, PETSC_NULL, 6, PETSC_NULL, A);
+
+	fillJacobians(prob, mesh, level, factor, A);
+//	fillRestrictionPortion(prob, mesh, op, level, factor, A);
+//	fillProlongationPortion(prob, mesh, op, level, factor, A);
+	
+	MatAssemblyBegin(*A,MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
+}
+
+void levelMatrixA2(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
+	// Build matrix "A" for a given level
+	// level - contains global-to-grid, grid-to-global index maps
+	// factor - coarsening factor
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int		grids;
+	int		*ranges;
+	grids = level->grids;
+	ranges = level->ranges;	
+	
+	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6*(grids-1), PETSC_NULL, 6*(grids-1), PETSC_NULL, A);
+
+//	fillJacobians(prob, mesh, level, factor, A);
+	fillRestrictionPortion(prob, mesh, op, level, factor, A);
+	fillProlongationPortion(prob, mesh, op, level, factor, A);
+	
+	MatAssemblyBegin(*A,MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
+}
+
 void levelvecb(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b) {
 	// Build vector "b" for a given level
 	// f - logically 2D array containing right hand side values at each grid point
@@ -620,7 +666,12 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 	assem = solver->assem;
 	factor = indices->coarseningFactor;
 	for (int l=0;l<assem->levels;l++) {
-		levelMatrixA(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
+		if (solver->cycle == ECYCLE) {
+			levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
+			levelMatrixA2(prob, mesh, op, &(indices->level[l]), factor, assem->A2+l);
+		} else {
+			levelMatrixA(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
+		}
 		MatCreateVecs(assem->A[l], assem->u+l, assem->b+l);
 	}
 	// Only the zeroth level vec b is created
@@ -985,12 +1036,89 @@ void MultigridIcycle(Solver *solver) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
+void MultigridEcycle(Solver *solver) {
+
+	Mat	*A1;
+	Mat	*A2;
+	Vec	r;
+	Vec	*b;
+	Vec	*u;
+	
+	double	*norm, chkNorm;
+	int	v, maxIter, iter;
+	
+	int	size, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	A1	= solver->assem->A;
+	A2	= solver->assem->A2;
+	b	= solver->assem->b;
+	u	= solver->assem->u;
+	maxIter	= solver->numIter;
+	norm	= solver->rnorm;
+	v	= solver->v[0];
+//	v	= 1;
+
+	KSP	ksp;
+	PC	pc;
+	
+	PetscLogStage	stage, stageSolve;
+	
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetType(ksp,KSPRICHARDSON);
+	KSPSetOperators(ksp, *A1, *A1);
+	KSPGetPC(ksp,&pc);
+//	PCSetType(pc,PCASM);
+	KSPMonitorSet(ksp, myMonitor, norm, NULL);
+	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v);
+	KSPSetFromOptions(ksp);
+	KSPSetInitialGuessNonzero(ksp,PETSC_TRUE);
+	
+	MatScale(*A2, -1);
+	VecDuplicate(*b, &r);
+//	VecCopy(*b, *r);
+	VecSet(*u, 0);
+
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
+	iter = 0;
+	chkNorm = 1.0;
+	while (iter<maxIter && 100000000 > chkNorm && chkNorm > (1.e-7)) {
+		MatMultAdd(*A2, *u, *b, r);
+		KSPSolve(ksp, r, *u);
+		chkNorm = norm[iter];
+		iter += 1;
+	}
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	solver->numIter = iter;
+//	KSPGetIterationNumber(ksp, &(solver->numIter));
+
+//	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+	VecDestroy(r);
+	KSPDestroy(&ksp);
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
 void Solve(Solver *solver){
 	// Solves the problem with chosen multigrid cycle
 	
 	//Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver);
 	if (solver->cycle == VCYCLE) MultigridVcycle(solver);
 	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
+	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
 }
 
 
