@@ -143,6 +143,133 @@ void GetRanges(int *ranges, int totaln) {
 	}
 }
 
+void mappingLocalGridAfterGrid(Indices *indices) {
+	// Maps global indices to grid unknowns and vice-versa
+	// Mapping style: Within the process points are arranged in a Grid-After-After pattern
+	
+	int	count, fcount;
+	int	grids, factor, gfactor;
+	int	ig, jg;
+	int	gfine, g;
+	int	*ranges, *npts;
+	ArrayInt2d	a, b, fine;
+//	ArrayInt2d	npts;
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	factor = indices->coarseningFactor;
+	for (int l=0;l<indices->levels;l++) {
+		a 	= indices->level[l].global;
+		ranges 	= indices->level[l].ranges;
+		gfine 	= indices->level[l].gridId[0];
+		fine 	= indices->level[l].grid[0];
+		grids	= indices->level[l].grids;
+		GetRanges(ranges, fine.ni*fine.nj);
+
+		// Compute the number of points of each grid in each rank
+		// npts[rank][g] - num of points of grid "g" in "rank"
+//		CreateArrayInt2d(procs, grids, &npts);
+//		SetArrayInt2d(&npts, 0);
+		npts = malloc(((procs*grids)+1)*sizeof(int));
+//		count = 0; // counts number of points
+		fcount = 0; // counts number of fine grid points
+		rank = 0; // Keeps track of the rank
+		for (int i=0;i<fine.ni;i++) {
+			for (int j=0;j<fine.nj;j++) {
+				gfactor = 1;
+				for (int lg=0;lg<grids;lg++) {
+					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue;
+					gfactor =  gfactor*factor;
+					npts[rank*(grids)+lg] += 1;
+//					count += 1;
+				}
+				fcount += 1;
+				if (fcount == ranges[rank+1]) {
+//					npts[(rank+1)*grids-1] = count - npts[(rank+1)*grids-1];
+					ranges[rank+1] = npts[rank*(grids)]; // update the number of points in "rank"
+					for (int lg=1;lg<grids;lg++) {
+						ranges[rank+1] += npts[rank*(grids)+lg];
+					}
+					rank += 1;
+//					npts[rank*grids] = 0;
+//					count = 0;
+				}
+			}
+		}
+		
+		npts[procs*grids] = ranges[procs];
+		for (int i=(procs*grids)-1;i>=0;i=i-1) {
+			npts[i] = npts[i+1]-npts[i];
+		}
+		
+		for (int l=0;l<indices->levels;l++) {
+			count = 0;
+			a = indices->level[l].global;
+			ranges 	= indices->level[l].ranges;
+			for (int lg=0;lg<indices->level[l].grids;lg++) {
+				g = indices->level[l].gridId[lg];
+				b = indices->level[l].grid[lg];
+				for (int i=0;i<b.ni;i++) {
+					for (int j=0;j<b.nj;j++) {
+						b.data[i*b.nj+j] = count;
+						a.data[count*a.nj+0] = i;
+						a.data[count*a.nj+1] = j;
+						a.data[count*a.nj+2] = g;
+						count = count + 1;
+					}
+				}
+			}
+			GetRanges(ranges, count);
+		}
+		
+		// Compute the ranges of fine grid indices for processes
+		fcount = 0; // counts number of fine grid points mapped
+		rank = 0; // Keeps track of the rank
+		for (int i=0;i<fine.ni;i++) {
+			for (int j=0;j<fine.nj;j++) {
+				g = indices->level[l].gridId[lg];
+				ig = (i+1)/gfactor-1;
+				jg = (j+1)/gfactor-1;
+				b = indices->level[l].grid[lg];
+				b.data[ig*b.nj+jg] = count;
+				a.data[count*a.nj+0] = ig;
+				a.data[count*a.nj+1] = jg;
+				a.data[count*a.nj+2] = g;
+				count = count + 1;
+				fcount += 1;
+				if (fcount == ranges[rank+1]) {
+					ranges[rank+1] = count; // update the number of points in "rank"
+					rank += 1;
+				}
+
+				for (int lg=0;lg<indices->level[l].grids;lg++) {
+					g = indices->level[l].gridId[lg];
+					gfactor = ipow(factor, g-gfine);
+					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue;
+					ig = (i+1)/gfactor-1;
+					jg = (j+1)/gfactor-1;
+					b = indices->level[l].grid[lg];
+					b.data[ig*b.nj+jg] = count;
+					a.data[count*a.nj+0] = ig;
+					a.data[count*a.nj+1] = jg;
+					a.data[count*a.nj+2] = g;
+					count = count + 1;
+				}
+				fcount += 1;
+				if (fcount == ranges[rank+1]) {
+					ranges[rank+1] = count; // update the number of points in "rank"
+					rank += 1;
+				}
+			}
+		}
+//		DeleteArrayInt2d(&npts); 
+		free(npts);
+	}
+}
+
 void mappingThroughGrids(Indices *indices) {
 	// Maps global indices to grid unknowns and vice-versa
 	// Mapping style: places points of any grid corresponding to same (x, y) physical coordinates next to each other

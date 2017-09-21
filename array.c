@@ -4,7 +4,7 @@
 	{result += a[i];}}
 
 void CreateArrayInt2d(int ni, int nj, ArrayInt2d *a) {
-	//Allocates memory to a logical integer 2d array		
+	// Allocates memory to a logical integer 2d array
 	a->ni = ni;
 	a->nj = nj;
 	a->data = malloc(a->ni*a->nj*sizeof(int));
@@ -14,6 +14,13 @@ void DeleteArrayInt2d(ArrayInt2d *a) {
 	// Safely delete a logical 2d integer array
 	
 	if (a->data != NULL) free(a->data);
+}
+
+void SetArrayInt2d(ArrayInt2d *a, int v) {
+	// Set all the values of array with "v"
+	for (int i=0;i<(a->ni)*(a->nj);i++) {
+		a->data[i] = v;
+	}
 }
 
 void CreateArray2d(int ni, int nj, Array2d *a) {
@@ -27,6 +34,13 @@ void DeleteArray2d(Array2d *a) {
 	// Safely delete a logical 2d double array
 	
 	if (a->data != NULL) free(a->data);
+}
+
+void SetArray2d(ArrayInt2d *a, double v) {
+	// Set all the values of array with "v"
+	for (int i=0;i<(a->ni)*(a->nj);i++) {
+		a->data[i] = v;
+	}
 }
 
 int malloc2d(double ***a, int n, int m) {
