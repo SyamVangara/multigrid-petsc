@@ -13,6 +13,7 @@
 static int ipow(int base, int exp);
 int totalUnknowns(int *n, int totalGrids);
 
+void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
 void ViewMeshInfo(Mesh mesh);
 void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfo(Indices indices);
@@ -30,21 +31,15 @@ int main(int argc, char *argv[]) {
 	Mesh		mesh;
 	Indices		indices;
 	Operator	op;
-//	Assembly	assem;
 	Solver		solver;
 	PostProcess	pp;	
 	
 	int		cyc;
 	int		meshflag;
 	int		mappingStyleflag;
-//	MeshType	meshtype = NONUNIFORM;
 	int		vmax = 2;
 
 	int	ierr=0;
-	int	procs, rank;
-
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	SetUpProblem(&prob);
 	
@@ -52,15 +47,7 @@ int main(int argc, char *argv[]) {
 	freopen("poisson.out", "w", stdout);
 	freopen("poisson.err", "w", stderr);
 	
-//	scanf("%d",mesh.n);	
-//	scanf("%d",&(solver.numIter));
-//	scanf("%d",&(indices.totalGrids));
-//	scanf("%d",&(indices.levels));
-//	scanf("%d",&(cyc));
-//	scanf("%d",&(mappingStyleflag));
-//	indices.levels = 2;
-	
-	PetscOptionsGetInt(NULL, NULL, "-NperDim", mesh.n, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
@@ -113,42 +100,14 @@ int main(int argc, char *argv[]) {
 //	ViewGridTransferMatsInfo(*(solver.assem), 0);
 	
 	Solve(&solver);
+	
 	SetUpPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
 	
-	if (rank==0) {
-	printf("=============================================================\n");
-	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
-	if (meshflag==0) printf("Mesh Type:			Uniform\n");
-	if (meshflag==1) printf("Mesh Type:			Non Uniform\n");
-	printf("Number of grids:		%d\n",op.totalGrids);
-	printf("Number of levels:		%d\n",solver.assem->levels);
-	printf("Number of grids per level:	");
-	for (int l=0;l<indices.levels;l++) {
-		printf("%d	", indices.level[l].grids);
-	}
-	printf("\n");
-	printf("Number of unknowns per level:	");
-	for (int l=0;l<indices.levels;l++) {
-		printf("%d	", indices.level[l].global.ni);
-	}
-	printf("\n");
-	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
-	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
-	if (cyc == 2) printf("Cycle :				E-Cycle\n");
-	if (cyc == 1) printf("Cycle :				I-Cycle\n");
-	if (cyc == 0) printf("Cycle :				V-Cycle\n");
+	PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
 	
-	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
-	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-	printf("Number of processes:		%d\n",procs);
-	printf("Number of iterations:		%d\n",solver.numIter);
-	printf("=============================================================\n");
-	}
-
 	DestroyPostProcess(&pp);
 	DestroySolver(&solver);
-//	DestroyAssembly(&assem);
 	DestroyOperator(&op);
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
@@ -180,6 +139,47 @@ int totalUnknowns(int *n, int totalGrids) {
 		length = length + n0*n0;
 	}
 	return length;
+}
+
+void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag) {
+	// Prints complete some info of problem, grids, solver
+	
+	int	procs, rank;
+
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	if (rank==0) {
+	printf("=============================================================\n");
+	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
+	if (meshflag==0) printf("Mesh Type:			Uniform\n");
+	if (meshflag==1) printf("Mesh Type:			Non Uniform\n");
+	printf("Number of grids:		%d\n",op.totalGrids);
+	printf("Number of levels:		%d\n",solver.assem->levels);
+	printf("Number of grids per level:	");
+	for (int l=0;l<indices.levels;l++) {
+		printf("%d	", indices.level[l].grids);
+	}
+	printf("\n");
+	printf("Number of unknowns per level:	");
+	for (int l=0;l<indices.levels;l++) {
+		printf("%d	", indices.level[l].global.ni);
+	}
+	printf("\n");
+	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
+	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
+	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
+	if (cyc == 2) printf("Cycle :				E-Cycle\n");
+	if (cyc == 1) printf("Cycle :				I-Cycle\n");
+	if (cyc == 0) printf("Cycle :				V-Cycle\n");
+	
+	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
+	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
+	printf("Number of processes:		%d\n",procs);
+	printf("Number of iterations:		%d\n",solver.numIter);
+	printf("=============================================================\n");
+	}
+
 }
 
 void ViewMeshInfo(Mesh mesh) {
