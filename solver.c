@@ -935,13 +935,14 @@ void MultigridVcycle(Solver *solver) {
 		KSPSetFromOptions(ksp[levels-1]);
 	}
 
+	iter = 0;
+	rnormchk = bnorm;
+	if (rank==0) rnorm[0] = 1.0;
+	
 	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
-	iter = 0;
-	rnormchk = bnorm;
-	if (rank==0) rnorm[0] = 1.0;
 	while (iter<maxIter && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
 		KSPSolve(ksp[0], b[0], u[0]);
 		if (iter==0) KSPSetInitialGuessNonzero(ksp[0],PETSC_TRUE);
@@ -989,8 +990,12 @@ void MultigridIcycle(Solver *solver) {
 	Mat	*A;
 	Vec	*b;
 	Vec	*u;
+
+	Vec	r;
 	
 	int	size, rank;
+
+	double	rnorm0;
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &size);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
@@ -1009,10 +1014,20 @@ void MultigridIcycle(Solver *solver) {
 	KSPSetOperators(ksp, *A, *A);
 	KSPGetPC(ksp,&pc);
 //	PCSetType(pc,PCASM);
+	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
 	KSPMonitorSet(ksp, myMonitor, solver->rnorm, NULL);
 	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, solver->numIter);
 	KSPSetFromOptions(ksp);
-
+	
+	// Compute initial residual and its norm
+	VecSet(*u, 0.0); // Me Note: This should be move out of this function
+	VecDuplicate(*b,&r);
+	MatMult(*A, *u, r);
+	VecAXPY(r, -1.0, *b);
+	VecNorm(r, NORM_2, &rnorm0);
+	VecDestroy(&r);
+	
+	// Solve the system
 	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stageSolve);
@@ -1024,6 +1039,9 @@ void MultigridIcycle(Solver *solver) {
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
 	KSPGetIterationNumber(ksp, &(solver->numIter));
+	for (int i=0;i<(solver->numIter+1);i++) {
+		solver->rnorm[i] = solver->rnorm[i]/rnorm0;
+	}
 
 //	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
