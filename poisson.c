@@ -24,7 +24,7 @@ void ViewLinSysMatsInfo(Assembly assem, int view);
 void ViewGridTransferMatsInfo(Assembly assem, int view);
 
 int main(int argc, char *argv[]) {
-	
+
 	PetscInitialize(&argc, &argv, "poisson.in", 0);
 
 	Problem		prob;
