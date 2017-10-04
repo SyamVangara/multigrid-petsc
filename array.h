@@ -30,6 +30,11 @@ typedef struct {
 
 typedef struct {
 	int ni;
+	int* data;
+} ArrayInt1d;
+
+typedef struct {
+	int ni;
 	int nj;
 	int* data;
 } ArrayInt2d;

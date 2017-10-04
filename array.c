@@ -3,6 +3,18 @@
 #define SUM_ARRAY(result, a, size ) {int i; result=0; for (i=0;i<size;i++)\
 	{result += a[i];}}
 
+void CreateArrayInt1d(int ni, ArrayInt1d *a) {
+	// Allocates memory to a logical integer 2d array
+	a->ni = ni;
+	a->data = malloc(a->ni*sizeof(int));
+}
+
+void DeleteArrayInt1d(ArrayInt1d *a) {
+	// Safely delete a logical 2d integer array
+	
+	if (a->data != NULL) free(a->data);
+}
+
 void CreateArrayInt2d(int ni, int nj, ArrayInt2d *a) {
 	// Allocates memory to a logical integer 2d array
 	a->ni = ni;

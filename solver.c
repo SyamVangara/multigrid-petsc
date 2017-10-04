@@ -1,6 +1,10 @@
 #include "solver.h"
 
-#define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
+//#define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
+//#define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
+//#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
+//#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define ERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
 #define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
 #define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
@@ -535,6 +539,48 @@ void levelvecb(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor
 	VecAssemblyEnd(*b);
 
 	//return b;
+}
+
+void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
+/*********************************************************************************
+ *
+ * Creates a Petsc index set to hold a subset of global indices 
+ * that belong to the grids given by an array
+ *
+ * Input:
+ * 	level  - level info along with global and grids index maps
+ * 	length - length of "idg" array
+ * 	idg    - Array containing the grid Ids
+ * Output:
+ * 	indexSet - Index set of global indices belonging to grids given by "idg"
+ * 
+ *********************************************************************************/
+	if (length > level->grids) {
+		ERROR_MSG("Error in extraction of sub global index sets");
+		return;
+	}
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int	*idx;   // Temporary sub indices holding array
+	int	nlocal; // local length of sub global index set
+
+	int		*ranges;
+	ArrayInt2d	global, grid;
+
+	ranges	= level->ranges;
+	global	= level->global;
+	grid	= level->grid;
+
+	nlocal = ranges[rank+1]-ranges[rank]; // Start with the upper bound
+	
+	idx = malloc(nlocal*sizeof(int));
+	for (int i=ranges[rank];i<ranges[rank+1];i++) {
+		if (global.data[i*global.nj+2] == ;
+	}
+	ISCreateGeneral(MPI_Comm comm,PetscInt n,const PetscInt idx[],PetscCopyMode mode,IS *is);
+	free(idx);
 }
 
 void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
