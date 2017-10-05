@@ -548,7 +548,7 @@ void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
  * that belong to the grids given by an array
  *
  * Input:
- * 	level  - level info along with global and grids index maps
+ * 	level  - level info (mainly required for global index map and ranges)
  * 	length - length of "idg" array
  * 	idg    - Array containing the grid Ids
  * Output:
@@ -563,23 +563,28 @@ void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	int	*idx;   // Temporary sub indices holding array
-	int	nlocal; // local length of sub global index set
-
-	int		*ranges;
-	ArrayInt2d	global, grid;
+	int	*ranges;
+	int	*global, nj;
 
 	ranges	= level->ranges;
-	global	= level->global;
-	grid	= level->grid;
+	global	= level->global.data;
+	nj	= level->global.nj;
 
-	nlocal = ranges[rank+1]-ranges[rank]; // Start with the upper bound
-	
-	idx = malloc(nlocal*sizeof(int));
+	int	*idx;   // Temporary sub indices holding array
+	idx	= calloc(ranges[rank+1]-ranges[rank], sizeof(int));  // Allocate maximum possible
+
+	int	g0, sub_i = 0;
 	for (int i=ranges[rank];i<ranges[rank+1];i++) {
-		if (global.data[i*global.nj+2] == ;
+		g0 = global[i*nj+2]; // Get the grid Id of i^th global index
+		for (int g=0;g<length;g++) {
+			if (g0 == idg[g]) {
+				idx[sub_i] = i;
+				sub_i += 1;
+				break;
+			}
+		}
 	}
-	ISCreateGeneral(MPI_Comm comm,PetscInt n,const PetscInt idx[],PetscCopyMode mode,IS *is);
+	ISCreateGeneral(PETSC_COMM_WORLD, sub_i, idx, PETSC_COPY_VALUES, indexSet);
 	free(idx);
 }
 

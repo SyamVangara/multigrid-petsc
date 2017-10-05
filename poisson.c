@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
 	SetUpProblem(&prob);
 	
 //	freopen("poisson.in", "r", stdin);
-	freopen("poisson.out", "w", stdout);
-	freopen("poisson.err", "w", stderr);
+//	freopen("poisson.out", "w", stdout);
+//	freopen("poisson.err", "w", stderr);
 	
 	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
@@ -77,6 +77,16 @@ int main(int argc, char *argv[]) {
 //	ViewGridsInfo(indices);
 
 	mapping(&indices, mappingStyleflag);
+	
+//	IS	is;
+//	int	idg[indices.level[0].grids-1];
+//	for (int i=0;i<indices.level[0].grids-1;i++) {
+//		idg[i] = i+1;
+//	}
+//	subIS_based_on_grids(indices.level, indices.level[0].grids-1, idg, &is);
+//	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
+//	ISDestroy(&is);
+
 
 //	ViewIndexMapsInfo(indices);
 //	ViewRangesInfo(indices);

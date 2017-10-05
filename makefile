@@ -15,5 +15,5 @@ $(TARGET) : $(OBJFILES)
 	${CLINKER} -o $(TARGET) $(OBJFILES) ${PETSC_KSP_LIB}
 #	${RM} *.o
 
-tags:
+tags : $(TARGET)
 	ctags -R --c++-kinds=+p --fields=+iaS --extra=+q .
