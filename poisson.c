@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
 	SetUpProblem(&prob);
 	
 //	freopen("poisson.in", "r", stdin);
-//	freopen("poisson.out", "w", stdout);
-//	freopen("poisson.err", "w", stderr);
+	freopen("poisson.out", "w", stdout);
+	freopen("poisson.err", "w", stderr);
 	
 	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);

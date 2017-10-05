@@ -190,6 +190,16 @@ void mappingLocalGridAfterGrid(Indices *indices) {
 				}
 			}
 		}
+	
+//		MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//		for (int i=0;i<procs+1;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ranges[%d] = %d\n",rank, i, ranges[i]);
+//		}
+//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//		for (int i=0;i<procs*grids+1;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; gridranges[%d] = %d\n",rank, i, gridranges[i]);
+//		}
+//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 		
 		// Then compute ranges for grids in each rank and use "gridranges"
 		// Logically:	gridranges[rank][g] - starting index of grid "g" in rank
@@ -198,6 +208,11 @@ void mappingLocalGridAfterGrid(Indices *indices) {
 		for (int i=(procs*grids)-1;i>=0;i=i-1) {
 			gridranges[i] = gridranges[i+1]-gridranges[i];
 		}
+		
+//		for (int i=0;i<procs*grids+1;i++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; gridranges[%d] = %d\n",rank, i, gridranges[i]);
+//		}
+//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 		
 		// Mapping
 		a = indices->level[l].global;
@@ -208,15 +223,15 @@ void mappingLocalGridAfterGrid(Indices *indices) {
 			count = gridranges[lg];
 			for (int i=0;i<b.ni;i++) {
 				for (int j=0;j<b.nj;j++) {
+					while (count == gridranges[rank*grids+lg+1]) {
+						rank += 1;
+						count = gridranges[rank*grids+lg];
+					}
 					b.data[i*b.nj+j] = count;
 					a.data[count*a.nj+0] = i;
 					a.data[count*a.nj+1] = j;
 					a.data[count*a.nj+2] = g;
 					count = count + 1;
-					if (count == gridranges[rank*grids+lg+1]) {
-						rank += 1;
-						count = gridranges[rank*grids+lg];
-					}
 				}
 			}
 		}
