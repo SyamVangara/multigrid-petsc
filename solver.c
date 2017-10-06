@@ -620,7 +620,7 @@ void Res_delayed(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	subIS_based_on_grids(indices->level, grids-1, gridId, &topIS);
 	
 	ArrayInt2d	grid0, grid1;
-	ArrayInt2d	global0, global1;
+	ArrayInt2d	global0, global;
 	int		g0, g1;
 	int		i0, j0, i1, j1;
 	int		range0[2], range1[2];
@@ -628,6 +628,44 @@ void Res_delayed(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	int		opResni, opResnj;
 	double		*opRes;
 	double		weight;
+	
+		int	nlocalRows, nlocalCols; // lengths of local sub vecs: left and right 
+	const	int	row, col;
+
+	g0	= indices->level[0].gridId[0];
+	global	= indices->level[0].global;
+	grid0	= indices->level[0].grid[0];
+	res	= assem->res;
+	
+	ISGetLocalSize(bottomIS, &nlocalRows);
+	ISGetLocalSize(topIS, &nlocalCols);
+	
+	ISGetIndices(bottomIS, &row);
+	ISGetIndices(topIS, &col);
+
+	opResni = op->res[0].ni;
+	opResnj = op->res[0].nj;
+	opRes	= op->res[0].data;
+	
+	MatCreateAIJ(PETSC_COMM_WORLD, nlocalRows, nlocalCols, PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res);
+	for (int lrow=0; lrow<nlocalRows; lrow++) {
+		i1 = global.data[row[lrow] * global.nj    ];
+		j1 = global.data[row[lrow] * global.nj + 1];
+		g1 = global.data[row[lrow] * global.nj + 2];
+		
+		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
+		i0 = factor*(i1+1)-1-(opResni)/2;
+		j0 = factor*(j1+1)-1-(opResnj)/2;
+		for (int i=i0;i<i0+opResni;i++) {
+			for (int j=j0;j<j0+opResnj;j++) {
+				weight = opRes[(i-i0)*opResnj+(j-j0)];
+				if (weight != 0.0) MatSetValue(res, lrow, grid0.data[i*grid0.nj+j], weight, ADD_VALUES);
+			}
+		}
+	}
+	
+	MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
 	
 	res = assem->res;
 	for (int l=0;l<levels-1;l++) {
