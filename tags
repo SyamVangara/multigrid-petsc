@@ -35,6 +35,8 @@ CreateArrayInt2d	array.h	/^void CreateArrayInt2d(int ni, int nj, ArrayInt2d *a);
 CreateArrayOfIS	obsolete/obsolete.c	/^void CreateArrayOfIS(int n, int levels, IS *idx) {$/;"	f	signature:(int n, int levels, IS *idx)
 CreateArrayOfIS	obsolete/obsolete.c	/^void CreateArrayOfIS(int n, int levels, IS *idx);$/;"	p	file:	signature:(int n, int levels, IS *idx)
 CreateIndexMaps	matbuild.c	/^void CreateIndexMaps(Mesh *mesh, Indices *indices) {$/;"	f	signature:(Mesh *mesh, Indices *indices)
+CreateSubLevel	matbuild.c	/^void CreateSubLevel(Level *level, Level *subLevel, int flag) {$/;"	f	signature:(Level *level, Level *subLevel, int flag)
+CreateSubLevel	solver.h	/^void CreateSubLevel(Level *level, Level *subLevel, int flag);$/;"	p	signature:(Level *level, Level *subLevel, int flag)
 Cycle	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	t	typeref:enum:__anon18
 D1CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 D2CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
@@ -62,6 +64,8 @@ DestroyPostProcess	solver.c	/^void DestroyPostProcess(PostProcess *pp) {$/;"	f	s
 DestroyPostProcess	solver.h	/^void DestroyPostProcess(PostProcess *pp);$/;"	p	signature:(PostProcess *pp)
 DestroySolver	solver.c	/^void DestroySolver(Solver *solver) {$/;"	f	signature:(Solver *solver)
 DestroySolver	solver.h	/^void DestroySolver(Solver *solver);$/;"	p	signature:(Solver *solver)
+DestroySubLevel	matbuild.c	/^void DestroySubLevel(Level *subLevel) {$/;"	f	signature:(Level *subLevel)
+DestroySubLevel	solver.h	/^void DestroySubLevel(Level *subLevel);$/;"	p	signature:(Level *subLevel)
 ECYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 ERROR_MSG	mesh.c	3;"	d	file:
 ERROR_MSG	poisson.c	3;"	d	file:
@@ -144,7 +148,6 @@ Problem	problem.h	/^} Problem;$/;"	t	typeref:struct:__anon13
 ProlongationOperator	matbuild.c	/^void ProlongationOperator(Array2d pro) {$/;"	f	signature:(Array2d pro)
 Res	obsolete/obsolete.c	/^void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
 Res	solver.c	/^void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
-Res_delayed	solver.c	/^void Res_delayed(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
 Residual	obsolete/obsolete.c	/^double Residual(double **u, double **f, double **r, double *As, int *n) {$/;"	f	signature:(double **u, double **f, double **r, double *As, int *n)
 ResidualRestriction	obsolete/obsolete.c	/^void ResidualRestriction(double **f, double **r, int *n) {$/;"	f	signature:(double **f, double **r, int *n)
 RestrictionOperator	matbuild.c	/^void RestrictionOperator(Array2d res) {$/;"	f	signature:(Array2d res)
@@ -193,6 +196,8 @@ ViewGridsInfo	poisson.c	/^void ViewGridsInfo(Indices indices) {$/;"	f	signature:
 ViewGridsInfo	poisson.c	/^void ViewGridsInfo(Indices indices);$/;"	p	file:	signature:(Indices indices)
 ViewIndexMapsInfo	poisson.c	/^void ViewIndexMapsInfo(Indices indices) {$/;"	f	signature:(Indices indices)
 ViewIndexMapsInfo	poisson.c	/^void ViewIndexMapsInfo(Indices indices);$/;"	p	file:	signature:(Indices indices)
+ViewIndexMapsInfoLevel	poisson.c	/^void ViewIndexMapsInfoLevel(Level level, int l) {$/;"	f	signature:(Level level, int l)
+ViewIndexMapsInfoLevel	poisson.c	/^void ViewIndexMapsInfoLevel(Level level, int l);$/;"	p	file:	signature:(Level level, int l)
 ViewLinSysMatsInfo	poisson.c	/^void ViewLinSysMatsInfo(Assembly assem, int view) {$/;"	f	signature:(Assembly assem, int view)
 ViewLinSysMatsInfo	poisson.c	/^void ViewLinSysMatsInfo(Assembly assem, int view);$/;"	p	file:	signature:(Assembly assem, int view)
 ViewMeshInfo	poisson.c	/^void ViewMeshInfo(Mesh mesh) {$/;"	f	signature:(Mesh mesh)
@@ -286,6 +291,8 @@ b	solver.h	/^	Vec	*b;$/;"	m	struct:__anon17	access:public
 bounds	mesh.h	/^	double	bounds[DIMENSION*2];$/;"	m	struct:__anon9	access:public
 coarseningFactor	obsolete/matbuild.h	/^	int	coarseningFactor;$/;"	m	struct:__anon11	access:public
 coarseningFactor	solver.h	/^	int	coarseningFactor;$/;"	m	struct:__anon15	access:public
+computeSubMaps	solver.c	/^void computeSubMaps(Level *level, Level *subLevel) {$/;"	f	signature:(Level *level, Level *subLevel)
+computeSubMaps	solver.h	/^void computeSubMaps(Level *level, Level *subLevel);$/;"	p	signature:(Level *level, Level *subLevel)
 coord	mesh.h	/^	double	**coord;$/;"	m	struct:__anon9	access:public
 cycle	solver.h	/^	Cycle		cycle;$/;"	m	struct:__anon19	access:public
 data	array.h	/^	double*	data;$/;"	m	struct:__anon7	access:public

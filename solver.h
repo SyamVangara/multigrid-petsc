@@ -82,5 +82,8 @@ void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver,
 void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver);
 
 void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet);
+void CreateSubLevel(Level *level, Level *subLevel, int flag);
+void DestroySubLevel(Level *subLevel);
+void computeSubMaps(Level *level, Level *subLevel);
 #endif
 

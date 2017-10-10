@@ -573,136 +573,183 @@ void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
 	int	*idx;   // Temporary sub indices holding array
 	idx	= calloc(ranges[rank+1]-ranges[rank], sizeof(int));  // Allocate maximum possible
 
-	int	g0, sub_i = 0;
+	int	g0, subi = 0;
 	for (int i=ranges[rank];i<ranges[rank+1];i++) {
 		g0 = global[i*nj+2]; // Get the grid Id of i^th global index
 		for (int g=0;g<length;g++) {
 			if (g0 == idg[g]) {
-				idx[sub_i] = i;
-				sub_i += 1;
+				idx[subi] = i;
+				subi += 1;
 				break;
 			}
 		}
 	}
-	ISCreateGeneral(PETSC_COMM_WORLD, sub_i, idx, PETSC_COPY_VALUES, indexSet);
+	ISCreateGeneral(PETSC_COMM_WORLD, subi, idx, PETSC_COPY_VALUES, indexSet);
 	free(idx);
 }
 
-void Res_delayed(Indices *indices, Operator *op, int factor, Assembly *assem) {
-	// Assembles the restriction matrix for the delayed cycling
-	
-	int	levels;
-	levels = assem->levels;
-	if (levels>1) {
-		PetscPrintf(PETSC_COMM_WORLD, "For now, delayed cycling can only be applied to one level\n");
-		return;
-	}
-//	for (int l=0;l<levels-1;l++) {	
-//		if (indices->level[l].grids>1) {
-//			PetscPrintf(PETSC_COMM_WORLD, "For now, only 1 grid per level on all levels except last level is allowed in std multigrid\n");
-//			return;
-//		}
-//	}
-	int	grids;
-	grids   = indices->level[0].grids;
-	if (grids<2) {
-		PetscPrintf(PETSC_COMM_WORLD, "Delayed cycling in level: %d, requires more than 1 grid\n", 1);
-		return;
-	}
+void computeSubMaps(Level *level, Level *subLevel) {
+//void computeSubMaps(Level *level, int length, int *subGridId, ArrayInt2d *subGlobal, ArrayInt2d *subGrid) {
+/********************************************************************************
+ *
+ * Create global-to-grid and grid-to-global index maps for sub vectors, using
+ * maps of actual vector.
+ *
+ ********************************************************************************/
+	int	*global;
+	int	globalni, globalnj;
 
-	int	*gridId;
-	gridId  = indices->level[0].gridId;
-	
-	IS	bottomIS, topIS;
-//	int	bottomIdg[grids-1], topIdg[grids-1];
+	global		= level->global.data;
+	globalni	= level->global.ni;
+	globalnj	= level->global.nj;
 
-	subIS_based_on_grids(indices->level, grids-1, gridId+1, &bottomIS);
-	subIS_based_on_grids(indices->level, grids-1, gridId, &topIS);
+	int	*subGlobalData;
+	int	subGlobalni, subGlobalnj;
+	int	*subGridId;
+	int	subGrids;
+	ArrayInt2d	*subGrid;
 	
-	ArrayInt2d	grid0, grid1;
-	ArrayInt2d	global0, global;
-	int		g0, g1;
-	int		i0, j0, i1, j1;
-	int		range0[2], range1[2];
-	Mat		*res;
-	int		opResni, opResnj;
-	double		*opRes;
-	double		weight;
+	subGlobalData	= subLevel->global.data;
+	subGlobalni	= subLevel->global.ni;
+	subGlobalnj	= subLevel->global.nj;
+	subGridId	= subLevel->gridId;	
+	subGrids	= subLevel->grids;
+	subGrid		= subLevel->grid;
 	
-		int	nlocalRows, nlocalCols; // lengths of local sub vecs: left and right 
-	const	int	row, col;
-
-	g0	= indices->level[0].gridId[0];
-	global	= indices->level[0].global;
-	grid0	= indices->level[0].grid[0];
-	res	= assem->res;
-	
-	ISGetLocalSize(bottomIS, &nlocalRows);
-	ISGetLocalSize(topIS, &nlocalCols);
-	
-	ISGetIndices(bottomIS, &row);
-	ISGetIndices(topIS, &col);
-
-	opResni = op->res[0].ni;
-	opResnj = op->res[0].nj;
-	opRes	= op->res[0].data;
-	
-	MatCreateAIJ(PETSC_COMM_WORLD, nlocalRows, nlocalCols, PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res);
-	for (int lrow=0; lrow<nlocalRows; lrow++) {
-		i1 = global.data[row[lrow] * global.nj    ];
-		j1 = global.data[row[lrow] * global.nj + 1];
-		g1 = global.data[row[lrow] * global.nj + 2];
-		
-		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
-		i0 = factor*(i1+1)-1-(opResni)/2;
-		j0 = factor*(j1+1)-1-(opResnj)/2;
-		for (int i=i0;i<i0+opResni;i++) {
-			for (int j=j0;j<j0+opResnj;j++) {
-				weight = opRes[(i-i0)*opResnj+(j-j0)];
-				if (weight != 0.0) MatSetValue(res, lrow, grid0.data[i*grid0.nj+j], weight, ADD_VALUES);
+	int	i, j, g, subi = 0;
+	for (int ig=0; ig<globalni; ig++) {
+		i = global[ig*globalnj  ]; 
+		j = global[ig*globalnj+1]; 
+		g = global[ig*globalnj+2]; 
+		for (int slg=0; slg<subGrids; slg++) { // slg: sub_local_gridId
+			if (g == subGridId[slg]) {
+				subGlobalData[subi*subGlobalnj  ] = i;
+				subGlobalData[subi*subGlobalnj+1] = j;
+				subGlobalData[subi*subGlobalnj+2] = g;
+				
+				subGrid[slg].data[i*subGrid[slg].nj+j] = subi;
+				subi += 1;
+				break;
 			}
 		}
-	}
-	
-	MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
-	
-	res = assem->res;
-	for (int l=0;l<levels-1;l++) {
-		g0 = indices->level[l].gridId[0];
-
-		global0 = indices->level[l].global;
-		global1 = indices->level[l+1].global;
-		
-		grid0 = indices->level[l].grid[0];
-		
-		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
-		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
-		
-		MatCreateAIJ(PETSC_COMM_WORLD, range1[1]-range1[0], range0[1]-range0[0], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res+l);
-		for (int row=range1[0];row<range1[1];row++) {
-			i1 = global1.data[row*global1.nj];
-			j1 = global1.data[row*global1.nj+1];
-			g1 = global1.data[row*global1.nj+2];
-
-			opResni = op->res[g1-g0-1].ni;
-			opResnj = op->res[g1-g0-1].nj;
-			opRes = op->res[g1-g0-1].data;
-			
-			i0 = ipow(factor,(g1-g0))*(i1+1)-1-(opResni)/2;
-			j0 = ipow(factor,(g1-g0))*(j1+1)-1-(opResnj)/2;
-			for (int i=i0;i<i0+opResni;i++) {
-				for (int j=j0;j<j0+opResnj;j++) {
-					weight = opRes[(i-i0)*opResnj+(j-j0)];
-					if (weight != 0.0) MatSetValue(res[l], row, grid0.data[i*grid0.nj+j], weight, ADD_VALUES);
-				}
-			}
-		}
-	
-		MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
-		MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
 	}
 }
+
+//void Res_delayed(Indices *indices, Operator *op, int factor, Assembly *assem) {
+//	// Assembles the restriction matrix for the delayed cycling
+//	
+//	int	levels;
+//	levels = assem->levels;
+//	if (levels>1) {
+//		PetscPrintf(PETSC_COMM_WORLD, "For now, delayed cycling can only be applied to one level\n");
+//		return;
+//	}
+////	for (int l=0;l<levels-1;l++) {	
+////		if (indices->level[l].grids>1) {
+////			PetscPrintf(PETSC_COMM_WORLD, "For now, only 1 grid per level on all levels except last level is allowed in std multigrid\n");
+////			return;
+////		}
+////	}
+//	int	grids;
+//	grids   = indices->level[0].grids;
+//	if (grids<2) {
+//		PetscPrintf(PETSC_COMM_WORLD, "Delayed cycling in level: %d, requires more than 1 grid\n", 1);
+//		return;
+//	}
+//
+//	int	*gridId;
+//	gridId  = indices->level[0].gridId;
+//	
+//	IS	bottomIS, topIS;
+////	int	bottomIdg[grids-1], topIdg[grids-1];
+//
+//	subIS_based_on_grids(indices->level, grids-1, gridId+1, &bottomIS);
+//	subIS_based_on_grids(indices->level, grids-1, gridId, &topIS);
+//	
+//	ArrayInt2d	grid0, grid1;
+//	ArrayInt2d	global0, global;
+//	int		g0, g1;
+//	int		i0, j0, i1, j1;
+//	int		range0[2], range1[2];
+//	Mat		*res;
+//	int		opResni, opResnj;
+//	double		*opRes;
+//	double		weight;
+//	
+//		int	nlocalRows, nlocalCols; // lengths of local sub vecs: left and right 
+//	const	int	row, col;
+//
+//	g0	= indices->level[0].gridId[0];
+//	global	= indices->level[0].global;
+//	grid0	= indices->level[0].grid[0];
+//	res	= assem->res;
+//	
+//	ISGetLocalSize(bottomIS, &nlocalRows);
+//	ISGetLocalSize(topIS, &nlocalCols);
+//	
+//	ISGetIndices(bottomIS, &row);
+//	ISGetIndices(topIS, &col);
+//
+//	opResni = op->res[0].ni;
+//	opResnj = op->res[0].nj;
+//	opRes	= op->res[0].data;
+//	
+//	MatCreateAIJ(PETSC_COMM_WORLD, nlocalRows, nlocalCols, PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res);
+//	for (int lrow=0; lrow<nlocalRows; lrow++) {
+//		i1 = global.data[row[lrow] * global.nj    ];
+//		j1 = global.data[row[lrow] * global.nj + 1];
+//		g1 = global.data[row[lrow] * global.nj + 2];
+//		
+//		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
+//		i0 = factor*(i1+1)-1-(opResni)/2;
+//		j0 = factor*(j1+1)-1-(opResnj)/2;
+//		for (int i=i0;i<i0+opResni;i++) {
+//			for (int j=j0;j<j0+opResnj;j++) {
+//				weight = opRes[(i-i0)*opResnj+(j-j0)];
+//				if (weight != 0.0) MatSetValue(res, lrow, grid0.data[i*grid0.nj+j], weight, ADD_VALUES);
+//			}
+//		}
+//	}
+//	
+//	MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
+//	MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
+//	
+//	res = assem->res;
+//	for (int l=0;l<levels-1;l++) {
+//		g0 = indices->level[l].gridId[0];
+//
+//		global0 = indices->level[l].global;
+//		global1 = indices->level[l+1].global;
+//		
+//		grid0 = indices->level[l].grid[0];
+//		
+//		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
+//		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
+//		
+//		MatCreateAIJ(PETSC_COMM_WORLD, range1[1]-range1[0], range0[1]-range0[0], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res+l);
+//		for (int row=range1[0];row<range1[1];row++) {
+//			i1 = global1.data[row*global1.nj];
+//			j1 = global1.data[row*global1.nj+1];
+//			g1 = global1.data[row*global1.nj+2];
+//
+//			opResni = op->res[g1-g0-1].ni;
+//			opResnj = op->res[g1-g0-1].nj;
+//			opRes = op->res[g1-g0-1].data;
+//			
+//			i0 = ipow(factor,(g1-g0))*(i1+1)-1-(opResni)/2;
+//			j0 = ipow(factor,(g1-g0))*(j1+1)-1-(opResnj)/2;
+//			for (int i=i0;i<i0+opResni;i++) {
+//				for (int j=j0;j<j0+opResnj;j++) {
+//					weight = opRes[(i-i0)*opResnj+(j-j0)];
+//					if (weight != 0.0) MatSetValue(res[l], row, grid0.data[i*grid0.nj+j], weight, ADD_VALUES);
+//				}
+//			}
+//		}
+//	
+//		MatAssemblyBegin(res[l], MAT_FINAL_ASSEMBLY);
+//		MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
+//	}
+//}
 
 void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	// Assembles the restriction matrices
