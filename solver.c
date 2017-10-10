@@ -588,25 +588,37 @@ void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
 	free(idx);
 }
 
-void computeSubMaps(Level *level, Level *subLevel) {
-//void computeSubMaps(Level *level, int length, int *subGridId, ArrayInt2d *subGlobal, ArrayInt2d *subGrid) {
+void ComputeSubMaps(Level *level, Level *subLevel) {
 /********************************************************************************
  *
  * Create global-to-grid and grid-to-global index maps for sub vectors, using
  * maps of actual vector.
  *
+ * Input:
+ * 	level	 - source level to use to create index maps in sub-level
+ * 	subLevel - sub-level of the given "level"
+ * Output:
+ *	subLevel->global - Global to grid index map
+ *	subLevel->grid[] - Grids to global index map
+ *
  ********************************************************************************/
+	int	procs;
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	
 	int	*global;
 	int	globalni, globalnj;
+	int	*ranges;
 
 	global		= level->global.data;
 	globalni	= level->global.ni;
 	globalnj	= level->global.nj;
+	ranges		= level->ranges;
 
-	int	*subGlobalData;
-	int	subGlobalni, subGlobalnj;
-	int	*subGridId;
-	int	subGrids;
+	int		*subGlobalData;
+	int		subGlobalni, subGlobalnj;
+	int		*subGridId;
+	int		subGrids;
+	int		*subRanges;
 	ArrayInt2d	*subGrid;
 	
 	subGlobalData	= subLevel->global.data;
@@ -615,8 +627,11 @@ void computeSubMaps(Level *level, Level *subLevel) {
 	subGridId	= subLevel->gridId;	
 	subGrids	= subLevel->grids;
 	subGrid		= subLevel->grid;
-	
+	subRanges	= subLevel->ranges;
+
 	int	i, j, g, subi = 0;
+	int	rank = 0;
+	subRanges[rank] = 0;
 	for (int ig=0; ig<globalni; ig++) {
 		i = global[ig*globalnj  ]; 
 		j = global[ig*globalnj+1]; 
@@ -631,6 +646,10 @@ void computeSubMaps(Level *level, Level *subLevel) {
 				subi += 1;
 				break;
 			}
+		}
+		if (ig+1 == ranges[rank+1]) {
+			subRanges[rank+1] = subi;
+			rank += 1;
 		}
 	}
 }

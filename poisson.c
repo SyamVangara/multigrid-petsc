@@ -88,17 +88,17 @@ int main(int argc, char *argv[]) {
 //	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
 //	ISDestroy(&is);
 
-//	Level	topLevel, bottomLevel;
-//	
-//	CreateSubLevel(indices.level, &topLevel, 0);
-//	computeSubMaps(indices.level, &topLevel);
-//	ViewIndexMapsInfoLevel(topLevel, 0);
-//	DestroySubLevel(&topLevel);
-//	
-//	CreateSubLevel(indices.level, &bottomLevel, 1);
-//	computeSubMaps(indices.level, &bottomLevel);
-//	ViewIndexMapsInfoLevel(bottomLevel, 0);
-//	DestroySubLevel(&bottomLevel);
+	Level	topLevel, bottomLevel;
+	
+	CreateSubLevel(indices.level, &topLevel, 0);
+	ComputeSubMaps(indices.level, &topLevel);
+	ViewIndexMapsInfoLevel(topLevel, 0);
+	DestroySubLevel(&topLevel);
+	
+	CreateSubLevel(indices.level, &bottomLevel, 1);
+	ComputeSubMaps(indices.level, &bottomLevel);
+	ViewIndexMapsInfoLevel(bottomLevel, 0);
+	DestroySubLevel(&bottomLevel);
 
 
 //	ViewIndexMapsInfo(indices);
@@ -259,6 +259,13 @@ void ViewIndexMapsInfoLevel(Level level, int l) {
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
+	for (int p=0;p<procs+1;p++) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",level.ranges[p]);
+	}
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: Map from grid indices to global index:\n",rank,l);
 	for (int lg=0; lg<level.grids; lg++) {
 		for (int i=0; i<level.grid[lg].ni; i++) {
@@ -267,12 +274,14 @@ void ViewIndexMapsInfoLevel(Level level, int l) {
 			}
 		}
 	}
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: Map from global index to grid indices:\n",rank,l);
 	for (int i=0;i<level.global.ni;i++) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (global_index = %d) -> (row = %d, col = %d, gridId = %d)\n",rank,l,i,level.global.data[i*level.global.nj+0], level.global.data[i*level.global.nj+1], level.global.data[i*level.global.nj+2]);
 	}
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
@@ -285,28 +294,8 @@ void ViewIndexMapsInfo(Indices indices) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	for (int l=0;l<indices.levels;l++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
-		for (int p=0;p<procs+1;p++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",indices.level[l].ranges[p]);
-		}
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 		ViewIndexMapsInfoLevel(indices.level[l], l);
-//		for (int lg=0;lg<indices.level[l].grids;lg++) {
-//			for (int i=0;i<indices.level[l].grid[lg].ni;i++) {
-//				for (int j=0;j<indices.level[l].grid[lg].nj;j++) {
-//					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: grid[%d:%d]: (%d,%d): %d\n",rank,l,lg,indices.level[l].gridId[lg],i,j,indices.level[l].grid[lg].data[i*indices.level[l].grid[lg].nj+j]);
-//				}
-//			}
-//		}
-//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//	
-//		for (int i=0;i<indices.level[l].global.ni;i++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level: %d: global[%d] = (row = %d, col = %d, grid = %d)\n",rank,l,i,indices.level[l].global.data[i*indices.level[l].global.nj+0], indices.level[l].global.data[i*indices.level[l].global.nj+1], indices.level[l].global.data[i*indices.level[l].global.nj+2]);
-//		}
-//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 	}
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
 void ViewRangesInfo(Indices indices) {

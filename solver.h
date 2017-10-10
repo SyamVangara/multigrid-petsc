@@ -84,6 +84,6 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet);
 void CreateSubLevel(Level *level, Level *subLevel, int flag);
 void DestroySubLevel(Level *subLevel);
-void computeSubMaps(Level *level, Level *subLevel);
+void ComputeSubMaps(Level *level, Level *subLevel);
 #endif
 

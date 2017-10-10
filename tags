@@ -24,6 +24,8 @@ CHKERR_RETURN	poisson.c	6;"	d	file:
 CHKERR_RETURN	solver.c	10;"	d	file:
 CLEANFILES	makefile	/^CLEANFILES = $(TARGET)$/;"	m
 CPPFLAGS	makefile	/^CPPFLAGS   =$/;"	m
+ComputeSubMaps	solver.c	/^void ComputeSubMaps(Level *level, Level *subLevel) {$/;"	f	signature:(Level *level, Level *subLevel)
+ComputeSubMaps	solver.h	/^void ComputeSubMaps(Level *level, Level *subLevel);$/;"	p	signature:(Level *level, Level *subLevel)
 Coords	mesh.c	/^int Coords(Mesh *mesh, MeshType type) {$/;"	f	signature:(Mesh *mesh, MeshType type)
 Copy	obsolete/obsolete.c	/^void Copy(double **u, double **r, int *n) {$/;"	f	signature:(double **u, double **r, int *n)
 CorrectAndSweep	obsolete/obsolete.c	/^void CorrectAndSweep(double **u, double **f, double *As, double w, int v,int *n) {$/;"	f	signature:(double **u, double **f, double *As, double w, int v,int *n)
@@ -291,8 +293,6 @@ b	solver.h	/^	Vec	*b;$/;"	m	struct:__anon17	access:public
 bounds	mesh.h	/^	double	bounds[DIMENSION*2];$/;"	m	struct:__anon9	access:public
 coarseningFactor	obsolete/matbuild.h	/^	int	coarseningFactor;$/;"	m	struct:__anon11	access:public
 coarseningFactor	solver.h	/^	int	coarseningFactor;$/;"	m	struct:__anon15	access:public
-computeSubMaps	solver.c	/^void computeSubMaps(Level *level, Level *subLevel) {$/;"	f	signature:(Level *level, Level *subLevel)
-computeSubMaps	solver.h	/^void computeSubMaps(Level *level, Level *subLevel);$/;"	p	signature:(Level *level, Level *subLevel)
 coord	mesh.h	/^	double	**coord;$/;"	m	struct:__anon9	access:public
 cycle	solver.h	/^	Cycle		cycle;$/;"	m	struct:__anon19	access:public
 data	array.h	/^	double*	data;$/;"	m	struct:__anon7	access:public
