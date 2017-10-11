@@ -22,7 +22,7 @@ void ViewRangesInfo(Indices indices);
 void ViewSolverInfo(Indices indices, Solver solver);
 void ViewOperatorInfo(Operator op);
 void ViewLinSysMatsInfo(Assembly assem, int view);
-void ViewGridTransferMatsInfo(Assembly assem, int view);
+void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);
 
 int main(int argc, char *argv[]) {
 
@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
 	SetUpProblem(&prob);
 	
 //	freopen("poisson.in", "r", stdin);
-	freopen("poisson.out", "w", stdout);
-	freopen("poisson.err", "w", stderr);
+//	freopen("poisson.out", "w", stdout);
+//	freopen("poisson.err", "w", stderr);
 	
 	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
@@ -57,6 +57,13 @@ int main(int argc, char *argv[]) {
 	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
 	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
 	
+	if (indices.levels>1 && cyc==3) 
+	{
+		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling"); 
+		PetscFinalize();
+		return 0;
+	}
+
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
 	}
@@ -79,35 +86,6 @@ int main(int argc, char *argv[]) {
 
 	mapping(&indices, mappingStyleflag);
 	
-//	IS	is;
-//	int	idg[indices.level[0].grids-1];
-//	for (int i=0;i<indices.level[0].grids-1;i++) {
-//		idg[i] = i+1;
-//	}
-//	subIS_based_on_grids(indices.level, indices.level[0].grids-1, idg, &is);
-//	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
-//	ISDestroy(&is);
-
-//	Level	topLevel, bottomLevel;
-//	IS	is;
-//	
-//	CreateSubLevel(indices.level, &topLevel, 0);
-//	ComputeSubMaps(indices.level, &topLevel);
-////	ViewIndexMapsInfoLevel(topLevel, 0);
-//	getSubIS(indices.level, &topLevel, &is);
-//	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
-//	ISDestroy(&is);
-//	DestroySubLevel(&topLevel);
-//	
-//	CreateSubLevel(indices.level, &bottomLevel, 1);
-//	ComputeSubMaps(indices.level, &bottomLevel);
-////	ViewIndexMapsInfoLevel(bottomLevel, 0);
-//	getSubIS(indices.level, &bottomLevel, &is);
-//	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
-//	ISDestroy(&is);
-//	DestroySubLevel(&bottomLevel);
-
-
 //	ViewIndexMapsInfo(indices);
 //	ViewRangesInfo(indices);
 	
@@ -122,12 +100,14 @@ int main(int argc, char *argv[]) {
 	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
 	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
 	if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);
+	if (cyc == 3) SetUpSolver(&indices, &solver, D1CYCLE);
 
 //	ViewSolverInfo(indices, solver);
 
 	Assemble(&prob, &mesh, &indices, &op, &solver);
+
 //	ViewLinSysMatsInfo(*(solver.assem), 0);
-//	ViewGridTransferMatsInfo(*(solver.assem), 0);
+//	ViewGridTransferMatsInfo(*(solver.assem), 0, cyc);
 	
 	Solve(&solver);
 	
@@ -391,14 +371,27 @@ void ViewLinSysMatsInfo(Assembly assem, int view) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
-void ViewGridTransferMatsInfo(Assembly assem, int view) {
+void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc) {
 	// Prints the info of Assembly struct
 	
 	int	procs, rank;
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
+
+	if (cyc == 3)
+	{
+		PetscPrintf(PETSC_COMM_WORLD,"\nres:\n");
+		if (view == 0) MatView(assem.res[0],PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 1) MatView(assem.res[0],PETSC_VIEWER_DRAW_WORLD);
+		PetscPrintf(PETSC_COMM_WORLD,"\npro:\n");
+		if (view == 0) MatView(assem.pro[0],PETSC_VIEWER_STDOUT_WORLD);
+		if (view == 1) MatView(assem.pro[0],PETSC_VIEWER_DRAW_WORLD);
+		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+		ISView(*(assem.topIS),PETSC_VIEWER_STDOUT_WORLD);
+		ISView(*(assem.bottomIS),PETSC_VIEWER_STDOUT_WORLD);
+	}
+
 	for (int l=0;l<assem.levels-1;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"res[%d]:\n",l);
 		if (view == 0) MatView(assem.res[l],PETSC_VIEWER_STDOUT_WORLD);

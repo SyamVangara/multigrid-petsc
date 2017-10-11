@@ -5,8 +5,8 @@
 -iter 1000000
 -grids 3
 -levels 1
-# cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle]
--cycle 1
+# cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle, 3: D1-Cycle]
+-cycle 3
 # map: [0: Grid-After-Grid, 1: Through-Grids, 2: Local-Grid-After-Grid]
--map 1
+-map 2
 -v 3,3

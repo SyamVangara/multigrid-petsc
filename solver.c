@@ -44,7 +44,8 @@ void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 	}
 }
 
-void DestroyAssembly(Assembly *assem, Cycle cycle) {
+void DestroyAssembly(Assembly *assem, Cycle cycle) 
+{
 	// Free the memory in Assembly struct
 	
 	for (int l=0;l<assem->levels;l++) {
@@ -53,13 +54,13 @@ void DestroyAssembly(Assembly *assem, Cycle cycle) {
 		VecDestroy(assem->b+l);
 		VecDestroy(assem->u+l);
 		if (cycle == D1CYCLE) {
-			ISDestroy(assem->bottomIS+l)
-			ISDestroy(assem->topIS+l)
+			ISDestroy(assem->bottomIS+l);
+			ISDestroy(assem->topIS+l);
 		}
 	}
 	if (cycle == D1CYCLE) {
-		MatDestroy(assem->res+levels-1);
-		MatDestroy(assem->pro+levels-1);
+		MatDestroy(assem->res);
+		MatDestroy(assem->pro);
 	}
 	for (int l=0;l<assem->levels-1;l++) {
 		MatDestroy(assem->res+l);
@@ -71,7 +72,8 @@ void DestroyAssembly(Assembly *assem, Cycle cycle) {
 	if (cycle == ECYCLE) free(assem->A2); 
 	free(assem->b);
 	free(assem->u);
-	if (cycle == D1CYCLE) {
+	if (cycle == D1CYCLE) 
+	{
 		free(assem->bottomIS);
 		free(assem->topIS);
 	}
@@ -797,9 +799,14 @@ void ComputeSubMaps(Level *level, Level *subLevel) {
 	}
 }
 
-void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) {
-	// Assembles the restriction matrix for the delayed cycling
-	
+void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem)
+{
+/*********************************************************************************
+ *
+ * Builds restriction matrix for delayed cycling v1 within the level.!Only works
+ * for one level for now.
+ * 
+ *********************************************************************************/ 	
 	// Case of more than 1 levels should handled outside, perhaps in poisson.c
 	int	procs, rank;
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
@@ -813,11 +820,12 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	res = assem->res;
 	MatCreateAIJ(PETSC_COMM_WORLD, botRanges[rank+1]-botRanges[rank], topRanges[rank+1]-topRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res);
 	
-	int	*opRes, opResni, opResnj;
+	int	opResni, opResnj;
+	double	*opRes;
 	opResni = op->res[0].ni;
 	opResnj = op->res[0].nj;
 	opRes	= op->res[0].data;
-
+	
 	int	*botGlobal, botGlobalni, botGlobalnj;
 	botGlobal   = bottomLevel->global.data;
 	botGlobalni = bottomLevel->global.ni;
@@ -826,8 +834,9 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	ArrayInt2d	*topGrid;
 	topGrid = topLevel->grid;
 
-	int	topGrids;
+	int	topGrids, *topGridId;
 	topGrids = topLevel->grids;
+	topGridId = topLevel->gridId;
 	
 	int	factor;
 	factor = indices->coarseningFactor;
@@ -835,7 +844,7 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	int	*topGridData, topGridnj;
 	int	i1, j1, g1; // bottom grid stuff
 	int	i0, j0;// top grid stuff
-	int	weight;
+	double	weight;
 	for (int row=botRanges[rank]; row<botRanges[rank+1]; row++) {
 		i1 = botGlobal[row*botGlobalnj  ];
 		j1 = botGlobal[row*botGlobalnj+1];
@@ -844,6 +853,8 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
 		i0 = factor*(i1+1)-1-(opResni)/2;
 		j0 = factor*(j1+1)-1-(opResnj)/2;
+		
+		// Searching for the local_gridId of "g1-1" in topLevel; Need a better way!
 		for (int lg=0; lg<topGrids; lg++) {
 			if (g1-1 == topGridId[lg]) {
 				topGridData = topGrid[lg].data;
@@ -854,12 +865,91 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 		for (int i=i0; i<i0+opResni; i++) {
 			for (int j=j0; j<j0+opResnj; j++) {
 				weight = opRes[(i-i0)*opResnj+(j-j0)];
-				if (weight != 0.0) MatSetValue(res, row, topGridData[i*topGridnj+j], weight, ADD_VALUES);
+				if (weight != 0.0) MatSetValue(*res, row, topGridData[i*topGridnj+j], weight, ADD_VALUES);
 			}
 		}
 	}
 	MatAssemblyBegin(*res, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(*res, MAT_FINAL_ASSEMBLY);
+//	MatView(*res,PETSC_VIEWER_STDOUT_WORLD);
+
+}
+
+void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) 
+{
+/*********************************************************************************
+ *
+ * Builds prolongation matrix for delayed cycling v1 within the level.!Only works
+ * for one level for now.
+ * 
+ *********************************************************************************/ 	
+	// Case of more than 1 levels should handled outside, perhaps in poisson.c
+	int	procs, rank;
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int	*topRanges, *botRanges;
+	topRanges = topLevel->ranges;
+	botRanges = bottomLevel->ranges;
+	
+	Mat	*pro;
+	pro = assem->pro;
+	MatCreateAIJ(PETSC_COMM_WORLD, topRanges[rank+1]-topRanges[rank], botRanges[rank+1]-botRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro);
+	
+	int	opProni, opPronj;
+	double	*opPro;
+	opProni = op->pro[0].ni;
+	opPronj = op->pro[0].nj;
+	opPro	= op->pro[0].data;
+	
+	int	*botGlobal, botGlobalni, botGlobalnj;
+	botGlobal   = bottomLevel->global.data;
+	botGlobalni = bottomLevel->global.ni;
+	botGlobalnj = bottomLevel->global.nj;
+
+	ArrayInt2d	*topGrid;
+	topGrid = topLevel->grid;
+
+	int	*topGridId;
+	int	topGrids;
+	topGridId = topLevel->gridId;
+	topGrids  = topLevel->grids;
+	
+	
+	int	factor;
+	factor = indices->coarseningFactor;
+	
+	int	*topGridData, topGridnj;
+	int	i1, j1, g1; // bottom grid stuff
+	int	i0, j0;     // top grid stuff
+	double	weight;
+	for (int col=botRanges[rank]; col<botRanges[rank+1]; col++) {
+		i1 = botGlobal[col*botGlobalnj  ];
+		j1 = botGlobal[col*botGlobalnj+1];
+		g1 = botGlobal[col*botGlobalnj+2];
+		
+		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
+		i0 = factor*(i1+1)-1-(opProni)/2;
+		j0 = factor*(j1+1)-1-(opPronj)/2;
+		
+		// Searching for the local_gridId of "g1-1" in topLevel; Need a better way!
+		for (int lg=0; lg<topGrids; lg++) {
+			if (g1-1 == topGridId[lg]) {
+				topGridData = topGrid[lg].data;
+				topGridnj = topGrid[lg].nj;
+				break;
+			}
+		}
+		for (int i=i0; i<i0+opProni; i++) {
+			for (int j=j0; j<j0+opPronj; j++) {
+				weight = opPro[(i-i0)*opPronj+(j-j0)];
+				if (weight != 0.0) MatSetValue(*pro, topGridData[i*topGridnj+j], col, weight, ADD_VALUES);
+			}
+		}
+	}
+	MatAssemblyBegin(*pro, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(*pro, MAT_FINAL_ASSEMBLY);
+//	MatView(*pro,PETSC_VIEWER_STDOUT_WORLD);
 }
 
 void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
@@ -1007,16 +1097,16 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 	if (solver->cycle == D1CYCLE) {
 		Level	topLevel, bottomLevel;
 		
-		CreateSubLevel(indices.level, &topLevel, 0);
-		ComputeSubMaps(indices.level, &topLevel);
-		getSubIS(indices.level, &topLevel, assem->topIS);
+		CreateSubLevel(indices->level, &topLevel, 0);
+		ComputeSubMaps(indices->level, &topLevel);
+		getSubIS(indices->level, &topLevel, assem->topIS);
+
+		CreateSubLevel(indices->level, &bottomLevel, 1);
+		ComputeSubMaps(indices->level, &bottomLevel);
+		getSubIS(indices->level, &bottomLevel, assem->bottomIS);
 		
-		CreateSubLevel(indices.level, &bottomLevel, 1);
-		ComputeSubMaps(indices.level, &bottomLevel);
-		getSubIS(indices.level, &bottomLevel, assem->bottomIS);
-		
-		// here res_delayed comes
-		// here pro_delayed comes
+		Res_delayed(indices, op, &bottomLevel, &topLevel, assem);
+		Pro_delayed(indices, op, &bottomLevel, &topLevel, assem);
 		
 		DestroySubLevel(&topLevel);
 		DestroySubLevel(&bottomLevel);
@@ -1513,7 +1603,8 @@ void Solve(Solver *solver){
 	if (solver->cycle == VCYCLE) MultigridVcycle(solver);
 	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
 	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
-	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
+	//if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
+	if (solver->cycle == D1CYCLE) PetscPrintf(PETSC_COMM_WORLD, "Delayed cycle is not yet complete!");
 }
 
 
