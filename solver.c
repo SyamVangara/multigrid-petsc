@@ -588,6 +588,60 @@ void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
 	free(idx);
 }
 
+void getSubIS(Level *level, Level *subLevel, IS *indexSet) {
+/*********************************************************************************
+ *
+ * Creates a Petsc index set that serves as a map from 'sub-level' global indices 
+ * to 'level' global indices.
+ *
+ * Input:
+ * 	level 	  - level info (mainly required for grid index map)
+ * 	subLevel  - sub-level info (mainly required for its global index map and ranges)
+ * Output:
+ * 	indexSet - Petsc index set 
+ * 
+ *********************************************************************************/
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int	subRangeStart, subRangeEnd;
+	int	*subGlobal, subGlobalnj;
+
+	subGlobal	= subLevel->global.data;
+	subGlobalnj	= subLevel->global.nj;
+	subRangeStart	= subLevel->ranges[rank];
+	subRangeEnd	= subLevel->ranges[rank+1];
+
+	int		*gridId, grids;
+	ArrayInt2d	*grid;
+
+	grids	= level->grids;
+	gridId	= level->gridId;
+	grid	= level->grid;
+	
+	int	*idx;   // Temporary array holding sub-indices
+	idx	= calloc(subRangeEnd-subRangeStart, sizeof(int));
+
+	int	i, j;	
+	int	gId;
+	int	check = 0;
+	for (int row=subRangeStart; row<subRangeEnd; row++) {
+		i   = subGlobal[row*subGlobalnj  ];
+		j   = subGlobal[row*subGlobalnj+1];
+		gId = subGlobal[row*subGlobalnj+2];
+		for (int lg=0;lg<grids;lg++) {
+			if (gId == gridId[lg]) {
+				idx[row-subRangeStart] = grid[lg].data[i*grid[lg].nj+j];
+				check += 1;
+				break;
+			}
+		}
+	}
+	
+	ISCreateGeneral(PETSC_COMM_WORLD, subRangeEnd-subRangeStart, idx, PETSC_COPY_VALUES, indexSet);
+	free(idx);
+}
+
 void ComputeSubMaps(Level *level, Level *subLevel) {
 /********************************************************************************
  *

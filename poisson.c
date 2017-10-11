@@ -88,17 +88,24 @@ int main(int argc, char *argv[]) {
 //	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
 //	ISDestroy(&is);
 
-	Level	topLevel, bottomLevel;
-	
-	CreateSubLevel(indices.level, &topLevel, 0);
-	ComputeSubMaps(indices.level, &topLevel);
-	ViewIndexMapsInfoLevel(topLevel, 0);
-	DestroySubLevel(&topLevel);
-	
-	CreateSubLevel(indices.level, &bottomLevel, 1);
-	ComputeSubMaps(indices.level, &bottomLevel);
-	ViewIndexMapsInfoLevel(bottomLevel, 0);
-	DestroySubLevel(&bottomLevel);
+//	Level	topLevel, bottomLevel;
+//	IS	is;
+//	
+//	CreateSubLevel(indices.level, &topLevel, 0);
+//	ComputeSubMaps(indices.level, &topLevel);
+////	ViewIndexMapsInfoLevel(topLevel, 0);
+//	getSubIS(indices.level, &topLevel, &is);
+//	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
+//	ISDestroy(&is);
+//	DestroySubLevel(&topLevel);
+//	
+//	CreateSubLevel(indices.level, &bottomLevel, 1);
+//	ComputeSubMaps(indices.level, &bottomLevel);
+////	ViewIndexMapsInfoLevel(bottomLevel, 0);
+//	getSubIS(indices.level, &bottomLevel, &is);
+//	ISView(is,PETSC_VIEWER_STDOUT_WORLD);
+//	ISDestroy(&is);
+//	DestroySubLevel(&bottomLevel);
 
 
 //	ViewIndexMapsInfo(indices);

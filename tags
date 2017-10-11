@@ -311,6 +311,8 @@ free2dArray	array.c	/^void free2dArray(double ***a) {$/;"	f	signature:(double **
 free2dArray	array.h	/^extern void free2dArray(double ***a);$/;"	p	signature:(double ***a)
 free3dArray	array.c	/^void free3dArray(double ****a) {$/;"	f	signature:(double ****a)
 free3dArray	array.h	/^extern void free3dArray(double ****a);$/;"	p	signature:(double ****a)
+getSubIS	solver.c	/^void getSubIS(Level *level, Level *subLevel, IS *indexSet) {$/;"	f	signature:(Level *level, Level *subLevel, IS *indexSet)
+getSubIS	solver.h	/^void getSubIS(Level *level, Level *subLevel, IS *indexSet);$/;"	p	signature:(Level *level, Level *subLevel, IS *indexSet)
 global	obsolete/matbuild.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon10	access:public
 global	solver.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon14	access:public
 grid	obsolete/matbuild.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon10	access:public
