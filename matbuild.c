@@ -117,76 +117,6 @@ void DestroyIndices(Indices *indices) {
 	free(indices->level);
 }
 
-void CreateSubLevel(Level *level, Level *subLevel, int flag) {
-/********************************************************************************
- *
- * Allocate memory to the sub-level
- * 
- * Inputs:
- * 	level - source level to create sub-level
- * 	flag  - 0  : sub-level consists of all grids except last one
- * 		!0 : sub-level consists of all grids except frist one
- * Output:
- * 	subLevel - sub-level of given level
- *
- ********************************************************************************/ 	
-	int	procs;
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	
-	const	int	M = 3; // = cardinality{i,j,g}
-		int	totaln;
-	
-	int	*subGridId, *gridId;
-	int	(*subh)[2], (*h)[2];
-	int	subGlobalni, subGlobalnj;
-	int	subGridni, subGridnj;
-	
-	gridId	= level->gridId;
-	h	= level->h;
-	
-	subLevel->grids	 = level->grids-1;
-
-	subLevel->gridId = malloc(subLevel->grids*sizeof(int));
-	subLevel->h	 = malloc(subLevel->grids*sizeof(double[2]));
-	subLevel->ranges = malloc((procs+1)*sizeof(int));
-	subLevel->grid	 = malloc(subLevel->grids*sizeof(ArrayInt2d));
-	
-	subGridId = subLevel->gridId;
-	subh	  = subLevel->h;
-
-	if (flag == 0) {
-		for (int lg=0; lg<subLevel->grids; lg++) {
-			subGridId[lg] = gridId[lg];
-			subh[lg][0] = h[lg][0];
-			subh[lg][1] = h[lg][1];
-			CreateArrayInt2d(level->grid[lg].ni, level->grid[lg].nj,&(subLevel->grid[lg]));
-		}
-		totaln = level->global.ni - (level->grid[level->grids-1].ni)*(level->grid[level->grids-1].nj);
-	} else {
-		for (int lg=0; lg<subLevel->grids; lg++) {
-			subGridId[lg] = gridId[lg+1];
-			subh[lg][0] = h[lg+1][0];
-			subh[lg][1] = h[lg+1][1];
-			CreateArrayInt2d(level->grid[lg+1].ni, level->grid[lg+1].nj,&(subLevel->grid[lg]));
-		}
-		totaln = level->global.ni - (level->grid[0].ni)*(level->grid[0].nj);
-	}
-	CreateArrayInt2d(totaln, M, &(subLevel->global));
-}
-
-void DestroySubLevel(Level *subLevel) {
-	// Free the memory of sub-level
-	
-	for (int g=0;g<subLevel->grids;g++) {
-		DeleteArrayInt2d(&(subLevel->grid[g]));
-	}
-	DeleteArrayInt2d(&(subLevel->global));
-	free(subLevel->grid);
-	free(subLevel->h);
-	free(subLevel->gridId);
-	free(subLevel->ranges);
-}
-
 void GetRanges(int *ranges, int totaln) {
 	// Computes the ranges of indices for all processes for a given total number of indices	
 	//
@@ -261,28 +191,13 @@ void mappingLocalGridAfterGrid(Indices *indices) {
 			}
 		}
 	
-//		MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//		for (int i=0;i<procs+1;i++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ranges[%d] = %d\n",rank, i, ranges[i]);
-//		}
-//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//		for (int i=0;i<procs*grids+1;i++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; gridranges[%d] = %d\n",rank, i, gridranges[i]);
-//		}
-//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-		
-		// Then compute ranges for grids in each rank and use "gridranges"
+		// Then compute ranges for grids in each rank and use "gridranges" to store them
 		// Logically:	gridranges[rank][g] - starting index of grid "g" in rank
 		// 		gridranges[rank][g+1] - (ending index + 1) of grid "g" in rank	
 		gridranges[procs*grids] = ranges[procs];
 		for (int i=(procs*grids)-1;i>=0;i=i-1) {
 			gridranges[i] = gridranges[i+1]-gridranges[i];
 		}
-		
-//		for (int i=0;i<procs*grids+1;i++) {
-//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; gridranges[%d] = %d\n",rank, i, gridranges[i]);
-//		}
-//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 		
 		// Mapping
 		a = indices->level[l].global;

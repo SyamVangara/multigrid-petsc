@@ -29,12 +29,19 @@ void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 	// Allocate memory for Assembly struct
 	
 	assem->levels = indices->levels;
-	assem->res = malloc((assem->levels-1)*sizeof(Mat));
-	assem->pro = malloc((assem->levels-1)*sizeof(Mat));
 	assem->A = malloc((assem->levels)*sizeof(Mat));
 	if (cycle == ECYCLE) assem->A2 = malloc((assem->levels)*sizeof(Mat)); 
 	assem->u = malloc((assem->levels)*sizeof(Vec));
 	assem->b = malloc((assem->levels)*sizeof(Vec));
+	if (cycle == D1CYCLE) {
+		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
+		assem->topIS	= malloc((assem->levels)*sizeof(IS));
+		assem->res = malloc((assem->levels)*sizeof(Mat));
+		assem->pro = malloc((assem->levels)*sizeof(Mat));
+	} else {
+		assem->res = malloc((assem->levels-1)*sizeof(Mat));
+		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
+	}
 }
 
 void DestroyAssembly(Assembly *assem, Cycle cycle) {
@@ -45,6 +52,14 @@ void DestroyAssembly(Assembly *assem, Cycle cycle) {
 		if (cycle == ECYCLE) MatDestroy(assem->A2+l);
 		VecDestroy(assem->b+l);
 		VecDestroy(assem->u+l);
+		if (cycle == D1CYCLE) {
+			ISDestroy(assem->bottomIS+l)
+			ISDestroy(assem->topIS+l)
+		}
+	}
+	if (cycle == D1CYCLE) {
+		MatDestroy(assem->res+levels-1);
+		MatDestroy(assem->pro+levels-1);
 	}
 	for (int l=0;l<assem->levels-1;l++) {
 		MatDestroy(assem->res+l);
@@ -56,14 +71,18 @@ void DestroyAssembly(Assembly *assem, Cycle cycle) {
 	if (cycle == ECYCLE) free(assem->A2); 
 	free(assem->b);
 	free(assem->u);
+	if (cycle == D1CYCLE) {
+		free(assem->bottomIS);
+		free(assem->topIS);
+	}
 }
 
 void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	// Allocates memory to Solver struct
-	solver->assem = malloc(sizeof(Assembly));		
-	SetUpAssembly(indices, solver->assem, cyc);
-	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
 	solver->cycle = cyc;
+	solver->assem = malloc(sizeof(Assembly));		
+	SetUpAssembly(indices, solver->assem, solver->cycle);
+	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
 }
 
 void DestroySolver(Solver *solver) {
@@ -541,6 +560,76 @@ void levelvecb(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor
 	//return b;
 }
 
+void CreateSubLevel(Level *level, Level *subLevel, int flag) {
+/********************************************************************************
+ *
+ * Allocate memory to the sub-level
+ * 
+ * Inputs:
+ * 	level - source level to create sub-level
+ * 	flag  - 0  : sub-level consists of all grids except last one
+ * 		!0 : sub-level consists of all grids except frist one
+ * Output:
+ * 	subLevel - sub-level of given level
+ *
+ ********************************************************************************/ 	
+	int	procs;
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	
+	const	int	M = 3; // = cardinality{i,j,g}
+		int	totaln;
+	
+	int	*subGridId, *gridId;
+	int	(*subh)[2], (*h)[2];
+	int	subGlobalni, subGlobalnj;
+	int	subGridni, subGridnj;
+	
+	gridId	= level->gridId;
+	h	= level->h;
+	
+	subLevel->grids	 = level->grids-1;
+
+	subLevel->gridId = malloc(subLevel->grids*sizeof(int));
+	subLevel->h	 = malloc(subLevel->grids*sizeof(double[2]));
+	subLevel->ranges = malloc((procs+1)*sizeof(int));
+	subLevel->grid	 = malloc(subLevel->grids*sizeof(ArrayInt2d));
+	
+	subGridId = subLevel->gridId;
+	subh	  = subLevel->h;
+
+	if (flag == 0) {
+		for (int lg=0; lg<subLevel->grids; lg++) {
+			subGridId[lg] = gridId[lg];
+			subh[lg][0] = h[lg][0];
+			subh[lg][1] = h[lg][1];
+			CreateArrayInt2d(level->grid[lg].ni, level->grid[lg].nj,&(subLevel->grid[lg]));
+		}
+		totaln = level->global.ni - (level->grid[level->grids-1].ni)*(level->grid[level->grids-1].nj);
+	} else {
+		for (int lg=0; lg<subLevel->grids; lg++) {
+			subGridId[lg] = gridId[lg+1];
+			subh[lg][0] = h[lg+1][0];
+			subh[lg][1] = h[lg+1][1];
+			CreateArrayInt2d(level->grid[lg+1].ni, level->grid[lg+1].nj,&(subLevel->grid[lg]));
+		}
+		totaln = level->global.ni - (level->grid[0].ni)*(level->grid[0].nj);
+	}
+	CreateArrayInt2d(totaln, M, &(subLevel->global));
+}
+
+void DestroySubLevel(Level *subLevel) {
+	// Free the memory of sub-level
+	
+	for (int g=0;g<subLevel->grids;g++) {
+		DeleteArrayInt2d(&(subLevel->grid[g]));
+	}
+	DeleteArrayInt2d(&(subLevel->global));
+	free(subLevel->grid);
+	free(subLevel->h);
+	free(subLevel->gridId);
+	free(subLevel->ranges);
+}
+
 void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {
 /*********************************************************************************
  *
@@ -711,25 +800,6 @@ void ComputeSubMaps(Level *level, Level *subLevel) {
 //void Res_delayed(Indices *indices, Operator *op, int factor, Assembly *assem) {
 //	// Assembles the restriction matrix for the delayed cycling
 //	
-//	int	levels;
-//	levels = assem->levels;
-//	if (levels>1) {
-//		PetscPrintf(PETSC_COMM_WORLD, "For now, delayed cycling can only be applied to one level\n");
-//		return;
-//	}
-////	for (int l=0;l<levels-1;l++) {	
-////		if (indices->level[l].grids>1) {
-////			PetscPrintf(PETSC_COMM_WORLD, "For now, only 1 grid per level on all levels except last level is allowed in std multigrid\n");
-////			return;
-////		}
-////	}
-//	int	grids;
-//	grids   = indices->level[0].grids;
-//	if (grids<2) {
-//		PetscPrintf(PETSC_COMM_WORLD, "Delayed cycling in level: %d, requires more than 1 grid\n", 1);
-//		return;
-//	}
-//
 //	int	*gridId;
 //	gridId  = indices->level[0].gridId;
 //	
@@ -823,7 +893,7 @@ void ComputeSubMaps(Level *level, Level *subLevel) {
 //		MatAssemblyEnd(res[l], MAT_FINAL_ASSEMBLY);
 //	}
 //}
-
+//
 void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 	// Assembles the restriction matrices
 	// Restriction is only from primary grid of one level to all grids of the next level
@@ -956,6 +1026,8 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 		if (solver->cycle == ECYCLE) {
 			levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
 			levelMatrixA2(prob, mesh, op, &(indices->level[l]), factor, assem->A2+l);
+		} else if (solver->cycle == D1CYCLE){
+			levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
 		} else {
 			levelMatrixA(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
 		}
@@ -964,9 +1036,12 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 	// Only the zeroth level vec b is created
 	levelvecb(prob, mesh, op, indices->level, factor, assem->b);
 
-	if (assem->levels < 2) return; 
-	Res(indices, op, factor, assem);
-	Pro(indices, op, factor, assem);
+	if (solver->cycle == D1CYCLE) {
+		// Res_delayed
+	} else if (assem->levels > 1) { 
+		Res(indices, op, factor, assem);
+		Pro(indices, op, factor, assem);
+	}
 }
 
 void GetError(Problem *prob, Mesh *mesh, Array2d u1, double *error) {
@@ -1455,6 +1530,7 @@ void Solve(Solver *solver){
 	if (solver->cycle == VCYCLE) MultigridVcycle(solver);
 	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
 	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
+	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
 }
 
 

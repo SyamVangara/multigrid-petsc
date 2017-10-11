@@ -25,7 +25,6 @@ CHKERR_RETURN	solver.c	10;"	d	file:
 CLEANFILES	makefile	/^CLEANFILES = $(TARGET)$/;"	m
 CPPFLAGS	makefile	/^CPPFLAGS   =$/;"	m
 ComputeSubMaps	solver.c	/^void ComputeSubMaps(Level *level, Level *subLevel) {$/;"	f	signature:(Level *level, Level *subLevel)
-ComputeSubMaps	solver.h	/^void ComputeSubMaps(Level *level, Level *subLevel);$/;"	p	signature:(Level *level, Level *subLevel)
 Coords	mesh.c	/^int Coords(Mesh *mesh, MeshType type) {$/;"	f	signature:(Mesh *mesh, MeshType type)
 Copy	obsolete/obsolete.c	/^void Copy(double **u, double **r, int *n) {$/;"	f	signature:(double **u, double **r, int *n)
 CorrectAndSweep	obsolete/obsolete.c	/^void CorrectAndSweep(double **u, double **f, double *As, double w, int v,int *n) {$/;"	f	signature:(double **u, double **f, double *As, double w, int v,int *n)
@@ -37,8 +36,7 @@ CreateArrayInt2d	array.h	/^void CreateArrayInt2d(int ni, int nj, ArrayInt2d *a);
 CreateArrayOfIS	obsolete/obsolete.c	/^void CreateArrayOfIS(int n, int levels, IS *idx) {$/;"	f	signature:(int n, int levels, IS *idx)
 CreateArrayOfIS	obsolete/obsolete.c	/^void CreateArrayOfIS(int n, int levels, IS *idx);$/;"	p	file:	signature:(int n, int levels, IS *idx)
 CreateIndexMaps	matbuild.c	/^void CreateIndexMaps(Mesh *mesh, Indices *indices) {$/;"	f	signature:(Mesh *mesh, Indices *indices)
-CreateSubLevel	matbuild.c	/^void CreateSubLevel(Level *level, Level *subLevel, int flag) {$/;"	f	signature:(Level *level, Level *subLevel, int flag)
-CreateSubLevel	solver.h	/^void CreateSubLevel(Level *level, Level *subLevel, int flag);$/;"	p	signature:(Level *level, Level *subLevel, int flag)
+CreateSubLevel	solver.c	/^void CreateSubLevel(Level *level, Level *subLevel, int flag) {$/;"	f	signature:(Level *level, Level *subLevel, int flag)
 Cycle	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	t	typeref:enum:__anon18
 D1CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 D2CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
@@ -66,8 +64,7 @@ DestroyPostProcess	solver.c	/^void DestroyPostProcess(PostProcess *pp) {$/;"	f	s
 DestroyPostProcess	solver.h	/^void DestroyPostProcess(PostProcess *pp);$/;"	p	signature:(PostProcess *pp)
 DestroySolver	solver.c	/^void DestroySolver(Solver *solver) {$/;"	f	signature:(Solver *solver)
 DestroySolver	solver.h	/^void DestroySolver(Solver *solver);$/;"	p	signature:(Solver *solver)
-DestroySubLevel	matbuild.c	/^void DestroySubLevel(Level *subLevel) {$/;"	f	signature:(Level *subLevel)
-DestroySubLevel	solver.h	/^void DestroySubLevel(Level *subLevel);$/;"	p	signature:(Level *subLevel)
+DestroySubLevel	solver.c	/^void DestroySubLevel(Level *subLevel) {$/;"	f	signature:(Level *subLevel)
 ECYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 ERROR_MSG	mesh.c	3;"	d	file:
 ERROR_MSG	poisson.c	3;"	d	file:
@@ -312,7 +309,6 @@ free2dArray	array.h	/^extern void free2dArray(double ***a);$/;"	p	signature:(dou
 free3dArray	array.c	/^void free3dArray(double ****a) {$/;"	f	signature:(double ****a)
 free3dArray	array.h	/^extern void free3dArray(double ****a);$/;"	p	signature:(double ****a)
 getSubIS	solver.c	/^void getSubIS(Level *level, Level *subLevel, IS *indexSet) {$/;"	f	signature:(Level *level, Level *subLevel, IS *indexSet)
-getSubIS	solver.h	/^void getSubIS(Level *level, Level *subLevel, IS *indexSet);$/;"	p	signature:(Level *level, Level *subLevel, IS *indexSet)
 global	obsolete/matbuild.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon10	access:public
 global	solver.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon14	access:public
 grid	obsolete/matbuild.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon10	access:public
@@ -397,7 +393,6 @@ solData	solver.h	/^	FILE	*solData;$/;"	m	struct:__anon20	access:public
 start	array.h	/^	int start;$/;"	m	struct:__anon1	access:public
 stencilIndices	obsolete/obsolete.c	/^void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);$/;"	p	file:	signature:(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels)
 subIS_based_on_grids	solver.c	/^void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {$/;"	f	signature:(Level *level, int length, int *idg, IS *indexSet)
-subIS_based_on_grids	solver.h	/^void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet);$/;"	p	signature:(Level *level, int length, int *idg, IS *indexSet)
 totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon11	access:public
 totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon12	access:public
 totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon15	access:public
