@@ -1,9 +1,5 @@
 #include "solver.h"
 
-//#define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
-//#define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
-//#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
-//#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
 #define ERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
 #define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
@@ -1596,6 +1592,117 @@ void MultigridEcycle(Solver *solver) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
+void MultigridD1cycle(Solver *solver) {
+	
+	Mat	*res;
+	Mat	*pro;
+	Mat	*A;
+	Vec	*b;
+	Vec	*u;
+	IS	*botIS;
+	IS	*topIS;
+	
+	Vec	r;
+	Vec	bBot;
+	Vec	rTop;
+	Vec	uTop;
+	
+	double	*norm, chkNorm, bnorm;
+	int	v, maxIter, iter;
+	
+	int	size, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	res	= solver->assem->res;
+	pro	= solver->assem->pro;
+	A	= solver->assem->A;
+	b	= solver->assem->b;
+	u	= solver->assem->u;
+	botIS	= solver->assem->bottomIS;
+	topIS	= solver->assem->topIS;
+	maxIter	= solver->numIter;
+	norm	= solver->rnorm;
+	v	= solver->v[0];
+//	v	= 1;
+
+	KSP	ksp;
+	PC	pc;
+	
+	PetscLogStage	stage, stageSolve;
+	
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetType(ksp,KSPRICHARDSON);
+	KSPSetOperators(ksp, *A, *A);
+	KSPGetPC(ksp,&pc);
+//	PCSetType(pc,PCASM);
+//	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
+//	KSPMonitorSet(ksp, myMonitor, norm, NULL);
+	KSPSetNormType(ksp,KSP_NORM_NONE);
+	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v);
+	KSPSetFromOptions(ksp);
+	KSPSetInitialGuessNonzero(ksp,PETSC_TRUE);
+	
+	VecDuplicate(*b, &r);
+	VecGetSubVector(*b, *botIS, &bBot);
+	VecGetSubVector(r, *topIS, &rTop);
+	VecGetSubVector(*u, *topIS, &uTop);
+
+	VecNorm(*b, NORM_2, &bnorm);
+	VecSet(*u, 0); // Note: This should be moved out of this function?
+	
+	Vec	residual;
+
+	MatMult(*A, *u, r);
+	VecAYPX(r, -1.0, *b);
+	VecNorm(r, NORM_2, &chkNorm);
+//	MatMult(*res, rTop, bBot);
+	norm[0] = chkNorm;
+	
+	iter = 0;
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
+	while (iter<maxIter && 100000000*bnorm > chkNorm && chkNorm > (1.e-7)*bnorm) {
+		MatMult(*res, rTop, bBot);
+		MatMult(*pro, *u, rTop);
+		VecAXPY(uTop, 1.0, rTop);
+		KSPSolve(ksp, *b, *u);
+		KSPBuildResidual(ksp, NULL, r, &residual);
+//		MatMult(*A, *u, r);
+//		VecAXPY(r, -1.0, *b);
+		VecNorm(r, NORM_2, &chkNorm);
+		iter += 1;
+		norm[iter] = chkNorm;
+	}
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	VecRestoreSubVector(*b, *botIS, &bBot);
+	VecRestoreSubVector(r, *topIS, &rTop);
+	VecRestoreSubVector(*u, *topIS, &uTop);
+	chkNorm = norm[0];
+	for (int i=0;i<(maxIter+1);i++) {
+		norm[i] = norm[i]/chkNorm;
+	}
+	solver->numIter = iter;
+	KSPGetIterationNumber(ksp, &(solver->numIter));
+
+	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+	VecDestroy(&r);
+	KSPDestroy(&ksp);
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
 void Solve(Solver *solver){
 	// Solves the problem with chosen multigrid cycle
 	
@@ -1603,7 +1710,7 @@ void Solve(Solver *solver){
 	if (solver->cycle == VCYCLE) MultigridVcycle(solver);
 	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
 	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
-	//if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
+//	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
 	if (solver->cycle == D1CYCLE) PetscPrintf(PETSC_COMM_WORLD, "Delayed cycle is not yet complete!");
 }
 
