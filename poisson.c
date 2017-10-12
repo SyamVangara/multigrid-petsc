@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
 	SetUpProblem(&prob);
 	
 //	freopen("poisson.in", "r", stdin);
-//	freopen("poisson.out", "w", stdout);
-//	freopen("poisson.err", "w", stderr);
+	freopen("poisson.out", "w", stdout);
+	freopen("poisson.err", "w", stderr);
 	
 	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
@@ -178,10 +178,12 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
 	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
 	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
+	if (cyc == 3) printf("Cycle :				D1-Cycle\n");
 	if (cyc == 2) printf("Cycle :				E-Cycle\n");
 	if (cyc == 1) printf("Cycle :				I-Cycle\n");
 	if (cyc == 0) printf("Cycle :				V-Cycle\n");
 	
+	if (cyc == 3) printf("Number of smoothing steps :	%d per iteration \n", solver.v[0]);
 	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
 	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
 	printf("Number of processes:		%d\n",procs);

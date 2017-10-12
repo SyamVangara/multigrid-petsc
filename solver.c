@@ -871,6 +871,83 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 
 }
 
+//void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) 
+//{
+///*********************************************************************************
+// *
+// * Builds prolongation matrix for delayed cycling v1 within the level.!Only works
+// * for one level for now.
+// * 
+// *********************************************************************************/ 	
+//	// Case of more than 1 levels should handled outside, perhaps in poisson.c
+//	int	procs, rank;
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	int	*topRanges, *botRanges;
+//	topRanges = topLevel->ranges;
+//	botRanges = bottomLevel->ranges;
+//	
+//	Mat	*pro;
+//	pro = assem->pro;
+//	MatCreateAIJ(PETSC_COMM_WORLD, topRanges[rank+1]-topRanges[rank], botRanges[rank+1]-botRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro);
+//	
+//	int	opProni, opPronj;
+//	double	*opPro;
+//	opProni = op->pro[0].ni;
+//	opPronj = op->pro[0].nj;
+//	opPro	= op->pro[0].data;
+//	
+//	int	*botGlobal, botGlobalni, botGlobalnj;
+//	botGlobal   = bottomLevel->global.data;
+//	botGlobalni = bottomLevel->global.ni;
+//	botGlobalnj = bottomLevel->global.nj;
+//
+//	ArrayInt2d	*topGrid;
+//	topGrid = topLevel->grid;
+//
+//	int	*topGridId;
+//	int	topGrids;
+//	topGridId = topLevel->gridId;
+//	topGrids  = topLevel->grids;
+//	
+//	
+//	int	factor;
+//	factor = indices->coarseningFactor;
+//	
+//	int	*topGridData, topGridnj;
+//	int	i1, j1, g1; // bottom grid stuff
+//	int	i0, j0;     // top grid stuff
+//	double	weight;
+//	for (int col=botRanges[rank]; col<botRanges[rank+1]; col++) {
+//		i1 = botGlobal[col*botGlobalnj  ];
+//		j1 = botGlobal[col*botGlobalnj+1];
+//		g1 = botGlobal[col*botGlobalnj+2];
+//		
+//		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
+//		i0 = factor*(i1+1)-1-(opProni)/2;
+//		j0 = factor*(j1+1)-1-(opPronj)/2;
+//		
+//		// Searching for the local_gridId of "g1-1" in topLevel; Need a better way!
+//		for (int lg=0; lg<topGrids; lg++) {
+//			if (g1-1 == topGridId[lg]) {
+//				topGridData = topGrid[lg].data;
+//				topGridnj = topGrid[lg].nj;
+//				break;
+//			}
+//		}
+//		for (int i=i0; i<i0+opProni; i++) {
+//			for (int j=j0; j<j0+opPronj; j++) {
+//				weight = opPro[(i-i0)*opPronj+(j-j0)];
+//				if (weight != 0.0) MatSetValue(*pro, topGridData[i*topGridnj+j], col, weight, ADD_VALUES);
+//			}
+//		}
+//	}
+//	MatAssemblyBegin(*pro, MAT_FINAL_ASSEMBLY);
+//	MatAssemblyEnd(*pro, MAT_FINAL_ASSEMBLY);
+////	MatView(*pro,PETSC_VIEWER_STDOUT_WORLD);
+//}
+
 void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) 
 {
 /*********************************************************************************
@@ -884,13 +961,13 @@ void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	int	*topRanges, *botRanges;
+	int	*topRanges, *ranges;
 	topRanges = topLevel->ranges;
-	botRanges = bottomLevel->ranges;
+	ranges = indices->level->ranges;
 	
 	Mat	*pro;
 	pro = assem->pro;
-	MatCreateAIJ(PETSC_COMM_WORLD, topRanges[rank+1]-topRanges[rank], botRanges[rank+1]-botRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro);
+	MatCreateAIJ(PETSC_COMM_WORLD, topRanges[rank+1]-topRanges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro);
 	
 	int	opProni, opPronj;
 	double	*opPro;
@@ -898,10 +975,10 @@ void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	opPronj = op->pro[0].nj;
 	opPro	= op->pro[0].data;
 	
-	int	*botGlobal, botGlobalni, botGlobalnj;
-	botGlobal   = bottomLevel->global.data;
-	botGlobalni = bottomLevel->global.ni;
-	botGlobalnj = bottomLevel->global.nj;
+	int	*global, globalni, globalnj;
+	global   = indices->level->global.data;
+	globalni = indices->level->global.ni;
+	globalnj = indices->level->global.nj;
 
 	ArrayInt2d	*topGrid;
 	topGrid = topLevel->grid;
@@ -915,15 +992,18 @@ void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	int	factor;
 	factor = indices->coarseningFactor;
 	
+	int	gfine;
+	gfine = indices->level->gridId[0];
+
 	int	*topGridData, topGridnj;
-	int	i1, j1, g1; // bottom grid stuff
-	int	i0, j0;     // top grid stuff
+	int	i1, j1, g1; // bottom level stuff
+	int	i0, j0;     // top level stuff
 	double	weight;
-	for (int col=botRanges[rank]; col<botRanges[rank+1]; col++) {
-		i1 = botGlobal[col*botGlobalnj  ];
-		j1 = botGlobal[col*botGlobalnj+1];
-		g1 = botGlobal[col*botGlobalnj+2];
-		
+	for (int col=ranges[rank]; col<ranges[rank+1]; col++) {
+		i1 = global[col*globalnj  ];
+		j1 = global[col*globalnj+1];
+		g1 = global[col*globalnj+2];
+		if (g1 == gfine) continue;	
 		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
 		i0 = factor*(i1+1)-1-(opProni)/2;
 		j0 = factor*(j1+1)-1-(opPronj)/2;
@@ -1671,8 +1751,6 @@ void MultigridD1cycle(Solver *solver) {
 		VecAXPY(uTop, 1.0, rTop);
 		KSPSolve(ksp, *b, *u);
 		KSPBuildResidual(ksp, NULL, r, &residual);
-//		MatMult(*A, *u, r);
-//		VecAXPY(r, -1.0, *b);
 		VecNorm(r, NORM_2, &chkNorm);
 		iter += 1;
 		norm[iter] = chkNorm;
@@ -1684,12 +1762,11 @@ void MultigridD1cycle(Solver *solver) {
 	VecRestoreSubVector(*b, *botIS, &bBot);
 	VecRestoreSubVector(r, *topIS, &rTop);
 	VecRestoreSubVector(*u, *topIS, &uTop);
+	solver->numIter = iter;
 	chkNorm = norm[0];
-	for (int i=0;i<(maxIter+1);i++) {
+	for (int i=0;i<solver->numIter;i++) {
 		norm[i] = norm[i]/chkNorm;
 	}
-	solver->numIter = iter;
-	KSPGetIterationNumber(ksp, &(solver->numIter));
 
 	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
@@ -1710,8 +1787,8 @@ void Solve(Solver *solver){
 	if (solver->cycle == VCYCLE) MultigridVcycle(solver);
 	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
 	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
-//	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
-	if (solver->cycle == D1CYCLE) PetscPrintf(PETSC_COMM_WORLD, "Delayed cycle is not yet complete!");
+	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
+//	if (solver->cycle == D1CYCLE) PetscPrintf(PETSC_COMM_WORLD, "Delayed cycle is not yet complete!");
 }
 
 
