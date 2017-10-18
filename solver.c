@@ -32,6 +32,7 @@ void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 	if (cycle == D1CYCLE) {
 		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
 		assem->topIS	= malloc((assem->levels)*sizeof(IS));
+		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
 		assem->res = malloc((assem->levels)*sizeof(Mat));
 		assem->pro = malloc((assem->levels)*sizeof(Mat));
 	} else {
@@ -72,6 +73,7 @@ void DestroyAssembly(Assembly *assem, Cycle cycle)
 	{
 		free(assem->bottomIS);
 		free(assem->topIS);
+		free(assem->subFineIS);
 	}
 }
 
@@ -566,7 +568,9 @@ void CreateSubLevel(Level *level, Level *subLevel, int flag) {
  * Inputs:
  * 	level - source level to create sub-level
  * 	flag  - 0  : sub-level consists of all grids except last one
- * 		!0 : sub-level consists of all grids except frist one
+ * 		1  : sub-level consists of only last one
+ * 		2  : sub-level consists of all grids except first one
+ * 		3  : sub-level consists of only frist one
  * Output:
  * 	subLevel - sub-level of given level
  *
@@ -581,11 +585,17 @@ void CreateSubLevel(Level *level, Level *subLevel, int flag) {
 	int	(*subh)[2], (*h)[2];
 	int	subGlobalni, subGlobalnj;
 	int	subGridni, subGridnj;
-	
+	int	grids;
+
 	gridId	= level->gridId;
 	h	= level->h;
-	
-	subLevel->grids	 = level->grids-1;
+	grids	= level->grids;
+
+	if (flag == 1 || flag == 3) {
+		subLevel->grids	 = 1;
+	} else {
+		subLevel->grids	 = grids-1;
+	}
 
 	subLevel->gridId = malloc(subLevel->grids*sizeof(int));
 	subLevel->h	 = malloc(subLevel->grids*sizeof(double[2]));
@@ -602,8 +612,14 @@ void CreateSubLevel(Level *level, Level *subLevel, int flag) {
 			subh[lg][1] = h[lg][1];
 			CreateArrayInt2d(level->grid[lg].ni, level->grid[lg].nj,&(subLevel->grid[lg]));
 		}
-		totaln = level->global.ni - (level->grid[level->grids-1].ni)*(level->grid[level->grids-1].nj);
-	} else {
+		totaln = level->global.ni - (level->grid[grids-1].ni)*(level->grid[grids-1].nj);
+	} else if (flag == 1) {
+		subGridId[0] = gridId[grids-1];
+		subh[0][0] = h[grids-1][0];
+		subh[0][1] = h[grids-1][1];
+		CreateArrayInt2d(level->grid[grids-1].ni, level->grid[grids-1].nj,&(subLevel->grid[0]));
+		totaln = (level->grid[grids-1].ni)*(level->grid[grids-1].nj);
+	} else if (flag == 2) {
 		for (int lg=0; lg<subLevel->grids; lg++) {
 			subGridId[lg] = gridId[lg+1];
 			subh[lg][0] = h[lg+1][0];
@@ -611,6 +627,12 @@ void CreateSubLevel(Level *level, Level *subLevel, int flag) {
 			CreateArrayInt2d(level->grid[lg+1].ni, level->grid[lg+1].nj,&(subLevel->grid[lg]));
 		}
 		totaln = level->global.ni - (level->grid[0].ni)*(level->grid[0].nj);
+	} else if (flag == 3) {
+		subGridId[0] = gridId[0];
+		subh[0][0] = h[0][0];
+		subh[0][1] = h[0][1];
+		CreateArrayInt2d(level->grid[0].ni, level->grid[0].nj,&(subLevel->grid[0]));
+		totaln = (level->grid[0].ni)*(level->grid[0].nj);
 	}
 	CreateArrayInt2d(totaln, M, &(subLevel->global));
 }
@@ -871,83 +893,6 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 
 }
 
-//void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) 
-//{
-///*********************************************************************************
-// *
-// * Builds prolongation matrix for delayed cycling v1 within the level.!Only works
-// * for one level for now.
-// * 
-// *********************************************************************************/ 	
-//	// Case of more than 1 levels should handled outside, perhaps in poisson.c
-//	int	procs, rank;
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	int	*topRanges, *botRanges;
-//	topRanges = topLevel->ranges;
-//	botRanges = bottomLevel->ranges;
-//	
-//	Mat	*pro;
-//	pro = assem->pro;
-//	MatCreateAIJ(PETSC_COMM_WORLD, topRanges[rank+1]-topRanges[rank], botRanges[rank+1]-botRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 4, PETSC_NULL, 4, PETSC_NULL, pro);
-//	
-//	int	opProni, opPronj;
-//	double	*opPro;
-//	opProni = op->pro[0].ni;
-//	opPronj = op->pro[0].nj;
-//	opPro	= op->pro[0].data;
-//	
-//	int	*botGlobal, botGlobalni, botGlobalnj;
-//	botGlobal   = bottomLevel->global.data;
-//	botGlobalni = bottomLevel->global.ni;
-//	botGlobalnj = bottomLevel->global.nj;
-//
-//	ArrayInt2d	*topGrid;
-//	topGrid = topLevel->grid;
-//
-//	int	*topGridId;
-//	int	topGrids;
-//	topGridId = topLevel->gridId;
-//	topGrids  = topLevel->grids;
-//	
-//	
-//	int	factor;
-//	factor = indices->coarseningFactor;
-//	
-//	int	*topGridData, topGridnj;
-//	int	i1, j1, g1; // bottom grid stuff
-//	int	i0, j0;     // top grid stuff
-//	double	weight;
-//	for (int col=botRanges[rank]; col<botRanges[rank+1]; col++) {
-//		i1 = botGlobal[col*botGlobalnj  ];
-//		j1 = botGlobal[col*botGlobalnj+1];
-//		g1 = botGlobal[col*botGlobalnj+2];
-//		
-//		// Identify the reference point (i0, j0) of restriction stencil on (g1-1)^th grid
-//		i0 = factor*(i1+1)-1-(opProni)/2;
-//		j0 = factor*(j1+1)-1-(opPronj)/2;
-//		
-//		// Searching for the local_gridId of "g1-1" in topLevel; Need a better way!
-//		for (int lg=0; lg<topGrids; lg++) {
-//			if (g1-1 == topGridId[lg]) {
-//				topGridData = topGrid[lg].data;
-//				topGridnj = topGrid[lg].nj;
-//				break;
-//			}
-//		}
-//		for (int i=i0; i<i0+opProni; i++) {
-//			for (int j=j0; j<j0+opPronj; j++) {
-//				weight = opPro[(i-i0)*opPronj+(j-j0)];
-//				if (weight != 0.0) MatSetValue(*pro, topGridData[i*topGridnj+j], col, weight, ADD_VALUES);
-//			}
-//		}
-//	}
-//	MatAssemblyBegin(*pro, MAT_FINAL_ASSEMBLY);
-//	MatAssemblyEnd(*pro, MAT_FINAL_ASSEMBLY);
-////	MatView(*pro,PETSC_VIEWER_STDOUT_WORLD);
-//}
-
 void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) 
 {
 /*********************************************************************************
@@ -1172,12 +1117,17 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 
 	if (solver->cycle == D1CYCLE) {
 		Level	topLevel, bottomLevel;
+		Level	subFineLevel; // To be extracted from topLevel
 		
 		CreateSubLevel(indices->level, &topLevel, 0);
 		ComputeSubMaps(indices->level, &topLevel);
 		getSubIS(indices->level, &topLevel, assem->topIS);
 
-		CreateSubLevel(indices->level, &bottomLevel, 1);
+		CreateSubLevel(&topLevel, &subFineLevel, 3);
+		ComputeSubMaps(&topLevel, &subFineLevel);
+		getSubIS(&topLevel, &subFineLevel, assem->subFineIS);
+		
+		CreateSubLevel(indices->level, &bottomLevel, 2);
 		ComputeSubMaps(indices->level, &bottomLevel);
 		getSubIS(indices->level, &bottomLevel, assem->bottomIS);
 		
@@ -1185,7 +1135,10 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 		Pro_delayed(indices, op, &bottomLevel, &topLevel, assem);
 		
 		DestroySubLevel(&topLevel);
+		DestroySubLevel(&subFineLevel);
 		DestroySubLevel(&bottomLevel);
+
+//		subIS_based_on_grids(indices->level, 1, indices->level->gridId, assem->fineIS);
 
 	} else if (assem->levels > 1) { 
 		Res(indices, op, factor, assem);
@@ -1681,7 +1634,8 @@ void MultigridD1cycle(Solver *solver) {
 	Vec	*u;
 	IS	*botIS;
 	IS	*topIS;
-	
+	IS	*subFineIS;
+
 	Vec	r;
 	Vec	bBot;
 	Vec	rTop;
@@ -1695,21 +1649,24 @@ void MultigridD1cycle(Solver *solver) {
 	MPI_Comm_size(PETSC_COMM_WORLD, &size);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	res	= solver->assem->res;
-	pro	= solver->assem->pro;
-	A	= solver->assem->A;
-	b	= solver->assem->b;
-	u	= solver->assem->u;
-	botIS	= solver->assem->bottomIS;
-	topIS	= solver->assem->topIS;
-	maxIter	= solver->numIter;
-	norm	= solver->rnorm;
-	v	= solver->v[0];
-//	v	= 1;
+	res		= solver->assem->res;
+	pro		= solver->assem->pro;
+	A		= solver->assem->A;
+	b		= solver->assem->b;
+	u		= solver->assem->u;
+	botIS		= solver->assem->bottomIS;
+	topIS		= solver->assem->topIS;
+	subFineIS	= solver->assem->subFineIS;
+	maxIter		= solver->numIter;
+	norm		= solver->rnorm;
+	v		= solver->v[0];
 
 	KSP	ksp;
 	PC	pc;
 	
+//	ISView(*topIS, PETSC_VIEWER_STDOUT_WORLD);
+//	ISView(*subFineIS, PETSC_VIEWER_STDOUT_WORLD);
+
 	PetscLogStage	stage, stageSolve;
 	
 	KSPCreate(PETSC_COMM_WORLD, &ksp);
@@ -1737,7 +1694,6 @@ void MultigridD1cycle(Solver *solver) {
 	MatMult(*A, *u, r);
 	VecAYPX(r, -1.0, *b);
 	VecNorm(r, NORM_2, &chkNorm);
-//	MatMult(*res, rTop, bBot);
 	norm[0] = chkNorm;
 	
 	iter = 0;
@@ -1768,7 +1724,6 @@ void MultigridD1cycle(Solver *solver) {
 		norm[i] = norm[i]/chkNorm;
 	}
 
-	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
 	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
 	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
@@ -1788,7 +1743,6 @@ void Solve(Solver *solver){
 	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
 	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
 	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
-//	if (solver->cycle == D1CYCLE) PetscPrintf(PETSC_COMM_WORLD, "Delayed cycle is not yet complete!");
 }
 
 

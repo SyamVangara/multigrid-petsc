@@ -46,6 +46,7 @@ typedef struct {
 	Vec	*u;
 	IS	*bottomIS;
 	IS	*topIS;
+	IS	*subFineIS;
 } Assembly;
 
 typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;
