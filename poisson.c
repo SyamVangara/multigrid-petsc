@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
 	SetUpProblem(&prob);
 	
 //	freopen("poisson.in", "r", stdin);
-	freopen("poisson.out", "w", stdout);
-	freopen("poisson.err", "w", stderr);
+//	freopen("poisson.out", "w", stdout);
+//	freopen("poisson.err", "w", stderr);
 	
 	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
 	PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
 	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
 	
 	if (indices.levels>1 && cyc==3) {
 		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling"); 
@@ -77,7 +78,6 @@ int main(int argc, char *argv[]) {
 
 //	ViewMeshInfo(mesh);
 	
-	// Indices maps; number of local unknowns	
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
 
@@ -93,9 +93,6 @@ int main(int argc, char *argv[]) {
 
 //	ViewOperatorInfo(op);
 	
-//	SetUpAssembly(&indices, &assem);
-//	Assemble(&prob, &mesh, &indices, &op, &assem);
-
 	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
 	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
 	if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);

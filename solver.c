@@ -79,10 +79,22 @@ void DestroyAssembly(Assembly *assem, Cycle cycle)
 
 void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	// Allocates memory to Solver struct
+	int	numIter = solver->numIter;
+
 	solver->cycle = cyc;
+//	solver->moreInfo = moreInfo;
 	solver->assem = malloc(sizeof(Assembly));		
 	SetUpAssembly(indices, solver->assem, solver->cycle);
-	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
+	solver->rnorm = malloc((numIter+1)*sizeof(double));
+	if ((solver->moreInfo != 0) && (cyc == D1CYCLE)) {
+		int	v	= solver->v[0];
+		solver->grids	= indices->level->grids;
+		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
+		for (int i=0; i<solver->grids; i++) {
+			solver->rNormGrid[i] = malloc(numIter*(v+1)*sizeof(double));
+		}
+		solver->rNormGlobal = malloc(numIter*(v+1)*sizeof(double));
+	}
 }
 
 void DestroySolver(Solver *solver) {
@@ -91,6 +103,12 @@ void DestroySolver(Solver *solver) {
 	DestroyAssembly(solver->assem, solver->cycle);
 	free(solver->assem);
 	free(solver->rnorm);
+	if (solver->moreInfo == 0) return;
+	for (int i=0; i<solver->grids; i++) {
+		free(solver->rNormGrid[i]);
+	}
+	free(solver->rNormGrid);
+	free(solver->rNormGlobal);
 }
 
 void SetUpPostProcess(PostProcess *pp) {
@@ -1279,10 +1297,20 @@ void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver,
 		fprintf(pp->solData,"\n");
 	}
 		
-	for (int i=0;i<solver->numIter;i++) {
+	for (int i=0;i<solver->numIter+1;i++) {
 		fprintf(pp->resData,"%.16e ",solver->rnorm[i]);
 	}
 	fprintf(pp->resData,"\n");
+	
+	if (solver->moreInfo != 0) {	
+		FILE	*rGlobalData;
+		rGlobalData = fopen("rGlobalData.dat","w");
+		for (int i=0;i<solver->numIter*(solver->v[0]+1);i++) {
+			fprintf(rGlobalData,"%.16e ",solver->rNormGlobal[i]);
+		}
+		fprintf(rGlobalData,"\n");
+		fclose(rGlobalData);
+	}
 
 	DeleteArray2d(&u);
 	}
@@ -1490,7 +1518,8 @@ void MultigridIcycle(Solver *solver) {
 	KSPGetPC(ksp,&pc);
 //	PCSetType(pc,PCASM);
 	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
-	KSPMonitorSet(ksp, myMonitor, solver->rnorm, NULL);
+	KSPSetResidualHistory(ksp, solver->rnorm, solver->numIter, PETSC_FALSE);
+//	KSPMonitorSet(ksp, myMonitor, solver->rnorm, NULL);
 	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, solver->numIter);
 	KSPSetFromOptions(ksp);
 	
@@ -1515,6 +1544,7 @@ void MultigridIcycle(Solver *solver) {
 	PetscLogStagePop();
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
+//	KSPGetResidualHistory(ksp, NULL, &(solver->numIter));
 	KSPGetIterationNumber(ksp, &(solver->numIter));
 
 	double	rnorm0 = solver->rnorm[0];
@@ -1674,10 +1704,13 @@ void MultigridD1cycle(Solver *solver) {
 	KSPSetOperators(ksp, *A, *A);
 	KSPGetPC(ksp,&pc);
 //	PCSetType(pc,PCASM);
-//	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
-//	KSPMonitorSet(ksp, myMonitor, norm, NULL);
-	KSPSetNormType(ksp,KSP_NORM_NONE);
-	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v);
+	if (solver->moreInfo == 0) {
+		KSPSetNormType(ksp,KSP_NORM_NONE);
+	} else {
+		KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
+		KSPSetResidualHistory(ksp, solver->rNormGlobal, maxIter*(v+1), PETSC_FALSE);
+	}
+	KSPSetTolerances(ksp, 1.e-16, PETSC_DEFAULT, PETSC_DEFAULT, v);
 	KSPSetFromOptions(ksp);
 	KSPSetInitialGuessNonzero(ksp,PETSC_TRUE);
 	
@@ -1720,9 +1753,17 @@ void MultigridD1cycle(Solver *solver) {
 	VecRestoreSubVector(*u, *topIS, &uTop);
 	solver->numIter = iter;
 	chkNorm = norm[0];
-	for (int i=0;i<solver->numIter;i++) {
+	for (int i=0;i<solver->numIter+1;i++) {
 		norm[i] = norm[i]/chkNorm;
 	}
+	PetscPrintf(PETSC_COMM_WORLD,"Before normalizing the global sweep norm\n");
+	if (solver->moreInfo != 0) {
+		chkNorm = solver->rNormGlobal[0];
+		for (int i=0;i<solver->numIter*(v+1);i++) {
+			solver->rNormGlobal[i] = solver->rNormGlobal[i]/chkNorm;
+		}
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"After normalizing the global sweep norm\n");
 
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
 	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);

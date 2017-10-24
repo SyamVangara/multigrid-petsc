@@ -1,12 +1,14 @@
 # npts - num of points per dimension
--npts 9
+-npts 17
 # mesh: [0: Uniform, 1: Non-uniform]
 -mesh 1
--iter 1000000
+-iter 10
 -grids 3
 -levels 1
 # cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle, 3: D1-Cycle]
 -cycle 3
 # map: [0: Grid-After-Grid, 1: Through-Grids, 2: Local-Grid-After-Grid]
 -map 2
--v 3,3
+-v 4,3
+# moreNorm: [0: False, 1:True]
+-moreNorm 1

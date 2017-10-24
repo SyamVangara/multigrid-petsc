@@ -50,11 +50,19 @@ typedef struct {
 } Assembly;
 
 typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;
+//typedef enum {False, True} CustomBool;
 
 typedef struct {
 	Cycle		cycle;
+//	CustomBool	moreInfo;
+	int		moreInfo; // 0: False; 1: True
 	int		numIter;
 	int		v[2];
+	// For more info; move them to a different struct?
+	int		grids;
+	double		**rNormGrid;
+	double		*rNormGlobal;
+	// more info ends
 	double		*rnorm;
 	Assembly	*assem;
 } Solver;
@@ -75,6 +83,7 @@ void DestroyOperator(Operator *op);
 void GridTransferOperators(Operator op, Indices indices);
 
 void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
+//void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc, CustomBool moreInfo);
 void DestroySolver(Solver *solver);
 void Solve(Solver *solver);
 

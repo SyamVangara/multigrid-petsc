@@ -4,8 +4,8 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.9~svn20110310	//
-A	solver.h	/^	Mat	*A;$/;"	m	struct:__anon11	access:public
-A2	solver.h	/^	Mat	*A2;$/;"	m	struct:__anon11	access:public
+A	solver.h	/^	Mat	*A;$/;"	m	struct:__anon17	access:public
+A2	solver.h	/^	Mat	*A2;$/;"	m	struct:__anon17	access:public
 Array2d	array.h	/^} Array2d;$/;"	t	typeref:struct:__anon2
 Array3d	array.h	/^} Array3d;$/;"	t	typeref:struct:__anon3
 ArrayInt1d	array.h	/^} ArrayInt1d;$/;"	t	typeref:struct:__anon4
@@ -13,7 +13,7 @@ ArrayInt2d	array.h	/^} ArrayInt2d;$/;"	t	typeref:struct:__anon5
 ArrayInt3d	array.h	/^} ArrayInt3d;$/;"	t	typeref:struct:__anon6
 Assemble	solver.c	/^void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver)
 Assemble	solver.h	/^void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver);$/;"	p	signature:(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver)
-Assembly	solver.h	/^} Assembly;$/;"	t	typeref:struct:__anon11
+Assembly	solver.h	/^} Assembly;$/;"	t	typeref:struct:__anon17
 AsyncMultigridMalloc	obsolete/obsolete.c	/^int AsyncMultigridMalloc(double ***f, double ***u, double ***r,int *n, int levels) {$/;"	f	signature:(double ***f, double ***u, double ***r,int *n, int levels)
 CFLAGS	makefile	/^CFLAGS     = -std=c99 -O3 $/;"	m
 CHKERR_PRNT	mesh.c	5;"	d	file:
@@ -37,11 +37,11 @@ CreateArrayOfIS	obsolete/obsolete.c	/^void CreateArrayOfIS(int n, int levels, IS
 CreateArrayOfIS	obsolete/obsolete.c	/^void CreateArrayOfIS(int n, int levels, IS *idx);$/;"	p	file:	signature:(int n, int levels, IS *idx)
 CreateIndexMaps	matbuild.c	/^void CreateIndexMaps(Mesh *mesh, Indices *indices) {$/;"	f	signature:(Mesh *mesh, Indices *indices)
 CreateSubLevel	solver.c	/^void CreateSubLevel(Level *level, Level *subLevel, int flag) {$/;"	f	signature:(Level *level, Level *subLevel, int flag)
-Cycle	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	t	typeref:enum:__anon12
-D1CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
-D2CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
-D3CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
-D4CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
+Cycle	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	t	typeref:enum:__anon18
+D1CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
+D2CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
+D3CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
+D4CYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 DIMENSION	mesh.h	17;"	d
 DIMENSION	poisson.c	9;"	d	file:
 DIMENSION	problem.h	14;"	d
@@ -65,7 +65,7 @@ DestroyPostProcess	solver.h	/^void DestroyPostProcess(PostProcess *pp);$/;"	p	si
 DestroySolver	solver.c	/^void DestroySolver(Solver *solver) {$/;"	f	signature:(Solver *solver)
 DestroySolver	solver.h	/^void DestroySolver(Solver *solver);$/;"	p	signature:(Solver *solver)
 DestroySubLevel	solver.c	/^void DestroySubLevel(Level *subLevel) {$/;"	f	signature:(Level *subLevel)
-ECYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
+ECYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 ERROR_MSG	mesh.c	3;"	d	file:
 ERROR_MSG	poisson.c	3;"	d	file:
 ERROR_MSG	solver.c	3;"	d	file:
@@ -77,7 +77,7 @@ F	matbuild.c	7;"	d	file:
 F	solver.c	9;"	d	file:
 FUNC	poisson.c	10;"	d	file:
 Ffunc	problem.c	/^double Ffunc(double x, double y) {$/;"	f	signature:(double x, double y)
-Ffunc	problem.h	/^	double (*Ffunc)(double x, double y);$/;"	m	struct:__anon20	access:public
+Ffunc	problem.h	/^	double (*Ffunc)(double x, double y);$/;"	m	struct:__anon13	access:public
 GetError	obsolete/obsolete.c	/^void GetError(double **coord, int *n, Array2d u, double *error);$/;"	p	file:	signature:(double **coord, int *n, Array2d u, double *error)
 GetError	solver.c	/^void GetError(Problem *prob, Mesh *mesh, Array2d u1, double *error) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Array2d u1, double *error)
 GetFuncValues2d	obsolete/obsolete.c	/^void GetFuncValues2d(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range) {$/;"	f	signature:(double **coord, ArrayInt2d *IsGlobalToGrid, double *f, IsRange *range)
@@ -93,9 +93,9 @@ GridTransferOperator	matbuild.c	/^void GridTransferOperator(Array2d *Iop, int fa
 GridTransferOperators	matbuild.c	/^void GridTransferOperators(Operator op, Indices indices) {$/;"	f	signature:(Operator op, Indices indices)
 GridTransferOperators	obsolete/matbuild.h	/^void GridTransferOperators(Operator op, Indices indices);$/;"	p	signature:(Operator op, Indices indices)
 GridTransferOperators	solver.h	/^void GridTransferOperators(Operator op, Indices indices);$/;"	p	signature:(Operator op, Indices indices)
-ICYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
-Indices	obsolete/matbuild.h	/^} Indices;$/;"	t	typeref:struct:__anon18
-Indices	solver.h	/^} Indices;$/;"	t	typeref:struct:__anon9
+ICYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
+Indices	obsolete/matbuild.h	/^} Indices;$/;"	t	typeref:struct:__anon11
+Indices	solver.h	/^} Indices;$/;"	t	typeref:struct:__anon15
 Initialization	obsolete/obsolete.c	/^void Initialization(double **u, int *n) {$/;"	f	signature:(double **u, int *n)
 IsRange	array.h	/^} IsRange;$/;"	t	typeref:struct:__anon1
 Jacobi	obsolete/obsolete.c	/^void Jacobi(double **u, double **f, double **r, double *As, double w, double *rnorm, int v,int *n) {$/;"	f	signature:(double **u, double **f, double **r, double *As, double w, double *rnorm, int v,int *n)
@@ -104,15 +104,15 @@ JacobiStep	obsolete/obsolete.c	/^void JacobiStep(double **u, double **f, double 
 L1Norm	obsolete/obsolete.c	/^double L1Norm(double *a, int n) {$/;"	f	signature:(double *a, int n)
 L2norm	obsolete/obsolete.c	/^double L2norm(double *a, int n) {$/;"	f	signature:(double *a, int n)
 LIBFILES	makefile	/^LIBFILES   =$/;"	m
-Level	obsolete/matbuild.h	/^} Level;$/;"	t	typeref:struct:__anon17
-Level	solver.h	/^} Level;$/;"	t	typeref:struct:__anon8
+Level	obsolete/matbuild.h	/^} Level;$/;"	t	typeref:struct:__anon10
+Level	solver.h	/^} Level;$/;"	t	typeref:struct:__anon14
 LiNorm	obsolete/obsolete.c	/^double LiNorm(double *a, int n) {$/;"	f	signature:(double *a, int n)
 METRICS	matbuild.c	4;"	d	file:
 METRICS	mesh.c	9;"	d	file:
 METRICS	solver.c	8;"	d	file:
-Mesh	mesh.h	/^} Mesh;$/;"	t	typeref:struct:__anon16
-MeshType	mesh.h	/^typedef enum {UNIFORM, NONUNIFORM} MeshType;$/;"	t	typeref:enum:__anon15
-MetricCoefficients	mesh.h	/^	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);$/;"	m	struct:__anon16	access:public
+Mesh	mesh.h	/^} Mesh;$/;"	t	typeref:struct:__anon9
+MeshType	mesh.h	/^typedef enum {UNIFORM, NONUNIFORM} MeshType;$/;"	t	typeref:enum:__anon8
+MetricCoefficients	mesh.h	/^	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);$/;"	m	struct:__anon9	access:public
 MetricCoefficients2D	mesh.c	/^int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalToGrid, IsRange *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y)) {$/;"	f	signature:(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalToGrid, IsRange *range, double *bounds, int dimension, void (*MetricCoefficientsFunc)(double *metricsAtPoint, double *bounds, double *lengths, double x, double y))
 Metrics2d	array.h	/^} Metrics2d;$/;"	t	typeref:struct:__anon7
 MetricsNonUniform	mesh.c	/^void MetricsNonUniform(void *mesh1, double x, double y, double *metrics) {$/;"	f	signature:(void *mesh1, double x, double y, double *metrics)
@@ -124,12 +124,12 @@ MultigridIcycle	solver.c	/^void MultigridIcycle(Solver *solver) {$/;"	f	signatur
 MultigridMalloc	obsolete/obsolete.c	/^int MultigridMalloc(double ***f, double ***u, double ***r, int *n, int levels) {$/;"	f	signature:(double ***f, double ***u, double ***r, int *n, int levels)
 MultigridPetsc	obsolete/obsolete.c	/^void MultigridPetsc(Array2d u, Array2d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d *IsStencil, ArrayInt2d *IsResStencil, ArrayInt2d *IsProStencil, IsRange *range, double *rnorm, int levels, int *fulln, int *m) {$/;"	f	signature:(Array2d u, Array2d metrics, double *f, double **opIH2h, double **opIh2H, ArrayInt2d *IsStencil, ArrayInt2d *IsResStencil, ArrayInt2d *IsProStencil, IsRange *range, double *rnorm, int levels, int *fulln, int *m)
 MultigridVcycle	solver.c	/^void MultigridVcycle(Solver *solver) {$/;"	f	signature:(Solver *solver)
-NONUNIFORM	mesh.h	/^typedef enum {UNIFORM, NONUNIFORM} MeshType;$/;"	e	enum:__anon15
+NONUNIFORM	mesh.h	/^typedef enum {UNIFORM, NONUNIFORM} MeshType;$/;"	e	enum:__anon8
 OBJFILES	makefile	/^OBJFILES   = poisson.o problem.o solver.o mesh.o array.o matbuild.o$/;"	m
 OpA	problem.c	/^void OpA(double *A, double *metrics, double *h) {$/;"	f	signature:(double *A, double *metrics, double *h)
-OpA	problem.h	/^	void   (*OpA)(double *A, double *metrics, double *h);$/;"	m	struct:__anon20	access:public
-Operator	obsolete/matbuild.h	/^} Operator;$/;"	t	typeref:struct:__anon19
-Operator	solver.h	/^} Operator;$/;"	t	typeref:struct:__anon10
+OpA	problem.h	/^	void   (*OpA)(double *A, double *metrics, double *h);$/;"	m	struct:__anon13	access:public
+Operator	obsolete/matbuild.h	/^} Operator;$/;"	t	typeref:struct:__anon12
+Operator	solver.h	/^} Operator;$/;"	t	typeref:struct:__anon16
 PI	mesh.c	7;"	d	file:
 PI	mesh.h	16;"	d
 PI	poisson.c	8;"	d	file:
@@ -137,7 +137,7 @@ PI	problem.h	13;"	d
 PMETRICS	matbuild.c	6;"	d	file:
 PMultigrid	obsolete/obsolete.c	/^void PMultigrid(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int*n, int m) {$/;"	f	signature:(double **u, double **f, double **r, double *As, double w, double *rnorm, int levels, int*n, int m)
 Pcycle	obsolete/obsolete.c	/^void Pcycle(double **u, double **f, double **r, double *As, double w,int levels,int *n) {$/;"	f	signature:(double **u, double **f, double **r, double *As, double w,int levels,int *n)
-PostProcess	solver.h	/^} PostProcess;$/;"	t	typeref:struct:__anon14
+PostProcess	solver.h	/^} PostProcess;$/;"	t	typeref:struct:__anon20
 Postprocessing	solver.c	/^void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp)
 Postprocessing	solver.h	/^void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp);$/;"	p	signature:(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp)
 PrintInfo	poisson.c	/^void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag) {$/;"	f	signature:(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag)
@@ -145,7 +145,7 @@ PrintInfo	poisson.c	/^void PrintInfo(Problem prob, Mesh mesh, Indices indices, O
 Pro	obsolete/obsolete.c	/^void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
 Pro	solver.c	/^void Pro(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
 Pro_delayed	solver.c	/^void Pro_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem) $/;"	f	signature:(Indices *indices, Operator *op, Level *bottomLevel, Level *topLevel, Assembly *assem)
-Problem	problem.h	/^} Problem;$/;"	t	typeref:struct:__anon20
+Problem	problem.h	/^} Problem;$/;"	t	typeref:struct:__anon13
 ProlongationOperator	matbuild.c	/^void ProlongationOperator(Array2d pro) {$/;"	f	signature:(Array2d pro)
 Res	obsolete/obsolete.c	/^void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
 Res	solver.c	/^void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {$/;"	f	signature:(Indices *indices, Operator *op, int factor, Assembly *assem)
@@ -155,7 +155,7 @@ ResidualRestriction	obsolete/obsolete.c	/^void ResidualRestriction(double **f, d
 RestrictionOperator	matbuild.c	/^void RestrictionOperator(Array2d res) {$/;"	f	signature:(Array2d res)
 SOL	poisson.c	11;"	d	file:
 SOLfunc	problem.c	/^double SOLfunc(double x, double y) {$/;"	f	signature:(double x, double y)
-SOLfunc	problem.h	/^	double (*SOLfunc)(double x, double y);$/;"	m	struct:__anon20	access:public
+SOLfunc	problem.h	/^	double (*SOLfunc)(double x, double y);$/;"	m	struct:__anon13	access:public
 SUM_ARRAY	array.c	3;"	d	file:
 SetArray2d	array.c	/^void SetArray2d(ArrayInt2d *a, double v) {$/;"	f	signature:(ArrayInt2d *a, double v)
 SetArray2d	array.h	/^void SetArray2d(ArrayInt2d *a, double v);$/;"	p	signature:(ArrayInt2d *a, double v)
@@ -178,19 +178,19 @@ SetUpSolver	solver.c	/^void SetUpSolver(Indices *indices, Solver *solver, Cycle 
 SetUpSolver	solver.h	/^void SetUpSolver(Indices *indices, Solver *solver, Cycle c);$/;"	p	signature:(Indices *indices, Solver *solver, Cycle c)
 Solve	solver.c	/^void Solve(Solver *solver){$/;"	f	signature:(Solver *solver)
 Solve	solver.h	/^void Solve(Solver *solver);$/;"	p	signature:(Solver *solver)
-Solver	solver.h	/^} Solver;$/;"	t	typeref:struct:__anon13
+Solver	solver.h	/^} Solver;$/;"	t	typeref:struct:__anon19
 Subtract	obsolete/obsolete.c	/^void Subtract(double **u, double **r, int *n) {$/;"	f	signature:(double **u, double **r, int *n)
 SweepAndRestrict	obsolete/obsolete.c	/^void SweepAndRestrict(double **u, double **f, double **r, double *As, double w, int v,int *n) {$/;"	f	signature:(double **u, double **f, double **r, double *As, double w, int v,int *n)
 TARGET	makefile	/^TARGET     = poisson$/;"	m
 TransformFunc	mesh.c	/^double TransformFunc(double *bounds, double length, double xi) {$/;"	f	signature:(double *bounds, double length, double xi)
 U	matbuild.c	8;"	d	file:
 U	solver.c	10;"	d	file:
-UNIFORM	mesh.h	/^typedef enum {UNIFORM, NONUNIFORM} MeshType;$/;"	e	enum:__anon15
+UNIFORM	mesh.h	/^typedef enum {UNIFORM, NONUNIFORM} MeshType;$/;"	e	enum:__anon8
 UniformMesh	mesh.c	/^int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension) {$/;"	f	signature:(double ***pcoord, int *n, double *bounds, double *h, int dimension)
 UpdateBC	obsolete/obsolete.c	/^void UpdateBC(double **coord, double *u, int *n) {$/;"	f	signature:(double **coord, double *u, int *n)
 UpdateBC	obsolete/obsolete.c	/^void UpdateBC(double **coord, double *u, int *n);$/;"	p	file:	signature:(double **coord, double *u, int *n)
 UpdateRHS	obsolete/obsolete.c	/^void UpdateRHS(double *A, double **u, double **r, int *n) {$/;"	f	signature:(double *A, double **u, double **r, int *n)
-VCYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon12
+VCYCLE	solver.h	/^typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;$/;"	e	enum:__anon18
 Vcycle	obsolete/obsolete.c	/^void Vcycle(double **u, double **f, double **r, double *As, double w, int *v,int levels,int *n) {$/;"	f	signature:(double **u, double **f, double **r, double *As, double w, int *v,int levels,int *n)
 ViewGridTransferMatsInfo	poisson.c	/^void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc) {$/;"	f	signature:(Assembly assem, int view, int cyc)
 ViewGridTransferMatsInfo	poisson.c	/^void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);$/;"	p	file:	signature:(Assembly assem, int view, int cyc)
@@ -216,51 +216,60 @@ _MATBUILD_H_	obsolete/matbuild.h	7;"	d
 _MESH_H_	mesh.h	6;"	d
 _PROBLEM_H_	problem.h	6;"	d
 _SOLVER_H_	solver.h	6;"	d
-__anon10::pro	solver.h	/^	Array2d	*pro;$/;"	m	struct:__anon10	access:public
-__anon10::res	solver.h	/^	Array2d	*res;$/;"	m	struct:__anon10	access:public
-__anon10::totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon10	access:public
-__anon11::A	solver.h	/^	Mat	*A;$/;"	m	struct:__anon11	access:public
-__anon11::A2	solver.h	/^	Mat	*A2;$/;"	m	struct:__anon11	access:public
-__anon11::b	solver.h	/^	Vec	*b;$/;"	m	struct:__anon11	access:public
-__anon11::bottomIS	solver.h	/^	IS	*bottomIS;$/;"	m	struct:__anon11	access:public
-__anon11::levels	solver.h	/^	int	levels;$/;"	m	struct:__anon11	access:public
-__anon11::pro	solver.h	/^	Mat 	*pro;$/;"	m	struct:__anon11	access:public
-__anon11::res	solver.h	/^	Mat 	*res;$/;"	m	struct:__anon11	access:public
-__anon11::subFineIS	solver.h	/^	IS	*subFineIS;$/;"	m	struct:__anon11	access:public
-__anon11::topIS	solver.h	/^	IS	*topIS;$/;"	m	struct:__anon11	access:public
-__anon11::u	solver.h	/^	Vec	*u;$/;"	m	struct:__anon11	access:public
-__anon13::assem	solver.h	/^	Assembly	*assem;$/;"	m	struct:__anon13	access:public
-__anon13::cycle	solver.h	/^	Cycle		cycle;$/;"	m	struct:__anon13	access:public
-__anon13::numIter	solver.h	/^	int		numIter;$/;"	m	struct:__anon13	access:public
-__anon13::rnorm	solver.h	/^	double		*rnorm;$/;"	m	struct:__anon13	access:public
-__anon13::v	solver.h	/^	int		v[2];$/;"	m	struct:__anon13	access:public
-__anon14::errData	solver.h	/^	FILE	*errData;$/;"	m	struct:__anon14	access:public
-__anon14::error	solver.h	/^	double	error[3];$/;"	m	struct:__anon14	access:public
-__anon14::resData	solver.h	/^	FILE	*resData;$/;"	m	struct:__anon14	access:public
-__anon14::solData	solver.h	/^	FILE	*solData;$/;"	m	struct:__anon14	access:public
-__anon16::MetricCoefficients	mesh.h	/^	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);$/;"	m	struct:__anon16	access:public
-__anon16::bounds	mesh.h	/^	double	bounds[DIMENSION*2];$/;"	m	struct:__anon16	access:public
-__anon16::coord	mesh.h	/^	double	**coord;$/;"	m	struct:__anon16	access:public
-__anon16::h	mesh.h	/^	double	h;$/;"	m	struct:__anon16	access:public
-__anon16::n	mesh.h	/^	int	n[DIMENSION];$/;"	m	struct:__anon16	access:public
-__anon17::global	obsolete/matbuild.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon17	access:public
-__anon17::grid	obsolete/matbuild.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon17	access:public
-__anon17::gridId	obsolete/matbuild.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon17	access:public
-__anon17::grids	obsolete/matbuild.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon17	access:public
-__anon17::h	obsolete/matbuild.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon17	access:public
-__anon17::ranges	obsolete/matbuild.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon17	access:public
-__anon18::coarseningFactor	obsolete/matbuild.h	/^	int	coarseningFactor;$/;"	m	struct:__anon18	access:public
-__anon18::level	obsolete/matbuild.h	/^	Level	*level;$/;"	m	struct:__anon18	access:public
-__anon18::levels	obsolete/matbuild.h	/^	int	levels;$/;"	m	struct:__anon18	access:public
-__anon18::totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon18	access:public
-__anon19::pro	obsolete/matbuild.h	/^	Array2d	*pro;$/;"	m	struct:__anon19	access:public
-__anon19::res	obsolete/matbuild.h	/^	Array2d	*res;$/;"	m	struct:__anon19	access:public
-__anon19::totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon19	access:public
+__anon10::global	obsolete/matbuild.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon10	access:public
+__anon10::grid	obsolete/matbuild.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon10	access:public
+__anon10::gridId	obsolete/matbuild.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon10	access:public
+__anon10::grids	obsolete/matbuild.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon10	access:public
+__anon10::h	obsolete/matbuild.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon10	access:public
+__anon10::ranges	obsolete/matbuild.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon10	access:public
+__anon11::coarseningFactor	obsolete/matbuild.h	/^	int	coarseningFactor;$/;"	m	struct:__anon11	access:public
+__anon11::level	obsolete/matbuild.h	/^	Level	*level;$/;"	m	struct:__anon11	access:public
+__anon11::levels	obsolete/matbuild.h	/^	int	levels;$/;"	m	struct:__anon11	access:public
+__anon11::totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon11	access:public
+__anon12::pro	obsolete/matbuild.h	/^	Array2d	*pro;$/;"	m	struct:__anon12	access:public
+__anon12::res	obsolete/matbuild.h	/^	Array2d	*res;$/;"	m	struct:__anon12	access:public
+__anon12::totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon12	access:public
+__anon13::Ffunc	problem.h	/^	double (*Ffunc)(double x, double y);$/;"	m	struct:__anon13	access:public
+__anon13::OpA	problem.h	/^	void   (*OpA)(double *A, double *metrics, double *h);$/;"	m	struct:__anon13	access:public
+__anon13::SOLfunc	problem.h	/^	double (*SOLfunc)(double x, double y);$/;"	m	struct:__anon13	access:public
+__anon14::global	solver.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon14	access:public
+__anon14::grid	solver.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon14	access:public
+__anon14::gridId	solver.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon14	access:public
+__anon14::grids	solver.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon14	access:public
+__anon14::h	solver.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon14	access:public
+__anon14::ranges	solver.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon14	access:public
+__anon15::coarseningFactor	solver.h	/^	int	coarseningFactor;$/;"	m	struct:__anon15	access:public
+__anon15::level	solver.h	/^	Level	*level;$/;"	m	struct:__anon15	access:public
+__anon15::levels	solver.h	/^	int	levels;$/;"	m	struct:__anon15	access:public
+__anon15::totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon15	access:public
+__anon16::pro	solver.h	/^	Array2d	*pro;$/;"	m	struct:__anon16	access:public
+__anon16::res	solver.h	/^	Array2d	*res;$/;"	m	struct:__anon16	access:public
+__anon16::totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon16	access:public
+__anon17::A	solver.h	/^	Mat	*A;$/;"	m	struct:__anon17	access:public
+__anon17::A2	solver.h	/^	Mat	*A2;$/;"	m	struct:__anon17	access:public
+__anon17::b	solver.h	/^	Vec	*b;$/;"	m	struct:__anon17	access:public
+__anon17::bottomIS	solver.h	/^	IS	*bottomIS;$/;"	m	struct:__anon17	access:public
+__anon17::levels	solver.h	/^	int	levels;$/;"	m	struct:__anon17	access:public
+__anon17::pro	solver.h	/^	Mat 	*pro;$/;"	m	struct:__anon17	access:public
+__anon17::res	solver.h	/^	Mat 	*res;$/;"	m	struct:__anon17	access:public
+__anon17::subFineIS	solver.h	/^	IS	*subFineIS;$/;"	m	struct:__anon17	access:public
+__anon17::topIS	solver.h	/^	IS	*topIS;$/;"	m	struct:__anon17	access:public
+__anon17::u	solver.h	/^	Vec	*u;$/;"	m	struct:__anon17	access:public
+__anon19::assem	solver.h	/^	Assembly	*assem;$/;"	m	struct:__anon19	access:public
+__anon19::cycle	solver.h	/^	Cycle		cycle;$/;"	m	struct:__anon19	access:public
+__anon19::grids	solver.h	/^	int		grids;$/;"	m	struct:__anon19	access:public
+__anon19::moreInfo	solver.h	/^	int		moreInfo; \/\/ 0: False; 1: True$/;"	m	struct:__anon19	access:public
+__anon19::numIter	solver.h	/^	int		numIter;$/;"	m	struct:__anon19	access:public
+__anon19::rNormGlobal	solver.h	/^	double		*rNormGlobal;$/;"	m	struct:__anon19	access:public
+__anon19::rNormGrid	solver.h	/^	double		**rNormGrid;$/;"	m	struct:__anon19	access:public
+__anon19::rnorm	solver.h	/^	double		*rnorm;$/;"	m	struct:__anon19	access:public
+__anon19::v	solver.h	/^	int		v[2];$/;"	m	struct:__anon19	access:public
 __anon1::end	array.h	/^	int end;$/;"	m	struct:__anon1	access:public
 __anon1::start	array.h	/^	int start;$/;"	m	struct:__anon1	access:public
-__anon20::Ffunc	problem.h	/^	double (*Ffunc)(double x, double y);$/;"	m	struct:__anon20	access:public
-__anon20::OpA	problem.h	/^	void   (*OpA)(double *A, double *metrics, double *h);$/;"	m	struct:__anon20	access:public
-__anon20::SOLfunc	problem.h	/^	double (*SOLfunc)(double x, double y);$/;"	m	struct:__anon20	access:public
+__anon20::errData	solver.h	/^	FILE	*errData;$/;"	m	struct:__anon20	access:public
+__anon20::error	solver.h	/^	double	error[3];$/;"	m	struct:__anon20	access:public
+__anon20::resData	solver.h	/^	FILE	*resData;$/;"	m	struct:__anon20	access:public
+__anon20::solData	solver.h	/^	FILE	*solData;$/;"	m	struct:__anon20	access:public
 __anon2::data	array.h	/^	double* data;$/;"	m	struct:__anon2	access:public
 __anon2::ni	array.h	/^	int ni;$/;"	m	struct:__anon2	access:public
 __anon2::nj	array.h	/^	int nj;$/;"	m	struct:__anon2	access:public
@@ -281,24 +290,19 @@ __anon7::data	array.h	/^	double*	data;$/;"	m	struct:__anon7	access:public
 __anon7::indices	array.h	/^	int*	indices;$/;"	m	struct:__anon7	access:public
 __anon7::ni	array.h	/^	int	ni;$/;"	m	struct:__anon7	access:public
 __anon7::nj	array.h	/^	int	nj;$/;"	m	struct:__anon7	access:public
-__anon8::global	solver.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon8	access:public
-__anon8::grid	solver.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon8	access:public
-__anon8::gridId	solver.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon8	access:public
-__anon8::grids	solver.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon8	access:public
-__anon8::h	solver.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon8	access:public
-__anon8::ranges	solver.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon8	access:public
-__anon9::coarseningFactor	solver.h	/^	int	coarseningFactor;$/;"	m	struct:__anon9	access:public
-__anon9::level	solver.h	/^	Level	*level;$/;"	m	struct:__anon9	access:public
-__anon9::levels	solver.h	/^	int	levels;$/;"	m	struct:__anon9	access:public
-__anon9::totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon9	access:public
-assem	solver.h	/^	Assembly	*assem;$/;"	m	struct:__anon13	access:public
-b	solver.h	/^	Vec	*b;$/;"	m	struct:__anon11	access:public
-bottomIS	solver.h	/^	IS	*bottomIS;$/;"	m	struct:__anon11	access:public
-bounds	mesh.h	/^	double	bounds[DIMENSION*2];$/;"	m	struct:__anon16	access:public
-coarseningFactor	obsolete/matbuild.h	/^	int	coarseningFactor;$/;"	m	struct:__anon18	access:public
-coarseningFactor	solver.h	/^	int	coarseningFactor;$/;"	m	struct:__anon9	access:public
-coord	mesh.h	/^	double	**coord;$/;"	m	struct:__anon16	access:public
-cycle	solver.h	/^	Cycle		cycle;$/;"	m	struct:__anon13	access:public
+__anon9::MetricCoefficients	mesh.h	/^	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);$/;"	m	struct:__anon9	access:public
+__anon9::bounds	mesh.h	/^	double	bounds[DIMENSION*2];$/;"	m	struct:__anon9	access:public
+__anon9::coord	mesh.h	/^	double	**coord;$/;"	m	struct:__anon9	access:public
+__anon9::h	mesh.h	/^	double	h;$/;"	m	struct:__anon9	access:public
+__anon9::n	mesh.h	/^	int	n[DIMENSION];$/;"	m	struct:__anon9	access:public
+assem	solver.h	/^	Assembly	*assem;$/;"	m	struct:__anon19	access:public
+b	solver.h	/^	Vec	*b;$/;"	m	struct:__anon17	access:public
+bottomIS	solver.h	/^	IS	*bottomIS;$/;"	m	struct:__anon17	access:public
+bounds	mesh.h	/^	double	bounds[DIMENSION*2];$/;"	m	struct:__anon9	access:public
+coarseningFactor	obsolete/matbuild.h	/^	int	coarseningFactor;$/;"	m	struct:__anon11	access:public
+coarseningFactor	solver.h	/^	int	coarseningFactor;$/;"	m	struct:__anon15	access:public
+coord	mesh.h	/^	double	**coord;$/;"	m	struct:__anon9	access:public
+cycle	solver.h	/^	Cycle		cycle;$/;"	m	struct:__anon19	access:public
 data	array.h	/^	double*	data;$/;"	m	struct:__anon7	access:public
 data	array.h	/^	double* data;$/;"	m	struct:__anon2	access:public
 data	array.h	/^	double* data;$/;"	m	struct:__anon3	access:public
@@ -306,8 +310,8 @@ data	array.h	/^	int* data;$/;"	m	struct:__anon4	access:public
 data	array.h	/^	int* data;$/;"	m	struct:__anon5	access:public
 data	array.h	/^	int* data;$/;"	m	struct:__anon6	access:public
 end	array.h	/^	int end;$/;"	m	struct:__anon1	access:public
-errData	solver.h	/^	FILE	*errData;$/;"	m	struct:__anon14	access:public
-error	solver.h	/^	double	error[3];$/;"	m	struct:__anon14	access:public
+errData	solver.h	/^	FILE	*errData;$/;"	m	struct:__anon20	access:public
+error	solver.h	/^	double	error[3];$/;"	m	struct:__anon20	access:public
 fillJacobians	solver.c	/^void fillJacobians(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A)
 fillProlongationPortion	solver.c	/^void fillProlongationPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A)
 fillRestrictionPortion	solver.c	/^void fillRestrictionPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A)
@@ -316,17 +320,18 @@ free2dArray	array.h	/^extern void free2dArray(double ***a);$/;"	p	signature:(dou
 free3dArray	array.c	/^void free3dArray(double ****a) {$/;"	f	signature:(double ****a)
 free3dArray	array.h	/^extern void free3dArray(double ****a);$/;"	p	signature:(double ****a)
 getSubIS	solver.c	/^void getSubIS(Level *level, Level *subLevel, IS *indexSet) {$/;"	f	signature:(Level *level, Level *subLevel, IS *indexSet)
-global	obsolete/matbuild.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon17	access:public
-global	solver.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon8	access:public
-grid	obsolete/matbuild.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon17	access:public
-grid	solver.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon8	access:public
-gridId	obsolete/matbuild.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon17	access:public
-gridId	solver.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon8	access:public
-grids	obsolete/matbuild.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon17	access:public
-grids	solver.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon8	access:public
-h	mesh.h	/^	double	h;$/;"	m	struct:__anon16	access:public
-h	obsolete/matbuild.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon17	access:public
-h	solver.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon8	access:public
+global	obsolete/matbuild.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon10	access:public
+global	solver.h	/^	ArrayInt2d	global;  \/\/ global to grid map$/;"	m	struct:__anon14	access:public
+grid	obsolete/matbuild.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon10	access:public
+grid	solver.h	/^	ArrayInt2d	*grid;   \/\/ grid to global map$/;"	m	struct:__anon14	access:public
+gridId	obsolete/matbuild.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon10	access:public
+gridId	solver.h	/^	int		*gridId; \/\/ Grid Id of each grid in a given level$/;"	m	struct:__anon14	access:public
+grids	obsolete/matbuild.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon10	access:public
+grids	solver.h	/^	int		grids;   \/\/ num of grids in this level$/;"	m	struct:__anon14	access:public
+grids	solver.h	/^	int		grids;$/;"	m	struct:__anon19	access:public
+h	mesh.h	/^	double	h;$/;"	m	struct:__anon9	access:public
+h	obsolete/matbuild.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon10	access:public
+h	solver.h	/^	double		(*h)[2]; \/\/ Delta h in reference domain$/;"	m	struct:__anon14	access:public
 indices	array.h	/^	int*	indices;$/;"	m	struct:__anon7	access:public
 insertSubMatValues	obsolete/obsolete.c	/^void insertSubMatValues(Mat *subA, int nrows, Mat *A, int i0, int j0) {$/;"	f	signature:(Mat *subA, int nrows, Mat *A, int i0, int j0)
 insertSubVecValues	obsolete/obsolete.c	/^void insertSubVecValues(Vec *subV, Vec *V, int i0) {$/;"	f	signature:(Vec *subV, Vec *V, int i0)
@@ -336,15 +341,15 @@ ipow	poisson.c	/^static int ipow(int base, int exp);$/;"	p	file:	signature:(int 
 ipow	solver.c	/^static int ipow(int base, int exp) {$/;"	f	file:	signature:(int base, int exp)
 isGLOBALtoGRID	mesh.c	11;"	d	file:
 isGRIDtoGLOBAL	mesh.c	10;"	d	file:
-level	obsolete/matbuild.h	/^	Level	*level;$/;"	m	struct:__anon18	access:public
-level	solver.h	/^	Level	*level;$/;"	m	struct:__anon9	access:public
+level	obsolete/matbuild.h	/^	Level	*level;$/;"	m	struct:__anon11	access:public
+level	solver.h	/^	Level	*level;$/;"	m	struct:__anon15	access:public
 levelMatrixA	obsolete/obsolete.c	/^Mat levelMatrixA(Array2d metrics, ArrayInt2d IsStencil, int n, int l) {$/;"	f	signature:(Array2d metrics, ArrayInt2d IsStencil, int n, int l)
 levelMatrixA	solver.c	/^void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A)
 levelMatrixA1	solver.c	/^void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A)
 levelMatrixA2	solver.c	/^void levelMatrixA2(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A)
-levels	obsolete/matbuild.h	/^	int	levels;$/;"	m	struct:__anon18	access:public
-levels	solver.h	/^	int	levels;$/;"	m	struct:__anon11	access:public
-levels	solver.h	/^	int	levels;$/;"	m	struct:__anon9	access:public
+levels	obsolete/matbuild.h	/^	int	levels;$/;"	m	struct:__anon11	access:public
+levels	solver.h	/^	int	levels;$/;"	m	struct:__anon15	access:public
+levels	solver.h	/^	int	levels;$/;"	m	struct:__anon17	access:public
 levelvecb	obsolete/obsolete.c	/^void levelvecb(Vec *b, double *f) {$/;"	f	signature:(Vec *b, double *f)
 levelvecb	solver.c	/^void levelvecb(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b) {$/;"	f	signature:(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Vec *b)
 main	poisson.c	/^int main(int argc, char *argv[]) {$/;"	f	signature:(int argc, char *argv[])
@@ -360,9 +365,10 @@ mapping	solver.h	/^void mapping(Indices *indices, int mappingStyleflag);$/;"	p	s
 mappingGridAfterGrid	matbuild.c	/^void mappingGridAfterGrid(Indices *indices) {$/;"	f	signature:(Indices *indices)
 mappingLocalGridAfterGrid	matbuild.c	/^void mappingLocalGridAfterGrid(Indices *indices) {$/;"	f	signature:(Indices *indices)
 mappingThroughGrids	matbuild.c	/^void mappingThroughGrids(Indices *indices) {$/;"	f	signature:(Indices *indices)
+moreInfo	solver.h	/^	int		moreInfo; \/\/ 0: False; 1: True$/;"	m	struct:__anon19	access:public
 myMonitor	obsolete/obsolete.c	/^PetscErrorCode myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm);$/;"	p	file:	signature:(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm)
 myMonitor	solver.c	/^PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm) {$/;"	f	signature:(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm)
-n	mesh.h	/^	int	n[DIMENSION];$/;"	m	struct:__anon16	access:public
+n	mesh.h	/^	int	n[DIMENSION];$/;"	m	struct:__anon9	access:public
 ni	array.h	/^	int	ni;$/;"	m	struct:__anon7	access:public
 ni	array.h	/^	int ni;$/;"	m	struct:__anon2	access:public
 ni	array.h	/^	int ni;$/;"	m	struct:__anon3	access:public
@@ -376,38 +382,40 @@ nj	array.h	/^	int nj;$/;"	m	struct:__anon5	access:public
 nj	array.h	/^	int nj;$/;"	m	struct:__anon6	access:public
 nk	array.h	/^	int nk;$/;"	m	struct:__anon3	access:public
 nk	array.h	/^	int nk;$/;"	m	struct:__anon6	access:public
-numIter	solver.h	/^	int		numIter;$/;"	m	struct:__anon13	access:public
-pro	obsolete/matbuild.h	/^	Array2d	*pro;$/;"	m	struct:__anon19	access:public
-pro	solver.h	/^	Array2d	*pro;$/;"	m	struct:__anon10	access:public
-pro	solver.h	/^	Mat 	*pro;$/;"	m	struct:__anon11	access:public
+numIter	solver.h	/^	int		numIter;$/;"	m	struct:__anon19	access:public
+pro	obsolete/matbuild.h	/^	Array2d	*pro;$/;"	m	struct:__anon12	access:public
+pro	solver.h	/^	Array2d	*pro;$/;"	m	struct:__anon16	access:public
+pro	solver.h	/^	Mat 	*pro;$/;"	m	struct:__anon17	access:public
 prolongStencil2D	obsolete/obsolete.c	/^void prolongStencil2D(double ***IH2h, int m, int n);$/;"	p	file:	signature:(double ***IH2h, int m, int n)
 prolongStencil2D	obsolete/obsolete.c	/^void prolongStencil2D(double ***IH2h, int m, int n){$/;"	f	signature:(double ***IH2h, int m, int n)
 prolongationMatrix	obsolete/obsolete.c	/^Mat prolongationMatrix(double **Is, int m, int nh, int nH) {$/;"	f	signature:(double **Is, int m, int nh, int nH)
 prolongationMatrixMPI	obsolete/obsolete.c	/^Mat prolongationMatrixMPI(double **Is, int m, IsRange rangeh, IsRange rangeH, ArrayInt2d IsProStencil) {$/;"	f	signature:(double **Is, int m, IsRange rangeh, IsRange rangeH, ArrayInt2d IsProStencil)
-ranges	obsolete/matbuild.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon17	access:public
-ranges	solver.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon8	access:public
-res	obsolete/matbuild.h	/^	Array2d	*res;$/;"	m	struct:__anon19	access:public
-res	solver.h	/^	Array2d	*res;$/;"	m	struct:__anon10	access:public
-res	solver.h	/^	Mat 	*res;$/;"	m	struct:__anon11	access:public
-resData	solver.h	/^	FILE	*resData;$/;"	m	struct:__anon14	access:public
+rNormGlobal	solver.h	/^	double		*rNormGlobal;$/;"	m	struct:__anon19	access:public
+rNormGrid	solver.h	/^	double		**rNormGrid;$/;"	m	struct:__anon19	access:public
+ranges	obsolete/matbuild.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon10	access:public
+ranges	solver.h	/^	int		*ranges; \/\/ ranges of global indices processes$/;"	m	struct:__anon14	access:public
+res	obsolete/matbuild.h	/^	Array2d	*res;$/;"	m	struct:__anon12	access:public
+res	solver.h	/^	Array2d	*res;$/;"	m	struct:__anon16	access:public
+res	solver.h	/^	Mat 	*res;$/;"	m	struct:__anon17	access:public
+resData	solver.h	/^	FILE	*resData;$/;"	m	struct:__anon20	access:public
 restrictStencil2D	obsolete/obsolete.c	/^void restrictStencil2D(double ***Ih2H, int m, int n);$/;"	p	file:	signature:(double ***Ih2H, int m, int n)
 restrictStencil2D	obsolete/obsolete.c	/^void restrictStencil2D(double ***Ih2H, int m, int n){$/;"	f	signature:(double ***Ih2H, int m, int n)
 restrictionMatrix	obsolete/obsolete.c	/^Mat restrictionMatrix(double **Is, int m, int nh, int nH) {$/;"	f	signature:(double **Is, int m, int nh, int nH)
 restrictionMatrixMPI	obsolete/obsolete.c	/^Mat restrictionMatrixMPI(double **Is, int m, IsRange rangeh, IsRange rangeH, ArrayInt2d IsResStencil) {$/;"	f	signature:(double **Is, int m, IsRange rangeh, IsRange rangeH, ArrayInt2d IsResStencil)
 restrictionStencilIndices	obsolete/obsolete.c	/^void restrictionStencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels);$/;"	p	file:	signature:(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsResStencil, IsRange *range, int levels)
-rnorm	solver.h	/^	double		*rnorm;$/;"	m	struct:__anon13	access:public
-solData	solver.h	/^	FILE	*solData;$/;"	m	struct:__anon14	access:public
+rnorm	solver.h	/^	double		*rnorm;$/;"	m	struct:__anon19	access:public
+solData	solver.h	/^	FILE	*solData;$/;"	m	struct:__anon20	access:public
 start	array.h	/^	int start;$/;"	m	struct:__anon1	access:public
 stencilIndices	obsolete/obsolete.c	/^void stencilIndices(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels);$/;"	p	file:	signature:(ArrayInt2d *IsGlobalToGrid, ArrayInt2d *IsGridToGlobal, ArrayInt2d *IsStencil, IsRange *range, int levels)
-subFineIS	solver.h	/^	IS	*subFineIS;$/;"	m	struct:__anon11	access:public
+subFineIS	solver.h	/^	IS	*subFineIS;$/;"	m	struct:__anon17	access:public
 subIS_based_on_grids	solver.c	/^void subIS_based_on_grids(Level *level, int length, int *idg, IS *indexSet) {$/;"	f	signature:(Level *level, int length, int *idg, IS *indexSet)
-topIS	solver.h	/^	IS	*topIS;$/;"	m	struct:__anon11	access:public
-totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon18	access:public
-totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon19	access:public
-totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon10	access:public
-totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon9	access:public
+topIS	solver.h	/^	IS	*topIS;$/;"	m	struct:__anon17	access:public
+totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon11	access:public
+totalGrids	obsolete/matbuild.h	/^	int	totalGrids;$/;"	m	struct:__anon12	access:public
+totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon15	access:public
+totalGrids	solver.h	/^	int	totalGrids;$/;"	m	struct:__anon16	access:public
 totalUnknowns	poisson.c	/^int totalUnknowns(int *n, int totalGrids) {$/;"	f	signature:(int *n, int totalGrids)
 totalUnknowns	poisson.c	/^int totalUnknowns(int *n, int totalGrids);$/;"	p	file:	signature:(int *n, int totalGrids)
-u	solver.h	/^	Vec	*u;$/;"	m	struct:__anon11	access:public
-v	solver.h	/^	int		v[2];$/;"	m	struct:__anon13	access:public
+u	solver.h	/^	Vec	*u;$/;"	m	struct:__anon17	access:public
+v	solver.h	/^	int		v[2];$/;"	m	struct:__anon19	access:public
 vecb	obsolete/obsolete.c	/^void vecb(Vec *b, Array2d f, double **opIh2H, int n0, int levels) {$/;"	f	signature:(Vec *b, Array2d f, double **opIh2H, int n0, int levels)
