@@ -5,7 +5,7 @@
 -iter 10
 -grids 3
 -levels 1
-# cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle, 3: D1-Cycle]
+# cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle, 3: D1-Cycle, 4: D2-Cycle]
 -cycle 3
 # map: [0: Grid-After-Grid, 1: Through-Grids, 2: Local-Grid-After-Grid]
 -map 2

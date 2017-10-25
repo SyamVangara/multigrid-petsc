@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
 
-	if (indices.levels>1 && cyc==3) {
+	if (indices.levels>1 && (cyc==3 || cyc==4)) {
 		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling"); 
 		PetscFinalize();
 		return 0;
@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
 	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
 	if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);
 	if (cyc == 3) SetUpSolver(&indices, &solver, D1CYCLE);
+	if (cyc == 4) SetUpSolver(&indices, &solver, D2CYCLE);
 
 //	ViewSolverInfo(indices, solver);
 
@@ -175,12 +176,13 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
 	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
 	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
+	if (cyc == 4) printf("Cycle :				D2-Cycle\n");
 	if (cyc == 3) printf("Cycle :				D1-Cycle\n");
 	if (cyc == 2) printf("Cycle :				E-Cycle\n");
 	if (cyc == 1) printf("Cycle :				I-Cycle\n");
 	if (cyc == 0) printf("Cycle :				V-Cycle\n");
 	
-	if (cyc == 3) printf("Number of smoothing steps :	%d per iteration \n", solver.v[0]);
+	if (cyc == 3 || cyc == 4) printf("Number of smoothing steps :	%d per iteration \n", solver.v[0]);
 	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
 	if (cyc == 0) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
 	printf("Number of processes:		%d\n",procs);
