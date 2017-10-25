@@ -9,6 +9,7 @@ data
 *.e
 *.sh
 valgrind*
+tags
 
 # Compiled source #
 ###################

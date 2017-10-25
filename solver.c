@@ -29,16 +29,40 @@ void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 	if (cycle == ECYCLE) assem->A2 = malloc((assem->levels)*sizeof(Mat)); 
 	assem->u = malloc((assem->levels)*sizeof(Vec));
 	assem->b = malloc((assem->levels)*sizeof(Vec));
-	if (cycle == D1CYCLE) {
+	if (cycle != D1CYCLE) {
+		assem->res = malloc((assem->levels-1)*sizeof(Mat));
+		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
+	} else if (assem->moreInfo == 0) {
 		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
 		assem->topIS	= malloc((assem->levels)*sizeof(IS));
-		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
+//		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
 		assem->res = malloc((assem->levels)*sizeof(Mat));
 		assem->pro = malloc((assem->levels)*sizeof(Mat));
 	} else {
-		assem->res = malloc((assem->levels-1)*sizeof(Mat));
-		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
+		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
+		assem->topIS	= malloc((assem->levels)*sizeof(IS));
+//		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
+		assem->gridIS	= malloc((assem->levels)*sizeof(IS*));
+		for (int i=0; i<assem->levels; i++) {
+			assem->gridIS[i] = malloc((indices->level[i].grids)*sizeof(IS));
+		}
+		assem->res = malloc((assem->levels)*sizeof(Mat));
+		assem->pro = malloc((assem->levels)*sizeof(Mat));
 	}
+//	if (cycle == D1CYCLE) {
+//		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
+//		assem->topIS	= malloc((assem->levels)*sizeof(IS));
+////		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
+//		assem->gridIS	= malloc((assem->levels)*sizeof(IS*));
+//		for (int i=0; i<assem->levels; i++) {
+//			assem->gridIS[i] = malloc((indices->level[i].grids)*sizeof(IS));
+//		}
+//		assem->res = malloc((assem->levels)*sizeof(Mat));
+//		assem->pro = malloc((assem->levels)*sizeof(Mat));
+//	} else {
+//		assem->res = malloc((assem->levels-1)*sizeof(Mat));
+//		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
+//	}
 }
 
 void DestroyAssembly(Assembly *assem, Cycle cycle) 
@@ -69,11 +93,19 @@ void DestroyAssembly(Assembly *assem, Cycle cycle)
 	if (cycle == ECYCLE) free(assem->A2); 
 	free(assem->b);
 	free(assem->u);
-	if (cycle == D1CYCLE) 
-	{
+	if (cycle != D1CYCLE) return;
+	if (assem->moreInfo == 0) {
 		free(assem->bottomIS);
 		free(assem->topIS);
-		free(assem->subFineIS);
+//		free(assem->subFineIS);
+	} else {
+		free(assem->bottomIS);
+		free(assem->topIS);
+		for (int i=0; i<assem->levels; i++) {
+			free(assem->gridIS[i]);
+		}
+		free(assem->gridIS);
+//		free(assem->subFineIS);
 	}
 }
 
@@ -83,7 +115,8 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 
 	solver->cycle = cyc;
 //	solver->moreInfo = moreInfo;
-	solver->assem = malloc(sizeof(Assembly));		
+	solver->assem = malloc(sizeof(Assembly));
+	solver->assem->moreInfo = solver->moreInfo;	
 	SetUpAssembly(indices, solver->assem, solver->cycle);
 	solver->rnorm = malloc((numIter+1)*sizeof(double));
 	if ((solver->moreInfo != 0) && (cyc == D1CYCLE)) {
@@ -1135,15 +1168,15 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 
 	if (solver->cycle == D1CYCLE) {
 		Level	topLevel, bottomLevel;
-		Level	subFineLevel; // To be extracted from topLevel
+//		Level	subFineLevel; // To be extracted from topLevel
 		
 		CreateSubLevel(indices->level, &topLevel, 0);
 		ComputeSubMaps(indices->level, &topLevel);
 		getSubIS(indices->level, &topLevel, assem->topIS);
 
-		CreateSubLevel(&topLevel, &subFineLevel, 3);
-		ComputeSubMaps(&topLevel, &subFineLevel);
-		getSubIS(&topLevel, &subFineLevel, assem->subFineIS);
+//		CreateSubLevel(&topLevel, &subFineLevel, 3);
+//		ComputeSubMaps(&topLevel, &subFineLevel);
+//		getSubIS(&topLevel, &subFineLevel, assem->subFineIS);
 		
 		CreateSubLevel(indices->level, &bottomLevel, 2);
 		ComputeSubMaps(indices->level, &bottomLevel);
@@ -1153,10 +1186,13 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 		Pro_delayed(indices, op, &bottomLevel, &topLevel, assem);
 		
 		DestroySubLevel(&topLevel);
-		DestroySubLevel(&subFineLevel);
+//		DestroySubLevel(&subFineLevel);
 		DestroySubLevel(&bottomLevel);
-
-//		subIS_based_on_grids(indices->level, 1, indices->level->gridId, assem->fineIS);
+		if (solver->moreInfo != 0) {
+			for (int i=0; i<solver->grids; i++) {
+				subIS_based_on_grids(indices->level, 1, indices->level->gridId+i, assem->gridIS[0]+i);
+			}
+		}
 
 	} else if (assem->levels > 1) { 
 		Res(indices, op, factor, assem);
@@ -1664,7 +1700,8 @@ void MultigridD1cycle(Solver *solver) {
 	Vec	*u;
 	IS	*botIS;
 	IS	*topIS;
-	IS	*subFineIS;
+//	IS	*subFineIS;
+	IS	**gridIS;
 
 	Vec	r;
 	Vec	bBot;
@@ -1686,7 +1723,8 @@ void MultigridD1cycle(Solver *solver) {
 	u		= solver->assem->u;
 	botIS		= solver->assem->bottomIS;
 	topIS		= solver->assem->topIS;
-	subFineIS	= solver->assem->subFineIS;
+//	subFineIS	= solver->assem->subFineIS;
+	gridIS		= solver->assem->gridIS;
 	maxIter		= solver->numIter;
 	norm		= solver->rnorm;
 	v		= solver->v[0];
@@ -1696,6 +1734,10 @@ void MultigridD1cycle(Solver *solver) {
 	
 //	ISView(*topIS, PETSC_VIEWER_STDOUT_WORLD);
 //	ISView(*subFineIS, PETSC_VIEWER_STDOUT_WORLD);
+	
+//	for (int i=0; i<solver->grids; i++) {
+//		ISView(gridIS[0][i], PETSC_VIEWER_STDOUT_WORLD);
+//	}
 
 	PetscLogStage	stage, stageSolve;
 	

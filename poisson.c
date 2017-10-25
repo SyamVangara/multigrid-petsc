@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
 	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
-	
+
 	if (indices.levels>1 && cyc==3) {
 		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling"); 
 		PetscFinalize();

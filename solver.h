@@ -46,7 +46,9 @@ typedef struct {
 	Vec	*u;
 	IS	*bottomIS;
 	IS	*topIS;
-	IS	*subFineIS;
+	int	moreInfo; // 0:False; 1:True
+//	IS	*subFineIS;
+	IS	**gridIS; // moreNorm flag related info begins
 } Assembly;
 
 typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE} Cycle;
