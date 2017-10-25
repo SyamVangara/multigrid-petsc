@@ -9,6 +9,15 @@
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
 
+typedef struct {
+	Vec	rInner;
+	Vec	residualInner; // dummy for the sake of kspbuildresidual
+	Vec	*rGrid;
+	int	grids;
+	int	innerCount; // Inner sweep counter 
+	double	**rNormGrid;
+} D1cntx;
+
 static int ipow(int base, int exp) {
 
 	int result = 1;
@@ -1340,16 +1349,47 @@ void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver,
 	
 	if (solver->moreInfo != 0) {	
 		FILE	*rGlobalData;
-		rGlobalData = fopen("rGlobalData.dat","w");
+		rGlobalData = fopen("rGlobal.dat","w");
 		for (int i=0;i<solver->numIter*(solver->v[0]+1);i++) {
 			fprintf(rGlobalData,"%.16e ",solver->rNormGlobal[i]);
 		}
 		fprintf(rGlobalData,"\n");
 		fclose(rGlobalData);
+
+		char	fileName[12];
+		for (int i=0; i<solver->grids; i++) {
+			FILE	*rGridData;
+			sprintf(fileName, "rGrid%d.dat",i);
+			rGridData = fopen(fileName, "w");
+			for (int j=0; j<solver->numIter*(solver->v[0]+1); j++) {
+				fprintf(rGridData, "%.16e ", (solver->rNormGrid)[i][j]);
+			}
+			fprintf(rGridData, "\n");
+			fclose(rGridData);
+		}
 	}
 
 	DeleteArray2d(&u);
 	}
+}
+
+PetscErrorCode  rNormGridMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, void *toCastInfo) {
+	//Writes the l2-norm of residual at each iteration to an array
+	
+	D1cntx	*info;
+	info = (D1cntx*)toCastInfo;
+	KSPBuildResidual(ksp, NULL, info->rInner, &(info->residualInner));
+//	VecView(info->rInner, PETSC_VIEWER_STDOUT_WORLD);
+//	VecView(info->rGrid[2], PETSC_VIEWER_STDOUT_WORLD);
+	double	temp;
+	for (int i=0; i<info->grids; i++) {
+//		VecNorm(info->rGrid[i], NORM_2, (info->rNormGrid[i])+(info->innerCount));
+		VecDot(info->rGrid[i], info->rGrid[i], &temp);
+		info->rNormGrid[i][info->innerCount] = sqrt(temp);
+//		PetscPrintf(PETSC_COMM_WORLD,"count: %d; rNormGrid[%d] = %lf\n", info->innerCount, i, temp);
+	}
+	(info->innerCount)++;
+	return 0;
 }
 
 PetscErrorCode  myMonitor(KSP ksp, PetscInt n, PetscReal rnormAtn, double *rnorm) {
@@ -1738,6 +1778,18 @@ void MultigridD1cycle(Solver *solver) {
 //	for (int i=0; i<solver->grids; i++) {
 //		ISView(gridIS[0][i], PETSC_VIEWER_STDOUT_WORLD);
 //	}
+	
+	D1cntx	info;
+	if (solver->moreInfo != 0) {
+		info.innerCount = 0;
+		VecDuplicate(*b, &(info.rInner));
+		info.grids = solver->grids;
+		info.rGrid = malloc(info.grids*sizeof(Vec));
+		info.rNormGrid = solver->rNormGrid;
+		for (int i=0; i<solver->grids; i++) {
+			VecGetSubVector(info.rInner, gridIS[0][i], info.rGrid+i);
+		}
+	}
 
 	PetscLogStage	stage, stageSolve;
 	
@@ -1751,6 +1803,7 @@ void MultigridD1cycle(Solver *solver) {
 	} else {
 		KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
 		KSPSetResidualHistory(ksp, solver->rNormGlobal, maxIter*(v+1), PETSC_FALSE);
+		KSPMonitorSet(ksp, rNormGridMonitor, &info, NULL);
 	}
 	KSPSetTolerances(ksp, 1.e-16, PETSC_DEFAULT, PETSC_DEFAULT, v);
 	KSPSetFromOptions(ksp);
@@ -1793,19 +1846,32 @@ void MultigridD1cycle(Solver *solver) {
 	VecRestoreSubVector(*b, *botIS, &bBot);
 	VecRestoreSubVector(r, *topIS, &rTop);
 	VecRestoreSubVector(*u, *topIS, &uTop);
+	if (solver->moreInfo != 0) {
+		for (int i=0; i<info.grids; i++) {
+//			VecView(uGrid[i],PETSC_VIEWER_STDOUT_WORLD);
+			VecRestoreSubVector(info.rInner, gridIS[0][i], info.rGrid+i);
+		}
+		free(info.rGrid);
+		VecDestroy(&(info.rInner));
+	}
+
 	solver->numIter = iter;
 	chkNorm = norm[0];
 	for (int i=0;i<solver->numIter+1;i++) {
 		norm[i] = norm[i]/chkNorm;
 	}
-	PetscPrintf(PETSC_COMM_WORLD,"Before normalizing the global sweep norm\n");
 	if (solver->moreInfo != 0) {
 		chkNorm = solver->rNormGlobal[0];
 		for (int i=0;i<solver->numIter*(v+1);i++) {
 			solver->rNormGlobal[i] = solver->rNormGlobal[i]/chkNorm;
 		}
+		for (int g=0; g<solver->grids; g++) {
+			chkNorm = solver->rNormGrid[g][0];
+			for (int i=0;i<solver->numIter*(v+1);i++) {
+				solver->rNormGrid[g][i] = solver->rNormGrid[g][i]/chkNorm;
+			}
+		}
 	}
-	PetscPrintf(PETSC_COMM_WORLD,"After normalizing the global sweep norm\n");
 
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
 	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
