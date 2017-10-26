@@ -38,7 +38,7 @@ void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 	if (cycle == ECYCLE) assem->A2 = malloc((assem->levels)*sizeof(Mat)); 
 	assem->u = malloc((assem->levels)*sizeof(Vec));
 	assem->b = malloc((assem->levels)*sizeof(Vec));
-	if (cycle != D1CYCLE && cycle != D2CYCLE) {
+	if (cycle != D1CYCLE && cycle != D2CYCLE && cycle != D1PSCYCLE) {
 		assem->res = malloc((assem->levels-1)*sizeof(Mat));
 		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
 	} else if (assem->moreInfo == 0) {
@@ -58,20 +58,6 @@ void SetUpAssembly(Indices *indices, Assembly *assem, Cycle cycle) {
 		assem->res = malloc((assem->levels)*sizeof(Mat));
 		assem->pro = malloc((assem->levels)*sizeof(Mat));
 	}
-//	if (cycle == D1CYCLE) {
-//		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
-//		assem->topIS	= malloc((assem->levels)*sizeof(IS));
-////		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
-//		assem->gridIS	= malloc((assem->levels)*sizeof(IS*));
-//		for (int i=0; i<assem->levels; i++) {
-//			assem->gridIS[i] = malloc((indices->level[i].grids)*sizeof(IS));
-//		}
-//		assem->res = malloc((assem->levels)*sizeof(Mat));
-//		assem->pro = malloc((assem->levels)*sizeof(Mat));
-//	} else {
-//		assem->res = malloc((assem->levels-1)*sizeof(Mat));
-//		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
-//	}
 }
 
 void DestroyAssembly(Assembly *assem, Cycle cycle) 
@@ -83,12 +69,12 @@ void DestroyAssembly(Assembly *assem, Cycle cycle)
 		if (cycle == ECYCLE) MatDestroy(assem->A2+l);
 		VecDestroy(assem->b+l);
 		VecDestroy(assem->u+l);
-		if (cycle == D1CYCLE) {
+		if (cycle == D1CYCLE || cycle == D2CYCLE || cycle == D1PSCYCLE) {
 			ISDestroy(assem->bottomIS+l);
 			ISDestroy(assem->topIS+l);
 		}
 	}
-	if (cycle == D1CYCLE || cycle == D2CYCLE) {
+	if (cycle == D1CYCLE || cycle == D2CYCLE || cycle == D1PSCYCLE) {
 		MatDestroy(assem->res);
 		MatDestroy(assem->pro);
 	}
@@ -102,7 +88,7 @@ void DestroyAssembly(Assembly *assem, Cycle cycle)
 	if (cycle == ECYCLE) free(assem->A2); 
 	free(assem->b);
 	free(assem->u);
-	if (cycle != D1CYCLE && cycle != D2CYCLE) return;
+	if (cycle != D1CYCLE && cycle != D2CYCLE && cycle != D1PSCYCLE) return;
 	if (assem->moreInfo == 0) {
 		free(assem->bottomIS);
 		free(assem->topIS);
@@ -128,7 +114,7 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	solver->assem->moreInfo = solver->moreInfo;	
 	SetUpAssembly(indices, solver->assem, solver->cycle);
 	solver->rnorm = malloc((numIter+1)*sizeof(double));
-	if ((solver->moreInfo != 0) && (cyc == D1CYCLE || cyc == D2CYCLE)) {
+	if ((solver->moreInfo != 0) && (cyc == D1CYCLE || cyc == D2CYCLE || cyc == D1PSCYCLE)) {
 		int	v	= solver->v[0];
 		solver->grids	= indices->level->grids;
 		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
@@ -1165,7 +1151,7 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 		if (solver->cycle == ECYCLE) {
 			levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
 			levelMatrixA2(prob, mesh, op, &(indices->level[l]), factor, assem->A2+l);
-		} else if (solver->cycle == D1CYCLE){
+		} else if (solver->cycle == D1CYCLE || solver->cycle == D2CYCLE || solver->cycle == D1PSCYCLE){
 			levelMatrixA1(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
 		} else {
 			levelMatrixA(prob, mesh, op, &(indices->level[l]), factor, assem->A+l);
@@ -1175,7 +1161,7 @@ void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver 
 	// Only the zeroth level vec b is created
 	levelvecb(prob, mesh, op, indices->level, factor, assem->b);
 
-	if (solver->cycle == D1CYCLE || solver->cycle == D2CYCLE) {
+	if (solver->cycle == D1CYCLE || solver->cycle == D2CYCLE || solver->cycle == D1PSCYCLE) {
 		Level	topLevel, bottomLevel;
 //		Level	subFineLevel; // To be extracted from topLevel
 		
