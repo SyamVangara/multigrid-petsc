@@ -114,7 +114,16 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc) {
 	solver->assem->moreInfo = solver->moreInfo;	
 	SetUpAssembly(indices, solver->assem, solver->cycle);
 	solver->rnorm = malloc((numIter+1)*sizeof(double));
-	if ((solver->moreInfo != 0) && (cyc == D1CYCLE || cyc == D2CYCLE || cyc == D1PSCYCLE)) {
+	if (solver->moreInfo == 0) return;
+	if (cyc == D1PSCYCLE) {
+		int	v	= solver->v[0];
+		solver->grids	= indices->level->grids;
+		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
+		for (int i=0; i<solver->grids; i++) {
+			solver->rNormGrid[i] = malloc(numIter*2*(v+1)*sizeof(double));
+		}
+		solver->rNormGlobal = malloc(numIter*2*(v+1)*sizeof(double));
+	} else if (cyc == D1CYCLE || cyc == D2CYCLE) {
 		int	v	= solver->v[0];
 		solver->grids	= indices->level->grids;
 		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
@@ -1870,6 +1879,163 @@ void MultigridD2cycle(Solver *solver) {
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 }
 
+void MultigridD1PScycle(Solver *solver) {
+	
+	Mat	*res;
+	Mat	*pro;
+	Mat	*A;
+	Vec	*b;
+	Vec	*u;
+	IS	*botIS;
+	IS	*topIS;
+//	IS	*subFineIS;
+	IS	**gridIS;
+
+	Vec	r;
+	Vec	bBot;
+	Vec	rTop;
+	Vec	uTop;
+	Vec	cTop;
+	
+	double	*norm, chkNorm, bnorm;
+	int	v, maxIter, iter;
+	
+	int	size, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	res		= solver->assem->res;
+	pro		= solver->assem->pro;
+	A		= solver->assem->A;
+	b		= solver->assem->b;
+	u		= solver->assem->u;
+	botIS		= solver->assem->bottomIS;
+	topIS		= solver->assem->topIS;
+//	subFineIS	= solver->assem->subFineIS;
+	gridIS		= solver->assem->gridIS;
+	maxIter		= solver->numIter;
+	norm		= solver->rnorm;
+	v		= solver->v[0];
+
+	KSP	ksp;
+	PC	pc;
+	
+//	ISView(*topIS, PETSC_VIEWER_STDOUT_WORLD);
+//	ISView(*subFineIS, PETSC_VIEWER_STDOUT_WORLD);
+	
+//	for (int i=0; i<solver->grids; i++) {
+//		ISView(gridIS[0][i], PETSC_VIEWER_STDOUT_WORLD);
+//	}
+	
+	D1cntx	info;
+	if (solver->moreInfo != 0) {
+		info.innerCount = 0;
+		VecDuplicate(*b, &(info.rInner));
+		info.grids = solver->grids;
+		info.rGrid = malloc(info.grids*sizeof(Vec));
+		info.rNormGrid = solver->rNormGrid;
+		for (int i=0; i<solver->grids; i++) {
+			VecGetSubVector(info.rInner, gridIS[0][i], info.rGrid+i);
+		}
+	}
+
+	PetscLogStage	stage, stageSolve;
+	
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetType(ksp,KSPRICHARDSON);
+	KSPSetOperators(ksp, *A, *A);
+	KSPGetPC(ksp,&pc);
+//	PCSetType(pc,PCASM);
+	if (solver->moreInfo == 0) {
+		KSPSetNormType(ksp,KSP_NORM_NONE);
+	} else {
+		KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
+		KSPSetResidualHistory(ksp, solver->rNormGlobal, maxIter*2*(v+1), PETSC_FALSE);
+		KSPMonitorSet(ksp, rNormGridMonitor, &info, NULL);
+	}
+	KSPSetTolerances(ksp, 1.e-16, PETSC_DEFAULT, PETSC_DEFAULT, v);
+	KSPSetFromOptions(ksp);
+	KSPSetInitialGuessNonzero(ksp,PETSC_TRUE);
+	
+	VecDuplicate(*b, &r);
+	VecGetSubVector(*b, *botIS, &bBot);
+	VecGetSubVector(r, *topIS, &rTop);
+	VecGetSubVector(*u, *topIS, &uTop);
+	VecDuplicate(uTop, &cTop);	
+
+	VecNorm(*b, NORM_2, &bnorm);
+	VecSet(*u, 0); // Note: This should be moved out of this function?
+	
+	Vec	residual;
+
+	MatMult(*A, *u, r);
+	VecAYPX(r, -1.0, *b);
+	VecNorm(r, NORM_2, &chkNorm);
+	norm[0] = chkNorm;
+	
+	iter = 0;
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
+	while (iter<maxIter && 100000000*bnorm > chkNorm && chkNorm > (1.e-7)*bnorm) {
+		MatMult(*pro, *u, cTop);
+		VecAXPY(uTop, 1.0, cTop);
+		KSPSolve(ksp, *b, *u);
+		MatMult(*res, rTop, bBot);
+		KSPSolve(ksp, *b, *u);
+		KSPBuildResidual(ksp, NULL, r, &residual);
+		VecNorm(r, NORM_2, &chkNorm);
+		iter += 1;
+		norm[iter] = chkNorm;
+	}
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	VecRestoreSubVector(*b, *botIS, &bBot);
+	VecRestoreSubVector(r, *topIS, &rTop);
+	VecRestoreSubVector(*u, *topIS, &uTop);
+	if (solver->moreInfo != 0) {
+		for (int i=0; i<info.grids; i++) {
+//			VecView(uGrid[i],PETSC_VIEWER_STDOUT_WORLD);
+			VecRestoreSubVector(info.rInner, gridIS[0][i], info.rGrid+i);
+		}
+		free(info.rGrid);
+		VecDestroy(&(info.rInner));
+	}
+
+	solver->numIter = iter;
+	chkNorm = norm[0];
+	for (int i=0;i<solver->numIter+1;i++) {
+		norm[i] = norm[i]/chkNorm;
+	}
+	if (solver->moreInfo != 0) {
+		chkNorm = solver->rNormGlobal[0];
+		for (int i=0;i<solver->numIter*(v+1);i++) {
+			solver->rNormGlobal[i] = solver->rNormGlobal[i]/chkNorm;
+		}
+		for (int g=0; g<solver->grids; g++) {
+			chkNorm = solver->rNormGrid[g][0];
+			for (int i=0;i<solver->numIter*(v+1);i++) {
+				solver->rNormGrid[g][i] = solver->rNormGrid[g][i]/chkNorm;
+			}
+		}
+	}
+
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+	VecDestroy(&cTop);
+	VecDestroy(&r);
+	KSPDestroy(&ksp);
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+}
+
 void MultigridD1cycle(Solver *solver) {
 	
 	Mat	*res;
@@ -2032,6 +2198,7 @@ void Solve(Solver *solver){
 	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
 	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
 	if (solver->cycle == D2CYCLE) MultigridD2cycle(solver);
+	if (solver->cycle == D1PSCYCLE) MultigridD1PScycle(solver);
 }
 
 
