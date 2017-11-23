@@ -1563,6 +1563,113 @@ void MultigridVcycle(Solver *solver) {
 
 }
 
+void MultigridPetscPCMG(Solver *solver) {
+
+	int	iter;
+	double	rnormchk, bnorm;
+	
+	double	*rnorm;
+	int	maxIter;
+
+	int	*v;
+	int	levels;
+	Mat 	*res;
+	Mat 	*pro;
+	Mat	*A;
+	Vec	*b;
+	Vec	*u;
+	
+	int	size, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	maxIter = solver->numIter;	
+	rnorm	= solver->rnorm;
+	v	= solver->v;
+
+	levels	= solver->assem->levels;
+	res	= solver->assem->res;
+	pro	= solver->assem->pro;
+	A	= solver->assem->A;
+	b	= solver->assem->b;
+	u	= solver->assem->u;
+
+	KSP	ksp, kspTemp;
+	PC	pc;
+	
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetType(ksp, KSPRICHARDSON);
+	KSPSetOperators(ksp, A[0], A[0]);
+	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
+	KSPSetResidualHistory(ksp, solver->rnorm, solver->numIter, PETSC_FALSE);
+	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, solver->numIter);
+	KSPGetPC(ksp, &pc);
+	PCSetType(pc, PCMG);
+	PCMGSetLevels(pc, levels, NULL);
+	PCMGSetNumberSmoothUp(pc, v[1]);
+	PCMGSetNumberSmoothDown(pc, v[0]);
+
+	PCMGGetCoarseSolve(pc, &kspTemp);
+	KSPSetOperators(kspTemp, A[levels-1], A[levels-1]);
+
+	for (int i=1; i<levels; i++) {
+		PCMGGetSmoother(pc, i, &kspTemp);
+		KSPSetOperators(kspTemp, A[levels-i-1], A[levels-i-1]);
+		PCMGSetInterpolation(pc, i, pro[levels-i-1]);
+		PCMGSetRestriction(pc, i, res[levels-i-1]);
+	}
+
+	Vec	r[levels];
+	
+	for (int i=0;i<levels;i++) {
+		VecDuplicate(b[i],&(r[i]));
+	}
+
+	PCMGSetR(pc, levels-1, r[0]);
+	for (int i=1; i<levels-1; i++) {
+		PCMGSetRhs(pc, i, b[levels-i-1]);
+		PCMGSetX(pc, i, u[levels-i-1]);
+		PCMGSetR(pc, i, r[levels-i-1]);
+	}
+	PCMGSetRhs(pc, 0, b[levels-1]);
+	PCMGSetX(pc, 0, u[levels-1]);
+	
+	KSPSetFromOptions(ksp);
+	
+	PetscLogStage	stage;
+	
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stage);
+	PetscLogStagePush(stage);
+	
+	KSPSolve(ksp, b[0], u[0]);
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+
+	KSPGetIterationNumber(ksp, &(solver->numIter));
+
+	double	rnorm0 = solver->rnorm[0];
+	for (int i=0;i<(solver->numIter+1);i++) {
+		solver->rnorm[i] = solver->rnorm[i]/rnorm0;
+	}
+
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	
+	for (int i=0;i<levels;i++) {
+		VecDestroy(&(r[i]));
+	}
+	KSPDestroy(&ksp);
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+
+}
+
 void MultigridIcycle(Solver *solver) {
 
 	Mat	*A;
@@ -2199,6 +2306,7 @@ void Solve(Solver *solver){
 	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);
 	if (solver->cycle == D2CYCLE) MultigridD2cycle(solver);
 	if (solver->cycle == D1PSCYCLE) MultigridD1PScycle(solver);
+	if (solver->cycle == PetscPCMG) MultigridPetscPCMG(solver);
 }
 
 
