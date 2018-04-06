@@ -64,6 +64,12 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
+	if (indices.totalGrids>2 && indices.levels>2 && cyc==10) {
+		PetscPrintf(PETSC_COMM_WORLD, "For now only two grids with two levels are allowed for Additive2 cycle"); 
+		PetscFinalize();
+		return 0;
+	}
+
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
 	}
@@ -101,6 +107,7 @@ int main(int argc, char *argv[]) {
 	if (cyc == 7) SetUpSolver(&indices, &solver, D1PSCYCLE);
 	if (cyc == 8) SetUpSolver(&indices, &solver, PetscPCMG);
 	if (cyc == 9) SetUpSolver(&indices, &solver, ADDITIVE);
+	if (cyc == 10) SetUpSolver(&indices, &solver, ADDITIVE2);
 
 //	ViewSolverInfo(indices, solver);
 
@@ -179,6 +186,7 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
 	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
 	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
+	if (cyc == 10) printf("Cycle :				Additive2\n");
 	if (cyc == 9) printf("Cycle :				Additive\n");
 	if (cyc == 8) printf("Cycle :				Petsc-V-Cycle\n");
 	if (cyc == 7) printf("Cycle :				D1PS-Cycle\n");
@@ -193,6 +201,7 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
 	if (cyc == 0 || cyc == 8) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
 	if (cyc == 9) printf("Number of smoothing steps :	%d(fine) %d(coarsest; Filtered fine)\n", solver.v[0], solver.v[1]);
+	if (cyc == 10) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
 	printf("Number of processes:		%d\n",procs);
 	printf("Number of iterations:		%d\n",solver.numIter);
 	printf("=============================================================\n");
