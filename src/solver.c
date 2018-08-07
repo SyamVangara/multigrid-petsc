@@ -1914,8 +1914,8 @@ void MultigridPetscPCMG(Solver *solver) {
 	KSPGetPC(ksp, &pc);
 	PCSetType(pc, PCMG);
 	PCMGSetLevels(pc, levels, NULL);
-	PCMGSetNumberSmoothUp(pc, v[1]);
-	PCMGSetNumberSmoothDown(pc, v[0]);
+//	PCMGSetNumberSmoothUp(pc, v[1]);
+//	PCMGSetNumberSmoothDown(pc, v[0]);
 
 	PCMGGetCoarseSolve(pc, &kspTemp);
 	KSPSetOperators(kspTemp, A[levels-1], A[levels-1]);
