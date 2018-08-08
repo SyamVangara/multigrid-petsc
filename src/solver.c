@@ -891,7 +891,7 @@ void Res_delayed(Indices *indices, Operator *op, Level *bottomLevel, Level *topL
 	
 	Mat	*res;
 	res = assem->res;
-	MatCreateAIJ(PETSC_COMM_WORLD, botRanges[rank+1]-botRanges[rank], topRanges[rank+1]-topRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res);
+	MatCreateAIJ(PETSC_COMM_WORLD, botRanges[rank+1]-botRanges[rank], topRanges[rank+1]-topRanges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 9, PETSC_NULL, 9, PETSC_NULL, res);
 	
 	int	opResni, opResnj;
 	double	*opRes;
@@ -1064,7 +1064,7 @@ void Res(Indices *indices, Operator *op, int factor, Assembly *assem) {
 		VecGetOwnershipRange(assem->b[l], range0, range0+1);	
 		VecGetOwnershipRange(assem->b[l+1], range1, range1+1);	
 		
-		MatCreateAIJ(PETSC_COMM_WORLD, range1[1]-range1[0], range0[1]-range0[0], PETSC_DETERMINE, PETSC_DETERMINE, 1, PETSC_NULL, 1, PETSC_NULL, res+l);
+		MatCreateAIJ(PETSC_COMM_WORLD, range1[1]-range1[0], range0[1]-range0[0], PETSC_DETERMINE, PETSC_DETERMINE, 9, PETSC_NULL, 9, PETSC_NULL, res+l);
 		for (int row=range1[0];row<range1[1];row++) {
 			i1 = global1.data[row*global1.nj];
 			j1 = global1.data[row*global1.nj+1];

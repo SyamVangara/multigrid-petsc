@@ -406,17 +406,28 @@ void ProlongationOperator(Array2d pro) {
 	}
 }
 
+//void RestrictionOperator(Array2d res) {
+//	// Builds Restriction 2D stencilwise operator (res)
+//	// Stencil size: res.ni x res.nj
+//	
+//	if(res.ni != 3 || res.nj != 3) {printf("Error in RestrictionOperator\n"); return;}
+//	for (int i=0;i<res.nj;i++) {
+// 		res.data[i*res.nj]= 0.0;
+// 		res.data[i*res.nj+1]= 0.0;
+// 		res.data[i*res.nj+2]= 0.0;
+//	}
+//	res.data[res.nj+1] = 1.0;
+//}
+
 void RestrictionOperator(Array2d res) {
 	// Builds Restriction 2D stencilwise operator (res)
 	// Stencil size: res.ni x res.nj
-	
 	if(res.ni != 3 || res.nj != 3) {printf("Error in RestrictionOperator\n"); return;}
 	for (int i=0;i<res.nj;i++) {
- 		res.data[i*res.nj]= 0.0;
- 		res.data[i*res.nj+1]= 0.0;
- 		res.data[i*res.nj+2]= 0.0;
+ 		res.data[i*res.nj]= 0.125 - 0.0625*fabs(1-i);
+ 		res.data[i*res.nj+1]= 0.25 - 0.125*fabs(1-i);
+ 		res.data[i*res.nj+2]= 0.125 - 0.0625*fabs(1-i);
 	}
-	res.data[res.nj+1] = 1.0;
 }
 
 void GridTransferOperators(Operator op, Indices indices) {
