@@ -74,6 +74,8 @@ typedef struct {
 	FILE	*solData;
 	FILE	*errData;
 	FILE	*resData;
+	FILE	*XgridData;
+	FILE	*YgridData;
 } PostProcess;
 
 void SetUpIndices(Mesh *mesh, Indices *indices);

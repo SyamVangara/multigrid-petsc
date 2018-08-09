@@ -160,6 +160,8 @@ void SetUpPostProcess(PostProcess *pp) {
 		pp->solData = fopen("uData.dat","w");
 		pp->resData = fopen("rData.dat","w");
 		pp->errData = fopen("eData.dat","w");
+		pp->XgridData = fopen("XgridData.dat","w");
+		pp->YgridData = fopen("YgridData.dat","w");
 	}
 }
 
@@ -175,6 +177,8 @@ void DestroyPostProcess(PostProcess *pp) {
 		fclose(pp->solData);
 		fclose(pp->resData);
 		fclose(pp->errData);
+		fclose(pp->XgridData);
+		fclose(pp->YgridData);
 	}
 }
 
@@ -1325,15 +1329,21 @@ void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver,
 	if (rank==0) {	
 	
 	GetError(prob, mesh, u, pp->error);
-	for(int i=0;i<3;i++){
+	for (int i=0;i<3;i++) {
 		printf("\nerror[%d] = %.16e\n", i, pp->error[i]);
 		fprintf(pp->errData,"%.16e\n",pp->error[i]);
 	}
-
+	
+	double **coord;
+	coord = mesh->coord;
 	for (int i=0;i<u.ni;i++) {
 		for (int j=0;j<u.nj;j++) {
-			fprintf(pp->solData,"%.16e ", u.data[i*u.nj+j]);
+			fprintf(pp->XgridData,"%lf    ", coord[0][j]);
+			fprintf(pp->YgridData,"%lf    ", coord[1][i]);
+			fprintf(pp->solData,"%.16e    ", u.data[i*u.nj+j]);
 		}
+		fprintf(pp->XgridData,"\n");
+		fprintf(pp->YgridData,"\n");
 		fprintf(pp->solData,"\n");
 	}
 		
@@ -1341,6 +1351,7 @@ void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver,
 		fprintf(pp->resData,"%.16e ",solver->rnorm[i]);
 	}
 	fprintf(pp->resData,"\n");
+	printf("Relative residual = %.16e ", solver->rnorm[solver->numIter]);
 	
 	if (solver->moreInfo != 0) {	
 		FILE	*rGlobalData;
