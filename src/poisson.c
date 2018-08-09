@@ -73,6 +73,9 @@ int main(int argc, char *argv[]) {
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
 	}
+
+	// !Metrics might not be written for bounds other than 0 and 1
+	// So, keep using 0 and 1 as given below until metrics are made to be general
 	for (int i=0;i<DIMENSION;i++) {
 		mesh.bounds[i*2] = 0.0;    // Lower bound in each dimension
 		mesh.bounds[i*2+1] = 1.0;  // Upper bound in each dimension
@@ -80,7 +83,8 @@ int main(int argc, char *argv[]) {
 	
 
 	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
-	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM);
+	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
+	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
 
 //	ViewMeshInfo(mesh);
 	

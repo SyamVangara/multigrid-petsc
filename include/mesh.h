@@ -16,7 +16,7 @@
 #define PI 3.14159265358979323846
 #define DIMENSION 2
 
-typedef enum {UNIFORM, NONUNIFORM} MeshType;
+typedef enum {UNIFORM, NONUNIFORM1, NONUNIFORM2} MeshType;
 
 typedef struct {
 	int	n[DIMENSION];

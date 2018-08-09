@@ -42,7 +42,7 @@ void MetricsUniform(void *mesh, double x, double y, double *metrics) {
 	metrics[4] = 0.0;
 }
 
-void MetricsNonUniform(void *mesh1, double x, double y, double *metrics) {
+void MetricsNonUniform1(void *mesh1, double x, double y, double *metrics) {
 	//Computes following metrics at (x,y)
 	//
 	//metrics[0] = (xi_x)^2 + (xi_y)^2
@@ -71,6 +71,38 @@ void MetricsNonUniform(void *mesh1, double x, double y, double *metrics) {
 	metrics[1] = 4.0/(PI*PI*temp);
 	metrics[2] = 0.0;
 	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
+	metrics[4] = 0.0;
+}
+
+void MetricsNonUniform2(void *mesh1, double x, double y, double *metrics) {
+	//Computes following metrics at (x,y)
+	//
+	//metrics[0] = (xi_x)^2 + (xi_y)^2
+	//metrics[1] = (eta_x)^2 + (eta_y)^2
+	//metrics[2] = (xi_xx) + (xi_yy)
+	//metrics[3] = (eta_xx) + (eta_yy)
+	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+	//
+	//bounds[0] - Lower bound of "x"
+	//bounds[1] - Upper bound of "x"
+	//bounds[2] - Lower bound of "y"
+	//bounds[3] - Upper bound of "y"
+	
+	double	temp;
+	double	*bounds;
+	Mesh	*mesh;
+	int	procs, rank;
+	
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	mesh = (Mesh*)mesh1;
+	bounds = mesh->bounds;
+	temp = ((exp(2)-1)*(exp(2)-1))/(((y-bounds[2])*(exp(2)-1)+(bounds[3]-bounds[2]))*((y-bounds[2])*(exp(2)-1)+(bounds[3]-bounds[2])));
+	metrics[0] = 1.0/((bounds[1]-bounds[0])*(bounds[1]-bounds[0]));
+	metrics[1] = 0.25*temp;
+	metrics[2] = 0.0;
+	metrics[3] = (-0.5)*temp; 
 	metrics[4] = 0.0;
 }
 
@@ -126,10 +158,16 @@ int Coords(Mesh *mesh, MeshType type) {
 		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
 		
 		length = (coord[i][n[i]-1]-coord[i][0]);
+		double tmp_d = (length/(double)(n[i]-1));
+		double tmp_eta;
 		d[i] = 0.0;
 		for(int j=1;j<n[i]-1;j++){
-			if(type == NONUNIFORM) coord[i][j] = bounds[i*2+1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
-			if(type == UNIFORM) coord[i][j] = (j/(double)(n[i]-1));
+			if (type == NONUNIFORM1) coord[i][j] = bounds[i*2+1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
+			if (type == NONUNIFORM2) {
+				tmp_eta = (j/(double)(n[i]-1));
+				coord[i][j] = bounds[i*2]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
+			}
+			if (type == UNIFORM) coord[i][j] = coord[i][j-1] + tmp_d;
 //			coord[i][j] = (*Transform)(&(bounds[i*2]), length, j/(double)(n[i]-1));
 			d[i] = fmax(d[i],fabs(coord[i][j]-coord[i][j-1])); 
 		}
@@ -204,7 +242,8 @@ void SetUpMesh(Mesh *mesh, MeshType type) {
 	ierr = malloc2dY(&(mesh->coord),DIMENSION,mesh->n); CHKERR_PRNT("malloc failed");
 	ierr = Coords(mesh, type); CHKERR_PRNT("Meshing failed");
 	if (type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
-	if (type == NONUNIFORM) mesh->MetricCoefficients = &MetricsNonUniform;
+	if (type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
+	if (type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
 
 //	return ierr;
 }
