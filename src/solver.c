@@ -1351,7 +1351,7 @@ void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver,
 		fprintf(pp->resData,"%.16e ",solver->rnorm[i]);
 	}
 	fprintf(pp->resData,"\n");
-	printf("Relative residual = %.16e ", solver->rnorm[solver->numIter]);
+	printf("\nRelative residual = %.16e\n", solver->rnorm[solver->numIter]);
 	
 	if (solver->moreInfo != 0) {	
 		FILE	*rGlobalData;
@@ -1574,7 +1574,7 @@ void MultigridVcycle(Solver *solver) {
 
 }
 
-void MultigridAdditive2(Solver *solver) {
+void MultigridAdditiveScaled(Solver *solver) {
 
 	int	iter;
 	double	rnormchk, bnorm;
@@ -1719,7 +1719,7 @@ void MultigridAdditive2(Solver *solver) {
 
 }
 
-void MultigridAdditive(Solver *solver) {
+void MultigridVFilter(Solver *solver) {
 
 	int	iter;
 	double	rnormchk, bnorm;
@@ -1757,7 +1757,7 @@ void MultigridAdditive(Solver *solver) {
 	
 	for (int l=0; l<levels-1; l++) {
 		MatMatMult(pro[l], res[l], MAT_INITIAL_MATRIX, PETSC_DEFAULT, filter+l);
-		MatView(filter[l], PETSC_VIEWER_STDOUT_WORLD);
+//		MatView(filter[l], PETSC_VIEWER_STDOUT_WORLD);
 	}
 
 	KSP	ksp[levels];
@@ -2625,8 +2625,8 @@ void Solve(Solver *solver){
 	if (solver->cycle == D2CYCLE) MultigridD2cycle(solver);
 	if (solver->cycle == D1PSCYCLE) MultigridD1PScycle(solver);
 	if (solver->cycle == PetscPCMG) MultigridPetscPCMG(solver);
-	if (solver->cycle == ADDITIVE) MultigridAdditive(solver);
-	if (solver->cycle == ADDITIVE2) MultigridAdditive2(solver);
+	if (solver->cycle == VFILTER) MultigridVFilter(solver);
+	if (solver->cycle == ADDITIVEScaled) MultigridAdditiveScaled(solver);
 }
 
 

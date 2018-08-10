@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
 	if (cyc == 4) SetUpSolver(&indices, &solver, D2CYCLE);
 	if (cyc == 7) SetUpSolver(&indices, &solver, D1PSCYCLE);
 	if (cyc == 8) SetUpSolver(&indices, &solver, PetscPCMG);
-	if (cyc == 9) SetUpSolver(&indices, &solver, ADDITIVE);
-	if (cyc == 10) SetUpSolver(&indices, &solver, ADDITIVE2);
+	if (cyc == 9) SetUpSolver(&indices, &solver, VFILTER);
+	if (cyc == 10) SetUpSolver(&indices, &solver, ADDITIVEScaled);
 
 //	ViewSolverInfo(indices, solver);
 
@@ -190,8 +190,8 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
 	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
 	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
-	if (cyc == 10) printf("Cycle :				Additive2\n");
-	if (cyc == 9) printf("Cycle :				Additive\n");
+	if (cyc == 10) printf("Cycle :				AdditiveScaled\n");
+	if (cyc == 9) printf("Cycle :				V-Filter\n");
 	if (cyc == 8) printf("Cycle :				Petsc-V-Cycle\n");
 	if (cyc == 7) printf("Cycle :				D1PS-Cycle\n");
 	if (cyc == 4) printf("Cycle :				D2-Cycle\n");

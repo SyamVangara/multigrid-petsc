@@ -51,7 +51,7 @@ typedef struct {
 	IS	**gridIS; // moreNorm flag related info begins
 } Assembly;
 
-typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE, D1PSCYCLE, PetscPCMG, ADDITIVE, ADDITIVE2} Cycle;
+typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE, D1PSCYCLE, PetscPCMG, VFILTER, ADDITIVEScaled} Cycle;
 //typedef enum {False, True} CustomBool;
 
 typedef struct {
