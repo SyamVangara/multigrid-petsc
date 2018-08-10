@@ -49,6 +49,6 @@ print_vars:
 	-@echo "CXX_COMPILE: $(PETSC_CXXCOMPILE)"
 	-@echo "C_COMPILE: $(PETSC_COMPILE)"
 
-tags :
+tags : $(TARGET)
 	ctags -R --c++-kinds=+p --fields=+iaS --extra=+q .
 
