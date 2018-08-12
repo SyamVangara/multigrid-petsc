@@ -1883,7 +1883,7 @@ void MultigridFilter(Solver *solver) {
 	b	= solver->assem->b;
 	u	= solver->assem->u;
 	
-	if (levels < 2) {ERROR_MSG("Cannot use Additive cycle for levels < 2; use I-cycle for levels = 1"); return;}
+	if (levels < 2) {ERROR_MSG("Cannot use Filtered cycle for levels < 2; use I-cycle for levels = 1"); return;}
 
 	Mat	filter[levels-1];
 	
@@ -2035,7 +2035,7 @@ void MultigridVFilter(Solver *solver) {
 	b	= solver->assem->b;
 	u	= solver->assem->u;
 	
-	if (levels < 2) {ERROR_MSG("Cannot use Additive cycle for levels < 2; use I-cycle for levels = 1"); return;}
+	if (levels < 2) {ERROR_MSG("Cannot use V-Filter cycle for levels < 2; use I-cycle for levels = 1"); return;}
 
 	Mat	filter[levels-1];
 	
@@ -2209,14 +2209,16 @@ void MultigridPetscPCMG(Solver *solver) {
 	KSPGetPC(ksp, &pc);
 	PCSetType(pc, PCMG);
 	PCMGSetLevels(pc, levels, NULL);
-//	PCMGSetNumberSmoothUp(pc, v[1]);
-//	PCMGSetNumberSmoothDown(pc, v[0]);
+	PCMGSetNumberSmooth(pc, v[0]);
 
 	PCMGGetCoarseSolve(pc, &kspTemp);
+	KSPSetType(kspTemp, KSPRICHARDSON);
 	KSPSetOperators(kspTemp, A[levels-1], A[levels-1]);
+	KSPSetTolerances(kspTemp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
 
 	for (int i=1; i<levels; i++) {
 		PCMGGetSmoother(pc, i, &kspTemp);
+		KSPSetType(kspTemp, KSPRICHARDSON);
 		KSPSetOperators(kspTemp, A[levels-i-1], A[levels-i-1]);
 		PCMGSetInterpolation(pc, i, pro[levels-i-1]);
 		PCMGSetRestriction(pc, i, res[levels-i-1]);
