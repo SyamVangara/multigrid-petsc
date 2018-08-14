@@ -64,12 +64,6 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	if (indices.totalGrids>2 && indices.levels>2 && cyc==10) {
-		PetscPrintf(PETSC_COMM_WORLD, "For now only two grids with two levels are allowed for Additive2 cycle"); 
-		PetscFinalize();
-		return 0;
-	}
-
 	for (int i=1;i<DIMENSION;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
 	}

@@ -1742,14 +1742,13 @@ void MultigridAdditiveScaled(Solver *solver) {
 
 	KSP	ksp[levels];
 //	PC	pc[levels];
-	Vec	r0, r1[levels], e[levels];//, xbuf[levels];
+	Vec	r0, r1[levels];
 	
 	PetscLogStage	stage;
 		
 	VecDuplicate(b[0], &(r0));
 	for (int i=0;i<levels;i++) {
 		VecDuplicate(b[i], &(r1[i]));
-		VecDuplicate(u[i], &(e[i]));
 	}
 	
 	KSPCreate(PETSC_COMM_WORLD, &(ksp[0]));
@@ -1793,7 +1792,7 @@ void MultigridAdditiveScaled(Solver *solver) {
 	rnorm[0] = rnormchk;
 
 	iter = 0;
-	double lambda[levels], r0Dot;
+	double lambda[levels], r0Dot[levels];
 	
 	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
@@ -1801,22 +1800,29 @@ void MultigridAdditiveScaled(Solver *solver) {
 	PetscLogStagePush(stage);
 	while (iter<maxIter && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
 		MatMult(res[0], r0, b[1]);
-		KSPSolve(ksp[0], b[0], u[0]);
-		MatResidual(A[0], b[0], u[0], r1[0]);
-		VecTDot(r0, r1[0], lambda);
-		lambda[0] = lambda[0]/(rnormchk*rnormchk);
 		for (int l=1;l<levels-1;l++) {
 			MatMult(res[l], b[l], b[l+1]);
-			KSPSolve(ksp[l], b[l], u[l]);
-			MatResidual(A[l], b[l], u[l], r1[l]);
-			VecTDot(b[l], b[l], &r0Dot);
-			VecTDot(b[l], r1[l], lambda+l);
-			lambda[l] = lambda[l]/r0Dot;
 		}
-		KSPSolve(ksp[levels-1], b[levels-1], u[levels-1]);
+//		VecTDot(r0, r0, r0Dot);
+		for (int l=1; l<levels-1; l++) {
+			VecTDot(b[l], b[l], r0Dot+l);
+		}
+		for (int l=0; l<levels; l++) {
+			KSPSolve(ksp[l], b[l], u[l]);
+		}
+		for (int l=0; l<levels-1; l++) {
+			MatResidual(A[l], b[l], u[l], r1[l]);
+		}
+		VecTDot(r0, r1[0], lambda);
+		lambda[0] = lambda[0]/(rnormchk*rnormchk);
+		for (int l=1; l<levels-1; l++) {
+			VecTDot(b[l], r1[l], lambda+l);
+			lambda[l] = lambda[l]/r0Dot[l];
+		}
 		for (int l=levels-2;l>=0;l=l-1) {
+			VecScale(u[l+1], lambda[l]);
 			MatMult(pro[l], u[l+1], r1[l]);
-			VecAXPY(u[l], lambda[l], r1[l]);
+			VecAXPY(u[l], 1.0, r1[l]);
 		}
 		MatResidual(A[0], b[0], u[0], r0);
 		VecNorm(r0, NORM_2, &rnormchk);	
@@ -1840,7 +1846,6 @@ void MultigridAdditiveScaled(Solver *solver) {
 	VecDestroy(&(r0));
 	for (int i=0;i<levels;i++) {
 		VecDestroy(&(r1[i]));
-		VecDestroy(&(e[i]));
 	}
 	for (int i=0;i<levels;i++) {
 		KSPDestroy(&(ksp[i]));
