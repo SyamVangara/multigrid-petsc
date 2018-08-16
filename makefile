@@ -6,7 +6,7 @@ TARGET    = poisson
 _OBJ	   = poisson.o problem.o solver.o mesh.o array.o matbuild.o
 OBJ	   = $(patsubst %,$(BDIR)/%,$(_OBJ))
 
-CFLAGS     = -I$(IDIR) -std=c99 -O3 
+CFLAGS     = -I$(IDIR) -std=c99 -fopenmp 
 CPPFLAGS   =
 LIBS	   = -lm
 CLEANFILES = $(TARGET)

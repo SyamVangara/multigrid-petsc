@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <omp.h>
 //#include "matbuild.h"
 #include "array.h"
 #include <time.h>

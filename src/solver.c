@@ -1807,7 +1807,11 @@ void MultigridAdditiveScaled(Solver *solver) {
 		for (int l=1; l<levels-1; l++) {
 			VecTDot(b[l], b[l], r0Dot+l);
 		}
+		#pragma omp parallel for
 		for (int l=0; l<levels; l++) {
+//			int t_total = omp_get_num_threads();
+//			int t_id = omp_get_thread_num();
+//			printf("Thread %d out of %d is solving level %d\n", t_id, t_total, l);
 			KSPSolve(ksp[l], b[l], u[l]);
 		}
 		for (int l=0; l<levels-1; l++) {

@@ -25,7 +25,14 @@ void ViewLinSysMatsInfo(Assembly assem, int view);
 void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);
 
 int main(int argc, char *argv[]) {
-
+	
+	int provided;
+	MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+	if (provided == MPI_THREAD_MULTIPLE) {
+		printf("MPI_THREAD_MULTIPLE is provided!\n");
+	} else {
+		printf("MPI_THREAD_MULTIPLE is not provided!\n");
+	}
 	PetscInitialize(&argc, &argv, "poisson.in", 0);
 
 	Problem		prob;
@@ -43,6 +50,7 @@ int main(int argc, char *argv[]) {
 	int	ierr=0;
 	
 	SetUpProblem(&prob);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Problem has been set!\n");
 	
 //	freopen("poisson.in", "r", stdin);
 //	freopen("poisson.out", "w", stdout);
@@ -59,7 +67,7 @@ int main(int argc, char *argv[]) {
 	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
 
 	if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
-		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling"); 
+		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
 		PetscFinalize();
 		return 0;
 	}
@@ -79,21 +87,25 @@ int main(int argc, char *argv[]) {
 	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
 	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
 	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Mesh has been set!\n");
 
 //	ViewMeshInfo(mesh);
 	
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Indices have been intialized!\n");
 
 //	ViewGridsInfo(indices);
 
 	mapping(&indices, mappingStyleflag);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Indices have been set!\n");
 	
 //	ViewIndexMapsInfo(indices);
 //	ViewRangesInfo(indices);
 	
 	SetUpOperator(&indices, &op);
 	GridTransferOperators(op, indices);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Grid transfer operators have been set!\n");
 
 //	ViewOperatorInfo(op);
 	
@@ -108,15 +120,18 @@ int main(int argc, char *argv[]) {
 	if (cyc == 10) SetUpSolver(&indices, &solver, VFILTER);
 	if (cyc == 11) SetUpSolver(&indices, &solver, ADDITIVE);
 	if (cyc == 12) SetUpSolver(&indices, &solver, ADDITIVEScaled);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Solver has been created!\n");
 
 //	ViewSolverInfo(indices, solver);
 
 	Assemble(&prob, &mesh, &indices, &op, &solver);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Matrices in solver have been assembled!\n");
 
 //	ViewLinSysMatsInfo(*(solver.assem), 0);
 //	ViewGridTransferMatsInfo(*(solver.assem), 0, cyc);
 	
 	Solve(&solver);
+	PetscPrintf(PETSC_COMM_WORLD, "Log: Problem has been solved!\n");
 	
 	SetUpPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
