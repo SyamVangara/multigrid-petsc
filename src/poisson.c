@@ -26,12 +26,17 @@ void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);
 
 int main(int argc, char *argv[]) {
 	
-	int provided;
+	int	procs, rank;
+	int 	provided;
+	
 	MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	if (provided == MPI_THREAD_MULTIPLE) {
-		printf("MPI_THREAD_MULTIPLE is provided!\n");
+		if (rank == 0) printf("MPI_THREAD_MULTIPLE is provided!\n");
 	} else {
-		printf("MPI_THREAD_MULTIPLE is not provided!\n");
+		if (rank == 0) printf("MPI_THREAD_MULTIPLE is not provided!\n");
 	}
 	PetscInitialize(&argc, &argv, "poisson.in", 0);
 
@@ -48,7 +53,7 @@ int main(int argc, char *argv[]) {
 	int		vmax = 2;
 
 	int	ierr=0;
-	
+
 	SetUpProblem(&prob);
 	PetscPrintf(PETSC_COMM_WORLD, "Log: Problem has been set!\n");
 	
