@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
 	DestroyIndices(&indices);
 	DestroyMesh(&mesh);
 	PetscFinalize();
+	MPI_Finalize();
 
 	return 0;
 }
