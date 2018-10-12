@@ -14,13 +14,15 @@
 #include "problem.h"
 
 #define PI 3.14159265358979323846
-#define DIMENSION 2
+#define MAX_DIMENSION 3
 
 typedef enum {UNIFORM, NONUNIFORM1, NONUNIFORM2} MeshType;
-
+`
 typedef struct {
-	int	n[DIMENSION];
-	double	bounds[DIMENSION*2];
+	int	dimension;
+	MeshType type;
+	int	n[MAX_DIMENSION];
+	double	bounds[MAX_DIMENSION][2];
 	double	**coord;
 	double	h;
 	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);

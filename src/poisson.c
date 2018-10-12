@@ -6,9 +6,9 @@
 #define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
 
 #define PI 3.14159265358979323846
-#define DIMENSION 2
-#define FUNC(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
-#define SOL(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
+#define MAX_DIMENSION 3
+#define FUNC2D(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
+#define SOL2D(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 
 static int ipow(int base, int exp);
 int totalUnknowns(int *n, int totalGrids);
@@ -61,7 +61,23 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.out", "w", stdout);
 //	freopen("poisson.err", "w", stderr);
 	
-	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
+	PetscBool	set;	
+	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh.dimension), &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
+		PetscFinalize();
+		return 0;
+	}
+	int		nmax;
+	nmax = mesh.dimension;
+	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh.n, &nmax, &set);
+	if (!set || nmax != mesh.dimension) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
+		PetscFinalize();
+		return 0;
+	}
+//	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
@@ -70,14 +86,14 @@ int main(int argc, char *argv[]) {
 	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
 	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
 	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
-
+	
 	if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
 		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
 		PetscFinalize();
 		return 0;
 	}
 
-	for (int i=1;i<DIMENSION;i++) { 
+	for (int i=1;i<dimension;i++) { 
 		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
 	}
 
