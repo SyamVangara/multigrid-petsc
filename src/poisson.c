@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
 	if (!set) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
 		PetscFinalize();
+		MPI_Finalize();
 		return 0;
 	}
 	int		nmax;
@@ -74,11 +75,25 @@ int main(int argc, char *argv[]) {
 	if (!set || nmax != mesh.dimension) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
 		PetscFinalize();
+		MPI_Finalize();
 		return 0;
 	}
 //	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
-	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
-	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	nmax = mesh.dimension*2;
+	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh.bounds, &nmax, &set);
+	if (!set || nmax != mesh.dimension*2) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
@@ -90,21 +105,22 @@ int main(int argc, char *argv[]) {
 	if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
 		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
 		PetscFinalize();
+		MPI_Finalize();
 		return 0;
 	}
 
-	for (int i=1;i<dimension;i++) { 
-		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
-	}
+//	for (int i=1;i<dimension;i++) { 
+//		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
+//	}
 
 	// !Metrics might not be written for bounds other than 0 and 1
 	// So, keep using 0 and 1 as given below until metrics are made to be general
-	for (int i=0;i<DIMENSION;i++) {
-		mesh.bounds[i*2] = 0.0;    // Lower bound in each dimension
-		mesh.bounds[i*2+1] = 1.0;  // Upper bound in each dimension
-	}
+//	for (int i=0;i<DIMENSION;i++) {
+//		mesh.bounds[i*2] = 0.0;    // Lower bound in each dimension
+//		mesh.bounds[i*2+1] = 1.0;  // Upper bound in each dimension
+//	}
 	
-
+	SetUpMesh(&mesh, meshflag);
 	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
 	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
 	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);

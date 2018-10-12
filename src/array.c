@@ -123,8 +123,6 @@ int malloc2dY(double ***a, int n, int *m) {
 	aTotal=0; 
 	for (int i=0;i<n;i++) aTotal += m[i];
 
-	//SUM_ARRAY(aTotal, m, n); // aTotal - total number of elements in A
-	
 	*a = (double **)malloc(n*sizeof(double *));
 	**a = (double *)malloc(aTotal*sizeof(double));
 	if (*a==NULL||**a==NULL) return 1;

@@ -133,7 +133,7 @@ int Coords(Mesh *mesh, MeshType type) {
 	// MeshType type: {UNIFORM, NONUNIFORM}
 	
 	int	ierr = 0;
-	double	length, d[DIMENSION];
+	double	length, d[MAX_DIMENSION];
 
 	int	*n;
 	double	**coord, *bounds;
@@ -233,17 +233,20 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
-void SetUpMesh(Mesh *mesh, MeshType type) {
+void SetUpMesh(Mesh *mesh, int meshflag) {
 	// Allocates memory
 	// Computes coords of a structured mesh
 	// Assigns metric coefficients computing function
 	int ierr = 0;
 
-	ierr = malloc2dY(&(mesh->coord),DIMENSION,mesh->n); CHKERR_PRNT("malloc failed");
+	ierr = malloc2dY(&(mesh->coord), mesh.dimension, mesh->n); CHKERR_PRNT("malloc failed");
+	if (meshflag == 0) mesh->type = UNIFORM;
+	if (meshflag == 1) mesh->type = NONUNIFORM1;
+	if (meshflag == 2) mesh->type = NONUNIFORM2;
 	ierr = Coords(mesh, type); CHKERR_PRNT("Meshing failed");
-	if (type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
-	if (type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
-	if (type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
+	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
+	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
+	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
 
 //	return ierr;
 }
