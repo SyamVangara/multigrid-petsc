@@ -94,7 +94,13 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
 	PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
@@ -184,6 +190,63 @@ int main(int argc, char *argv[]) {
 	MPI_Finalize();
 
 	return 0;
+}
+
+int read_input() {
+	// Read inputs 
+	PetscBool	set;	
+	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh.dimension), &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	int		nmax;
+	nmax = mesh.dimension;
+	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh.n, &nmax, &set);
+	if (!set || nmax != mesh.dimension) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+//	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	nmax = mesh.dimension*2;
+	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh.bounds, &nmax, &set);
+	if (!set || nmax != mesh.dimension*2) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
+	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
+	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
+	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
+	
+	if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
+		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 }
 
 int ipow(int base, int exp) {

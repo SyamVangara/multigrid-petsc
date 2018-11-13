@@ -233,12 +233,47 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
-void SetUpMesh(Mesh *mesh, int meshflag) {
+void CreateMesh(Mesh *mesh, int meshflag) {
+	// Creates mesh 
 	// Allocates memory
 	// Computes coords of a structured mesh
 	// Assigns metric coefficients computing function
 	int ierr = 0;
 
+	// Reads mesh inputs
+	PetscBool	set;	
+	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh->dimension), &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	int		nmax;
+	nmax = mesh->dimension;
+	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh->n, &nmax, &set);
+	if (!set || nmax != mesh->dimension) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	int	meshflag;
+	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
+	if (!set) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
+	nmax = mesh->dimension*2;
+	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh->bounds, &nmax, &set);
+	if (!set || nmax != mesh->dimension*2) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	ierr = malloc2dY(&(mesh->coord), mesh.dimension, mesh->n); CHKERR_PRNT("malloc failed");
 	if (meshflag == 0) mesh->type = UNIFORM;
 	if (meshflag == 1) mesh->type = NONUNIFORM1;
