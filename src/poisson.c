@@ -55,45 +55,16 @@ int main(int argc, char *argv[]) {
 	int	ierr=0;
 
 	SetUpProblem(&prob);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Problem has been set!\n");
 	
 //	freopen("poisson.in", "r", stdin);
 //	freopen("poisson.out", "w", stdout);
 //	freopen("poisson.err", "w", stderr);
 	
 	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh.dimension), &set);
-	if (!set) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	int		nmax;
-	nmax = mesh.dimension;
-	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh.n, &nmax, &set);
-	if (!set || nmax != mesh.dimension) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-//	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
-	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
-	if (!set) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	nmax = mesh.dimension*2;
-	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh.bounds, &nmax, &set);
-	if (!set || nmax != mesh.dimension*2) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
+	ierr = CreateMesh(&mesh);
+	PetscFinalize();
+	MPI_Finalize();
+	return 0;
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
 	if (!set) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
@@ -115,40 +86,25 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-//	for (int i=1;i<dimension;i++) { 
-//		mesh.n[i]  = mesh.n[0];      // No. of points in each dimension
-//	}
-
-	// !Metrics might not be written for bounds other than 0 and 1
-	// So, keep using 0 and 1 as given below until metrics are made to be general
-//	for (int i=0;i<DIMENSION;i++) {
-//		mesh.bounds[i*2] = 0.0;    // Lower bound in each dimension
-//		mesh.bounds[i*2+1] = 1.0;  // Upper bound in each dimension
-//	}
-	
-	SetUpMesh(&mesh, meshflag);
+//	SetUpMesh(&mesh, meshflag);
 	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
 	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
 	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Mesh has been set!\n");
 
 //	ViewMeshInfo(mesh);
 	
 	indices.coarseningFactor = 2;
 	SetUpIndices(&mesh, &indices);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Indices have been intialized!\n");
 
 //	ViewGridsInfo(indices);
 
 	mapping(&indices, mappingStyleflag);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Indices have been set!\n");
 	
 //	ViewIndexMapsInfo(indices);
 //	ViewRangesInfo(indices);
 	
 	SetUpOperator(&indices, &op);
 	GridTransferOperators(op, indices);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Grid transfer operators have been set!\n");
 
 //	ViewOperatorInfo(op);
 	
@@ -163,18 +119,15 @@ int main(int argc, char *argv[]) {
 	if (cyc == 10) SetUpSolver(&indices, &solver, VFILTER);
 	if (cyc == 11) SetUpSolver(&indices, &solver, ADDITIVE);
 	if (cyc == 12) SetUpSolver(&indices, &solver, ADDITIVEScaled);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Solver has been created!\n");
 
 //	ViewSolverInfo(indices, solver);
 
 	Assemble(&prob, &mesh, &indices, &op, &solver);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Matrices in solver have been assembled!\n");
 
 //	ViewLinSysMatsInfo(*(solver.assem), 0);
 //	ViewGridTransferMatsInfo(*(solver.assem), 0, cyc);
 	
 	Solve(&solver);
-	PetscPrintf(PETSC_COMM_WORLD, "Log: Problem has been solved!\n");
 	
 	SetUpPostProcess(&pp);
 	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
@@ -190,63 +143,6 @@ int main(int argc, char *argv[]) {
 	MPI_Finalize();
 
 	return 0;
-}
-
-int read_input() {
-	// Read inputs 
-	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh.dimension), &set);
-	if (!set) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	int		nmax;
-	nmax = mesh.dimension;
-	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh.n, &nmax, &set);
-	if (!set || nmax != mesh.dimension) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-//	PetscOptionsGetInt(NULL, NULL, "-npts", mesh.n, NULL);
-	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
-	if (!set) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	nmax = mesh.dimension*2;
-	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh.bounds, &nmax, &set);
-	if (!set || nmax != mesh.dimension*2) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
-	if (!set) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
-	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
-	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
-	
-	if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
-		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
 }
 
 int ipow(int base, int exp) {

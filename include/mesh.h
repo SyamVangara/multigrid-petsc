@@ -38,7 +38,8 @@ typedef struct {
 	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
 } Mesh;
 
-void SetUpMesh(Mesh *mesh, MeshType type);
+//void SetUpMesh(Mesh *mesh, MeshType type);
+int CreateMesh(Mesh *mesh);
 void DestroyMesh(Mesh *mesh);
 
 #endif

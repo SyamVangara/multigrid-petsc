@@ -127,7 +127,7 @@ int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimensi
 	return ierr;
 }
 
-int Coords(Mesh *mesh, MeshType type) {
+int Coords(Mesh *mesh) {
 	// computes coords in each direction of the structured grid
 	//
 	// MeshType type: {UNIFORM, NONUNIFORM}
@@ -137,10 +137,11 @@ int Coords(Mesh *mesh, MeshType type) {
 
 	int	*n;
 	double	**coord, *bounds;
-	
+	MeshType type;
 	n 	= mesh->n;
 	bounds	= mesh->bounds;
 	coord	= mesh->coord;
+	type	= mesh->type;
 	for(int i=0;i<1;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
 		coord[i][0] = bounds[i*2]; //Lower bound
@@ -233,7 +234,7 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
-void CreateMesh(Mesh *mesh, int meshflag) {
+int CreateMesh(Mesh *mesh) {
 	// Creates mesh 
 	// Allocates memory
 	// Computes coords of a structured mesh
@@ -245,45 +246,48 @@ void CreateMesh(Mesh *mesh, int meshflag) {
 	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh->dimension), &set);
 	if (!set) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Dimension of the problem not set!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-dim n' for n-dimension!\n"); 
+		return 1;
+	} else if (mesh->dimension > 3 || mesh->dimension < 2) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Only 2D or 3D is valid!\n"); 
+		return 1;
 	}
 	int		nmax;
 	nmax = mesh->dimension;
 	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh->n, &nmax, &set);
 	if (!set || nmax != mesh->dimension) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: No. of mesh points not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-npts n0,n1,n2' for no. of mesh points in each of the three dimensions!\n"); 
+		return 1;
 	}
 	int	meshflag;
 	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
 	if (!set) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-mesh n' for n^th type mesh!\n"); 
+		return 1;
 	}
 	nmax = mesh->dimension*2;
 	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh->bounds, &nmax, &set);
 	if (!set || nmax != mesh->dimension*2) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-bounds l0,u0,l1,u1,l2,u2' for lower and upper bounds in each of the three dimensions!\n"); 
+		return 1;
 	}
-	ierr = malloc2dY(&(mesh->coord), mesh.dimension, mesh->n); CHKERR_PRNT("malloc failed");
+	ierr = malloc2dY(&(mesh->coord), mesh->dimension, mesh->n);
+	if (ierr != 0) {
+		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh memory allocation failed!\n"); 
+		return 1;
+	}
 	if (meshflag == 0) mesh->type = UNIFORM;
 	if (meshflag == 1) mesh->type = NONUNIFORM1;
 	if (meshflag == 2) mesh->type = NONUNIFORM2;
-	ierr = Coords(mesh, type); CHKERR_PRNT("Meshing failed");
+	ierr = Coords(mesh); CHKERR_RETURN("Meshing failed");
 	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
 
-//	return ierr;
+	return ierr;
 }
 
 void DestroyMesh(Mesh *mesh) {
