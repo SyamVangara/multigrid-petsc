@@ -136,58 +136,57 @@ int Coords(Mesh *mesh) {
 	double	length, d[MAX_DIMENSION];
 
 	int	*n;
-	double	**coord, *bounds;
-	MeshType type;
+	double	**coord;
+//	MeshType type;
+	int	type;
 	n 	= mesh->n;
-	bounds	= mesh->bounds;
 	coord	= mesh->coord;
 	type	= mesh->type;
-	for(int i=0;i<1;i++){
-		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		coord[i][0] = bounds[i*2]; //Lower bound
-		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
-		
-		d[i] = (coord[i][n[i]-1]-coord[i][0])/(n[i]-1); //Spacing
-		for(int j=1;j<n[i]-1;j++){
-			coord[i][j] = coord[i][j-1] + d[i];
-		}
-	}
+//	for(int i=0;i<1;i++){
+//		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
+//		coord[i][0] = mesh->bounds[i][0]; //Lower bound
+//		coord[i][n[i]-1] = mesh->bounds[i][1]; //Upper bound
+//		
+//		d[i] = (coord[i][n[i]-1]-coord[i][0])/(n[i]-1); //Spacing
+//		for(int j=1;j<n[i]-1;j++){
+//			coord[i][j] = coord[i][j-1] + d[i];
+//		}
+//	}
 
-	for(int i=1;i<2;i++){
+	for(int i=0;i<mesh->dimension;i++){
 		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		coord[i][0] = bounds[i*2]; //Lower bound
-		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
+		coord[i][0] = mesh->bounds[i][0]; //Lower bound
+		coord[i][n[i]-1] = mesh->bounds[i][1]; //Upper bound
 		
 		length = (coord[i][n[i]-1]-coord[i][0]);
 		double tmp_d = (length/(double)(n[i]-1));
 		double tmp_eta;
 		d[i] = 0.0;
 		for(int j=1;j<n[i]-1;j++){
-			if (type == NONUNIFORM1) coord[i][j] = bounds[i*2+1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
-			if (type == NONUNIFORM2) {
+			if (type == 0) coord[i][j] = coord[i][j-1] + tmp_d;
+			if (type == 1) coord[i][j] = mesh->bounds[i][1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
+			if (type == 2) {
 				tmp_eta = (j/(double)(n[i]-1));
-				coord[i][j] = bounds[i*2]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
+				coord[i][j] = mesh->bounds[i][0]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
 			}
-			if (type == UNIFORM) coord[i][j] = coord[i][j-1] + tmp_d;
-//			coord[i][j] = (*Transform)(&(bounds[i*2]), length, j/(double)(n[i]-1));
 			d[i] = fmax(d[i],fabs(coord[i][j]-coord[i][j-1])); 
 		}
 		d[i] = fmax(d[i],fabs(coord[i][n[i]-2]-coord[i][n[i]-1])); 
 	}
 
-	for(int i=2;i<DIMENSION;i++){
-		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		coord[i][0] = bounds[i*2]; //Lower bound
-		coord[i][n[i]-1] = bounds[i*2+1]; //Upper bound
-		
-		d[i] = (coord[i][n[i]-1]-coord[i][0])/(n[i]-1); //Spacing
-		for(int j=1;j<n[i]-1;j++){
-			coord[i][j] = coord[i][j-1] + d[i];
-		}
-	}
+//	for(int i=2;i<mesh->dimension;i++){
+//		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
+//		coord[i][0] = mesh->bounds[i][0]; //Lower bound
+//		coord[i][n[i]-1] = mesh->bounds[i][1]; //Upper bound
+//		
+//		d[i] = (coord[i][n[i]-1]-coord[i][0])/(n[i]-1); //Spacing
+//		for(int j=1;j<n[i]-1;j++){
+//			coord[i][j] = coord[i][j-1] + d[i];
+//		}
+//	}
 	
 	mesh->h = 0.0;
-	for (int i=0;i<DIMENSION;i++){
+	for (int i=0;i<mesh->dimension;i++){
 		mesh->h += d[i]*d[i];
 	}
 	mesh->h = sqrt(mesh->h);
@@ -260,32 +259,39 @@ int CreateMesh(Mesh *mesh) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-npts n0,n1,n2' for no. of mesh points in each of the three dimensions!\n"); 
 		return 1;
 	}
-	int	meshflag;
-	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
-	if (!set) {
+//	int	meshflag;
+	PetscOptionsGetIntArray(NULL, NULL, "-mesh_type", mesh->type, &nmax, &set);
+//	PetscOptionsGetInt(NULL, NULL, "-mesh", &meshflag, &set);
+	if (!set || nmax != mesh->dimension) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh type is not set properly!\n"); 
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-mesh n' for n^th type mesh!\n"); 
 		return 1;
 	}
 	nmax = mesh->dimension*2;
-	PetscOptionsGetIntArray(NULL, NULL, "-bounds", mesh->bounds, &nmax, &set);
+	double	temp[MAX_DIMENSION*2];
+	PetscOptionsGetRealArray(NULL, NULL, "-bounds", temp, &nmax, &set);
 	if (!set || nmax != mesh->dimension*2) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh bounds are not set properly!\n"); 
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Set '-bounds l0,u0,l1,u1,l2,u2' for lower and upper bounds in each of the three dimensions!\n"); 
 		return 1;
+	}
+	for (int i=0; i<mesh->dimension; i++) {
+		for (int j=0; j<2; j++) {
+			mesh->bounds[i][j] = temp[i*2+j];
+		}
 	}
 	ierr = malloc2dY(&(mesh->coord), mesh->dimension, mesh->n);
 	if (ierr != 0) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Mesh memory allocation failed!\n"); 
 		return 1;
 	}
-	if (meshflag == 0) mesh->type = UNIFORM;
-	if (meshflag == 1) mesh->type = NONUNIFORM1;
-	if (meshflag == 2) mesh->type = NONUNIFORM2;
+//	if (meshflag == 0) mesh->type = UNIFORM;
+//	if (meshflag == 1) mesh->type = NONUNIFORM1;
+//	if (meshflag == 2) mesh->type = NONUNIFORM2;
 	ierr = Coords(mesh); CHKERR_RETURN("Meshing failed");
-	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
-	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
-	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
+//	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
+//	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
+//	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
 
 	return ierr;
 }

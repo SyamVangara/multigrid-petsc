@@ -30,7 +30,7 @@ typedef struct {
 
 typedef struct {
 	int	dimension;
-	MeshType type;
+	int	type[MAX_DIMENSION];
 	int	n[MAX_DIMENSION];
 	double	bounds[MAX_DIMENSION][2];
 	double	**coord;

@@ -62,6 +62,8 @@ int main(int argc, char *argv[]) {
 	
 	PetscBool	set;	
 	ierr = CreateMesh(&mesh);
+	ViewMeshInfo(mesh);
+	DestroyMesh(&mesh);
 	PetscFinalize();
 	MPI_Finalize();
 	return 0;
@@ -232,23 +234,36 @@ void ViewMeshInfo(Mesh mesh) {
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: n[0] = %d, n[1] = %d\n", rank, mesh.n[0], mesh.n[1]);
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: bounds[0:1] = %f, %f; bounds[2:3] = %f, %f\n", rank, mesh.bounds[0], mesh.bounds[1], mesh.bounds[2], mesh.bounds[3]);
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: h = %f\n", rank, mesh.h);
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-      
-	for (int i=0;i<DIMENSION;i++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: coord[%d]:",rank,i);
-		for (int j=0;j<mesh.n[i];j++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
-		}
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+	int	dimension = mesh.dimension;
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: dimension = %d\n", rank, dimension);
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	for (int dim = 0; dim<dimension; dim++) {
+		PetscPrintf(PETSC_COMM_WORLD,"type[%d] = %d  ", dim, mesh.type[dim]);
 	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	for (int dim = 0; dim<dimension; dim++) {
+		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, mesh.n[dim]);
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ", rank);
+	for (int dim = 0; dim<dimension; dim++) {
+		for (int i=0; i<2; i++) {
+			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, mesh.bounds[dim][i]);
+		}
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	
+	PetscPrintf(PETSC_COMM_WORLD,"rank = %d: h = %f\n", rank, mesh.h);
+      
+	for (int i=0;i<dimension;i++) {
+		PetscPrintf(PETSC_COMM_WORLD,"rank = %d: coord[%d]:",rank,i);
+		for (int j=0;j<mesh.n[i];j++) {
+			PetscPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
+		}
+		PetscPrintf(PETSC_COMM_WORLD,"\n");
+	}
 }
 
 void ViewGridsInfo(Indices indices) {
