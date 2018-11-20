@@ -1,9 +1,14 @@
 #include "header.h"
 
-#define ERROR_MSG(message) (fprintf(stderr,"Error:%s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
 #define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
 #define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+
+#define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
+#define pCHKERR_PRNT(message) {if(ierr==1) {pERROR_MSG(message);}}
+#define pCHKERR_RETURN(message) {if(ierr==1) {pERROR_RETURN(message);}}
 
 #define PI 3.14159265358979323846
 #define MAX_DIMENSION 3
@@ -34,9 +39,9 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_size(MPI_COMM_WORLD, &procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	if (provided == MPI_THREAD_MULTIPLE) {
-		if (rank == 0) printf("MPI_THREAD_MULTIPLE is provided!\n");
+		if (rank == 0) printf("\nMPI_THREAD_MULTIPLE is provided!\n");
 	} else {
-		if (rank == 0) printf("MPI_THREAD_MULTIPLE is not provided!\n");
+		if (rank == 0) printf("\nMPI_THREAD_MULTIPLE is not provided!\n");
 	}
 	PetscInitialize(&argc, &argv, "poisson.in", 0);
 
@@ -61,7 +66,7 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.err", "w", stderr);
 	
 	PetscBool	set;	
-	ierr = CreateMesh(&mesh);
+	ierr = CreateMesh(&mesh); pCHKERR_RETURN("Mesh creation failed");
 	ViewMeshInfo(mesh);
 	DestroyMesh(&mesh);
 	PetscFinalize();
@@ -229,13 +234,8 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 void ViewMeshInfo(Mesh mesh) {
 	// Prints the info in mesh data structure
 
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
 	int	dimension = mesh.dimension;
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: dimension = %d\n", rank, dimension);
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: dimension = %d\n", dimension);
 	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"type[%d] = %d  ", dim, mesh.type[dim]);
@@ -247,7 +247,7 @@ void ViewMeshInfo(Mesh mesh) {
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ", rank);
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		for (int i=0; i<2; i++) {
 			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, mesh.bounds[dim][i]);
@@ -255,10 +255,10 @@ void ViewMeshInfo(Mesh mesh) {
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"rank = %d: h = %f\n", rank, mesh.h);
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: h = %f\n", mesh.h);
       
 	for (int i=0;i<dimension;i++) {
-		PetscPrintf(PETSC_COMM_WORLD,"rank = %d: coord[%d]:",rank,i);
+		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);
 		for (int j=0;j<mesh.n[i];j++) {
 			PetscPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
 		}
