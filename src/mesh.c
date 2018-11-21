@@ -14,22 +14,6 @@
 #define METRICS(i,j,k) (metrics->data[metrics->nk*((i)*metrics->nj+(j))+(k)])
 #define isGRIDtoGLOBAL(l,i,j) (IsGridToGlobal[l].data[((i)*IsGridToGlobal[l].nj+(j))])
 #define isGLOBALtoGRID(l,i,j) (IsGlobalToGrid[l].data[((i)*IsGlobalToGrid[l].nj+(j))])
-//#define isGRIDtoGLOBAL(i,j) (IsGridToGlobal.data[((i)*IsGridToGlobal.nj+(j))])
-//#define isGLOBALtoGRID(i,j) (IsGlobalToGrid.data[((i)*IsGlobalToGrid.nj+(j))])
-
-double TransformFunc(double *bounds, double length, double xi) {
-	//Transformation function from computational to physical space
-	//
-	//bounds - lower and upper bounds of physical coordinate
-	//length = (bounds[1]-bounds[0])
-	//
-	//x or y = T(xi)
-	
-	double val;
-//	val = bounds[1]-length*(cos(PI*0.5*xi));
-	val = xi;
-	return val;
-}
 
 void MetricsUniform(void *mesh, double x, double y, double *metrics) {
 	//Computes following metrics at (x,y)
@@ -111,28 +95,7 @@ void MetricsNonUniform2(void *mesh1, double x, double y, double *metrics) {
 	metrics[4] = 0.0;
 }
 
-int UniformMesh(double ***pcoord, int *n, double *bounds, double *h, int dimension) {
-	
-	int ierr = 0;
-	
-	//Assign memory
-	ierr = malloc2dY(pcoord,dimension,n); CHKERR_RETURN("malloc failed");
-	//Compute uniform grid in each dimension
-	for(int i=0;i<dimension;i++){
-		if (n[i]<2) {ierr=1; ERROR_RETURN("Need at least 2 points in each direction");}
-		(*pcoord)[i][0] = bounds[i*2]; //Lower bound
-		(*pcoord)[i][n[i]-1] = bounds[i*2+1]; //Upper bound
-		
-		h[i] = ((*pcoord)[i][n[i]-1]-(*pcoord)[i][0])/(n[i]-1); //Spacing
-		for(int j=1;j<n[i]-1;j++){
-			(*pcoord)[i][j] = (*pcoord)[i][j-1] + h[i];
-		}
-	}
-
-	return ierr;
-}
-
-int Coords(Mesh *mesh) {
+int Compute_coord(Mesh *mesh) {
 	// computes coords in each direction of the structured grid
 	//
 	// MeshType type: {UNIFORM, NONUNIFORM}
@@ -148,7 +111,12 @@ int Coords(Mesh *mesh) {
 	type	= mesh->type;
 	
 	for(int i=0;i<mesh->dimension;i++){
-		if (n[i]<2) {ierr=1; pERROR_RETURN("Need at least 2 points in each direction");}
+		if (n[i]<MIN_POINTS) {
+			PetscPrintf(PETSC_COMM_WORLD,
+				"ERROR: %s:%d: Need at least %d points in each direction\n",
+				__FILE__,__LINE__,MIN_POINTS);
+			return 1;
+		}
 		coord[i][0] = mesh->bounds[i][0]; //Lower bound
 		coord[i][n[i]-1] = mesh->bounds[i][1]; //Upper bound
 		
@@ -216,6 +184,52 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
+int Split_domain(Mesh *mesh) {
+	// Split the domain for MPI parallelization
+	// ========================================
+	//
+	// 
+	
+	int	procs, rank;
+	int	ierr = 0;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	int dimension = mesh->dimension;
+	int *dimProcs = mesh->dimProcs;
+	int *n = mesh->n;
+	double *range = mesh->range;
+	
+	int temp1, temp2;
+	int nbc = 2; // Assuming 2 boundary points; 1 on each side
+	int minn = PetscMin(n[0]-nbc,n[1]-nbc);
+	int maxn = PetscMax(n[0]-nbc,n[1]-nbc);
+
+	if (dimension == 2) {
+		temp1 = (int) floor(0.5+sqrt(procs));
+		temp1 = PetscMin(temp1, minn);
+		temp2 = procs/temp1;
+		while (temp1*temp2 != procs && temp2 <= maxn) {
+			temp1--;
+			temp2 = procs/temp1;
+		}
+		if (temp2 > maxn) {
+			pERROR_MSG("Factoring total no. of procs in 2D failed");
+			pERROR_MSG("Rerun with different no. of procs or mesh sizes");
+			return 1;
+		};
+		if (minn == n[1]-nbc) {
+			int swap = temp2;
+			temp2 = temp1;
+			temp1 = swap;
+		}
+		dimProcs[0] = temp1;
+		dimProcs[1] = temp2;
+	} 	
+	return ierr;
+}
+
 int CreateMesh(Mesh *mesh) {
 	// Creates mesh
 	// ============
@@ -268,10 +282,9 @@ int CreateMesh(Mesh *mesh) {
 		pERROR_MSG("Mesh memory allocation failed");
 		return 1;
 	}
-//	if (meshflag == 0) mesh->type = UNIFORM;
-//	if (meshflag == 1) mesh->type = NONUNIFORM1;
-//	if (meshflag == 2) mesh->type = NONUNIFORM2;
-	ierr = Coords(mesh); pCHKERR_RETURN("Coordinate computation failed");
+	
+	ierr = Compute_coord(mesh); pCHKERR_RETURN("Coordinate computation failed");
+	ierr = Split_domain(mesh); pCHKERR_RETURN("Domain splitting failed");
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;

@@ -94,9 +94,9 @@ int main(int argc, char *argv[]) {
 	}
 
 //	SetUpMesh(&mesh, meshflag);
-	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
-	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
-	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
+//	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
+//	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
+//	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
 
 //	ViewMeshInfo(mesh);
 	
@@ -249,6 +249,11 @@ void ViewMeshInfo(Mesh mesh) {
 	
 	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
 	for (int dim = 0; dim<dimension; dim++) {
+		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, mesh.dimProcs[dim]);
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	for (int dim = 0; dim<dimension; dim++) {
 		for (int i=0; i<2; i++) {
 			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, mesh.bounds[dim][i]);
 		}
@@ -257,13 +262,13 @@ void ViewMeshInfo(Mesh mesh) {
 	
 	PetscPrintf(PETSC_COMM_WORLD,"Mesh: h = %f\n", mesh.h);
       
-	for (int i=0;i<dimension;i++) {
-		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);
-		for (int j=0;j<mesh.n[i];j++) {
-			PetscPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
-		}
-		PetscPrintf(PETSC_COMM_WORLD,"\n");
-	}
+//	for (int i=0;i<dimension;i++) {
+//		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);
+//		for (int j=0;j<mesh.n[i];j++) {
+//			PetscPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
+//		}
+//		PetscPrintf(PETSC_COMM_WORLD,"\n");
+//	}
 }
 
 void ViewGridsInfo(Indices indices) {
