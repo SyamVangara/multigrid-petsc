@@ -201,31 +201,43 @@ int Split_domain(Mesh *mesh) {
 	int *n = mesh->n;
 	double *range = mesh->range;
 	
+	int minp, maxp, sqrtp;
+	int cost1, cost2;
 	int temp1, temp2;
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 	int minn = PetscMin(n[0]-nbc,n[1]-nbc);
 	int maxn = PetscMax(n[0]-nbc,n[1]-nbc);
 
+	sqrtp = (int) floor(0.5+sqrt(procs));
+	sqrtp = PetscMin(sqrtp, minn);
+	minp = (int) floor(0.5+sqrt(procs*minn/maxn));
+	minp = PetscMin(minp, minn);
 	if (dimension == 2) {
-		temp1 = (int) floor(0.5+sqrt(procs));
-		temp1 = PetscMin(temp1, minn);
-		temp2 = procs/temp1;
-		while (temp1*temp2 != procs && temp2 <= maxn) {
-			temp1--;
-			temp2 = procs/temp1;
+		for (int ip=minp; ip>0; ip--) {
+			maxp = procs/ip;
+			if (ip*maxp == procs) {minp = ip; break;}
 		}
-		if (temp2 > maxn) {
+		temp1 = minp;
+		temp2 = maxp;
+		cost1 = temp1*maxn + temp2*minn;
+		for (int ip=minp+1; ip<=sqrtp; ip++) {
+			maxp = procs/ip;
+			if (ip*maxp == procs) {minp = ip; break;}
+		}
+		cost2 = minp*maxn + maxp*minn;
+		if (cost1 < cost2) {minp = temp1; maxp = temp2;}
+		if (maxp > maxn) {
 			pERROR_MSG("Factoring total no. of procs in 2D failed");
 			pERROR_MSG("Rerun with different no. of procs or mesh sizes");
 			return 1;
 		};
 		if (minn == n[1]-nbc) {
-			int swap = temp2;
-			temp2 = temp1;
-			temp1 = swap;
+			dimProcs[0] = maxp;
+			dimProcs[1] = minp;
+		} else {
+			dimProcs[0] = minp;
+			dimProcs[1] = maxp;
 		}
-		dimProcs[0] = temp1;
-		dimProcs[1] = temp2;
 	} 	
 	return ierr;
 }
