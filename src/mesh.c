@@ -212,20 +212,22 @@ int Split_domain(Mesh *mesh) {
 	sqrtp = PetscMin(sqrtp, minn);
 	minp = (int) floor(0.5+sqrt(procs*minn/maxn));
 	minp = PetscMin(minp, minn);
+	cost2 = maxn*procs;
 	if (dimension == 2) {
 		for (int ip=minp; ip>0; ip--) {
 			maxp = procs/ip;
 			if (ip*maxp == procs) {minp = ip; break;}
 		}
-		temp1 = minp;
-		temp2 = maxp;
-		cost1 = temp1*maxn + temp2*minn;
+		cost1 = (minp-1)*maxn + (maxp-1)*minn;
 		for (int ip=minp+1; ip<=sqrtp; ip++) {
-			maxp = procs/ip;
-			if (ip*maxp == procs) {minp = ip; break;}
+			temp2 = procs/ip;
+			if (ip*temp2 == procs) {
+				temp1 = ip;
+				cost2 = (temp1-1)*maxn + (temp2-1)*minn;
+				break;
+			}
 		}
-		cost2 = minp*maxn + maxp*minn;
-		if (cost1 < cost2) {minp = temp1; maxp = temp2;}
+		if (cost1 > cost2) {minp = temp1; maxp = temp2;}
 		if (maxp > maxn) {
 			pERROR_MSG("Factoring total no. of procs in 2D failed");
 			pERROR_MSG("Rerun with different no. of procs or mesh sizes");
