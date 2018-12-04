@@ -15,6 +15,49 @@
 #define isGRIDtoGLOBAL(l,i,j) (IsGridToGlobal[l].data[((i)*IsGridToGlobal[l].nj+(j))])
 #define isGLOBALtoGRID(l,i,j) (IsGlobalToGrid[l].data[((i)*IsGlobalToGrid[l].nj+(j))])
 
+static int CommCost3D(int *l, int *n) {
+	// Computes communicstion cost based on number of points in each direction
+	// and number of directionwise ranks/blocks
+	
+	return (l[0]-1)*n[1]*n[2] + n[0]*(l[1]-1)*n[2] + n[0]*n[1]*(l[2]-1) 
+}
+
+static void sort3(int *n, int *nsorted) {
+	// Sorts three integers in ascending order
+	
+	if (n[0]>n[1]) {
+		if (n[0]>n[2]) {
+		       nsorted[2] = n[0];
+		       if (n[1] > n[2]) {
+			       nsorted[1] = n[1];
+			       nsorted[0] = n[2];
+		       } else {
+			       nsorted[1] = n[2];
+			       nsorted[0] = n[1];
+		       }
+		} else {
+			nsorted[1] = n[0];
+			nsorted[2] = n[2];
+			nsorted[0] = n[1];
+		}
+	} else {
+		if (n[1]>n[2]) {
+			nsorted[2] = n[1];
+			if (n[0]>n[2]) {
+				nsorted[1] = n[0];
+				nsorted[0] = n[2];
+			} else {
+				nsorted[1] = n[2];
+				nsorted[0] = n[0];
+			}
+		} else {
+			nsorted[1] = n[1];
+			nsorted[2] = n[2];
+			nsorted[0] = n[0];
+		}
+	}
+}
+
 void MetricsUniform(void *mesh, double x, double y, double *metrics) {
 	//Computes following metrics at (x,y)
 	//
@@ -201,46 +244,76 @@ int Split_domain(Mesh *mesh) {
 	int *n = mesh->n;
 	double *range = mesh->range;
 	
-	int minp, maxp, sqrtp;
-	int cost1, cost2;
-	int temp1, temp2;
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
-	int minn = PetscMin(n[0]-nbc,n[1]-nbc);
-	int maxn = PetscMax(n[0]-nbc,n[1]-nbc);
+	int nsorted[MAX_DIMENSION]
 
-	sqrtp = (int) floor(0.5+sqrt(procs));
-	sqrtp = PetscMin(sqrtp, minn);
-	minp = (int) floor(0.5+sqrt(procs*minn/maxn));
-	minp = PetscMin(minp, minn);
-	cost2 = maxn*procs;
 	if (dimension == 2) {
+		nsorted[0] = PetscMin(n[0]-nbc,n[1]-nbc);
+		nsorted[1] = PetscMax(n[0]-nbc,n[1]-nbc);
+	} else if (dimension == 3) {
+		sort3(n, nsorted); 
+		for (int i=0; i<3; i++)
+			nsorted[i] = nsorted[i]-nbc;
+	} else {
+		pERROR_MSG("Only 2D and 3D are supported for domain splitting");
+		return 1;
+	}	
+
+	if (dimension == 2) {
+		int minp, maxp, sqrtp;
+		int cost1, cost2;
+		int temp1, temp2;
+
+		sqrtp = (int) floor(sqrt(procs));
+		sqrtp = PetscMin(sqrtp, nsorted[0]);
+		minp = (int) floor(sqrt(procs*nsorted[0]/nsorted[1]));
+		minp = PetscMin(minp, nsorted[0]);
+		cost2 = nsorted[1]*procs;
 		for (int ip=minp; ip>0; ip--) {
 			maxp = procs/ip;
 			if (ip*maxp == procs) {minp = ip; break;}
 		}
-		cost1 = (minp-1)*maxn + (maxp-1)*minn;
+		cost1 = (minp-1)*nsorted[1] + (maxp-1)*nsorted[0];
 		for (int ip=minp+1; ip<=sqrtp; ip++) {
 			temp2 = procs/ip;
 			if (ip*temp2 == procs) {
 				temp1 = ip;
-				cost2 = (temp1-1)*maxn + (temp2-1)*minn;
+				cost2 = (temp1-1)*nsorted[1] + (temp2-1)*nsorted[0];
 				break;
 			}
 		}
 		if (cost1 > cost2) {minp = temp1; maxp = temp2;}
-		if (maxp > maxn) {
+		if (maxp > nsorted[1]) {
 			pERROR_MSG("Factoring total no. of procs in 2D failed");
 			pERROR_MSG("Rerun with different no. of procs or mesh sizes");
 			return 1;
 		};
-		if (minn == n[1]-nbc) {
+		if (nsorted[0] == n[1]-nbc) {
 			dimProcs[0] = maxp;
 			dimProcs[1] = minp;
 		} else {
 			dimProcs[0] = minp;
 			dimProcs[1] = maxp;
 		}
-	} 	
+	} else if (dimension == 3) {
+		int l[3] = {procs, procs, procs};
+		int cost = CommCost3D(l, nsorted); // intialize with maximum cost
+		double temp = (double)(procs*nsorted[0]*nsorted[0])/(double)(nsorted[1]*nsorted[2]);
+		int lopt = (int) floor(pow(temp,(1.0/3.0)));
+		int cubethp = (int) floor(pow(procs,(1.0/3.0)));
+		int maxload = nsorted[0]*nsorted[1]*nsorted[2];
+		int loadfac = maxload;
+		int fac, mopt;
+
+		for (int i=lopt; i>0; i--) {
+			fac = procs/i;
+			if (fac*i == procs) {
+				temp = (float) 
+				mopt = (int) floor(sqrt((procs*nsorted)/()));
+			}
+		}
+
+	}
 	return ierr;
 }
 
