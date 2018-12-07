@@ -298,190 +298,104 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
+static void CheckAndAssign(int *ijk, int *n, int *commcost, double *maxload, double *loadfac, int *l) {
+	// - Check if given factorization (ijk) is better based on provided communication
+	// cost, maximum load and load factor
+	// - If yes, then that factorization is assigned in ascending order and 
+	// returned in "l" along with corresponding communication cost, maximum load and
+	// load factor	
+	
+	int ijks[3], tcost;
+	double load[3];
+		
+	sort3(ijk, ijks);
+	tcost =  CommCost3D(ijks, n);
+	ComputeLoad(n, ijks, load);
+	PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf\n", ijks[0], ijks[1], ijks[2], tcost, load[0], load[2]);
+	
+	if (tcost < *commcost ||
+	   (tcost == *commcost &&
+	   (load[0] < *maxload ||
+	   (load[0] == *maxload &&
+	   load[2] < *loadfac)))) {
+		l[0] = ijks[0];
+		l[1] = ijks[1];
+		l[2] = ijks[2];
+		*commcost = tcost;
+		*maxload = load[0];
+		*loadfac = load[2];
+	}
+}
+
+static void factorize2(int p, int i, int *nsorted, int *l, double *para) {
+	// Factorizes a number into 2 numbers based a cost function
+		
+	double	temp = ((double)p*nsorted[1])/((double)nsorted[2]); 
+	int	mopt = (int) floor(sqrt(temp));
+	int	sqrtm = (int) floor(sqrt((double)p));
+	int	k;
+	int	cost = (int) para[0];
+	double	maxload = para[1];
+	double	loadfac = para[2];
+
+	for (int j=mopt; j>0; j--) {
+		k = p/j;
+		if (k*j == p) {
+			int ijk[3] = {i, j, k};
+			CheckAndAssign(ijk, nsorted, &cost, &maxload, &loadfac, l);
+			break;
+		}
+	}
+	for (int j=mopt+1; j<sqrtm+1; j++) {
+		k = p/j;
+		if (k*j == p) {
+			int ijk[3] = {i, j, k};
+			CheckAndAssign(ijk, nsorted, &cost, &maxload, &loadfac, l);
+			break;
+		}
+	}
+	para[0] = (double) cost;
+	para[1] = maxload;
+	para[2] = loadfac;
+
+	return 0;
+}
+
 int Split_domain3D(int procs, int *nsorted, int *l, double *para) {
 	// Splits a 3D domain such that communication cost is reduced 
 	
 	for (int i=0; i<3; i++)	l[i] = procs;
-	int cost = CommCost3D(l, nsorted); // intialize with maximum cost
+	para[0] = (double) CommCost3D(l, nsorted); // intialize with maximum cost
+	para[1] = (double) nsorted[0]*nsorted[1]*nsorted[2];
+	para[2] = (double) para[1];
+
 	double temp = (double)(procs*nsorted[0]*nsorted[0])/(double)(nsorted[1]*nsorted[2]);
 	int lopt = (int) floor(pow(temp,(1.0/3.0)));
 	int cubethp = (int) floor(pow(procs,(1.0/3.0)));
-	double maxload = nsorted[0]*nsorted[1]*nsorted[2];
-	double loadfac = maxload;
 	int fac, mopt, k, tcost, sqrtm;
 	double load[3];
 
 	for (int i=lopt; i>0; i--) {
 		fac = procs/i;
 		if (fac*i == procs) {
-			temp = ((double)procs*nsorted[1])/((double)i*nsorted[2]); 
-			mopt = (int) floor(sqrt(temp));
-			sqrtm = (int) floor(sqrt((double)procs/(double)i));
-			for (int j=mopt; j>0; j--) {
-				k = fac/j;
-				if (k*j == fac) {
-					int ijk[3] = {i, j, k};
-					int ijks[3];
-					sort3(ijk, ijks);
-					tcost =  CommCost3D(ijks, nsorted);
-					ComputeLoad(nsorted, ijks, load);
-					PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf\n", ijks[0], ijks[1], ijks[2], tcost, load[0], load[2]);
-					if (tcost < cost ||
-					   (tcost == cost &&
-					   (load[0] < maxload ||
-					   (load[0] == maxload &&
-					   load[2] < loadfac)))) {
-						l[0] = ijks[0];
-						l[1] = ijks[1];
-						l[2] = ijks[2];
-						cost = tcost;
-						maxload = load[0];
-						loadfac = load[2];
-					}
-					break;
-				}
-			}
-			for (int j=mopt+1; j<sqrtm+1; j++) {
-				k = fac/j;
-				if (k*j == fac) {
-					int ijk[3] = {i, j, k};
-					int ijks[3];
-					sort3(ijk, ijks);
-					tcost =  CommCost3D(ijks, nsorted);
-					ComputeLoad(nsorted, ijks, load);
-					PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf\n", ijks[0], ijks[1], ijks[2], tcost, load[0], load[2]);
-					if (tcost < cost ||
-					   (tcost == cost &&
-					   (load[0] < maxload ||
-					   (load[0] == maxload &&
-					   load[2] < loadfac)))) {
-						l[0] = ijks[0];
-						l[1] = ijks[1];
-						l[2] = ijks[2];
-						cost = tcost;
-						maxload = load[0];
-						loadfac = load[2];
-					}
-					break;
-				}
-			}
+			factorize2(fac, i, nsorted, l, para);
 			break;
 		}
 	}
 	for (int i=lopt+1; i<cubethp+1; i++) {
 		fac = procs/i;
 		if (fac*i == procs) {
-			temp = ((double)procs*nsorted[1])/((double)i*nsorted[2]); 
-			mopt = (int) floor(sqrt(temp));
-			sqrtm = (int) floor(sqrt((double)procs/(double)i));
-			for (int j=mopt; j>0; j--) {
-				k = fac/j;
-				if (k*j == fac) {
-					int ijk[3] = {i, j, k};
-					int ijks[3];
-					sort3(ijk, ijks);
-					tcost =  CommCost3D(ijks, nsorted);
-					ComputeLoad(nsorted, ijks, load);
-					PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf\n", ijks[0], ijks[1], ijks[2], tcost, load[0], load[2]);
-					if (tcost < cost ||
-					   (tcost == cost &&
-					   (load[0] < maxload ||
-					   (load[0] == maxload &&
-					   load[2] < loadfac)))) {
-						l[0] = ijks[0];
-						l[1] = ijks[1];
-						l[2] = ijks[2];
-						cost = tcost;
-						maxload = load[0];
-						loadfac = load[2];
-					}
-					break;
-				}
-			}
-			for (int j=mopt+1; j<sqrtm+1; j++) {
-				k = fac/j;
-				if (k*j == fac) {
-					int ijk[3] = {i, j, k};
-					int ijks[3];
-					sort3(ijk, ijks);
-					tcost =  CommCost3D(ijks, nsorted);
-					ComputeLoad(nsorted, ijks, load);
-					PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf\n", ijks[0], ijks[1], ijks[2], tcost, load[0], load[2]);
-					if (tcost < cost ||
-					   (tcost == cost &&
-					   (load[0] < maxload ||
-					   (load[0] == maxload &&
-					   load[2] < loadfac)))) {
-						l[0] = ijks[0];
-						l[1] = ijks[1];
-						l[2] = ijks[2];
-						cost = tcost;
-						maxload = load[0];
-						loadfac = load[2];
-					}
-					break;
-				}
-			}
+			factorize2(fac, i, nsorted, l, para);
 			break;
 		}
 	}
 
-	if (l[0] > nsorted[0] || l[1] > nsorted[1] || l[2] > nsorted[2]) {
-		pERROR_MSG("Factoring total no. of procs in 3D failed");
-		pERROR_MSG("Rerun with different no. of procs or mesh sizes");
-		return 1;
-	};
-
-	para[0] = (double) cost;
-	para[1] = load[0];
-	para[2] = load[2];
-
 	return 0;
 }
-
-//int Split_domain2D() {
-//	int minp, maxp, sqrtp;
-//	int cost1, cost2;
-//	int temp1, temp2;
-//
-//	sqrtp = (int) floor(sqrt(procs));
-//	sqrtp = PetscMin(sqrtp, nsorted[0]);
-//	minp = (int) floor(sqrt(procs*nsorted[0]/nsorted[1]));
-//	minp = PetscMin(minp, nsorted[0]);
-//	cost2 = nsorted[1]*procs;
-//	for (int ip=minp; ip>0; ip--) {
-//		maxp = procs/ip;
-//		if (ip*maxp == procs) {minp = ip; break;}
-//	}
-//	cost1 = (minp-1)*nsorted[1] + (maxp-1)*nsorted[0];
-//	for (int ip=minp+1; ip<=sqrtp; ip++) {
-//		temp2 = procs/ip;
-//		if (ip*temp2 == procs) {
-//			temp1 = ip;
-//			cost2 = (temp1-1)*nsorted[1] + (temp2-1)*nsorted[0];
-//			break;
-//		}
-//	}
-//	if (cost1 > cost2) {minp = temp1; maxp = temp2;}
-//	if (maxp > nsorted[1]) {
-//		pERROR_MSG("Factoring total no. of procs in 2D failed");
-//		pERROR_MSG("Rerun with different no. of procs or mesh sizes");
-//		return 1;
-//	};
-//	if (nsorted[0] == n[1]-nbc) {
-//		dimProcs[0] = maxp;
-//		dimProcs[1] = minp;
-//	} else {
-//		dimProcs[0] = minp;
-//		dimProcs[1] = maxp;
-//	}
-//}
 
 int Split_domain(Mesh *mesh) {
 	// Split the domain for MPI parallelization
 	// ========================================
-	//
-	// 
 	
 	int	procs, rank;
 	int	ierr = 0;
@@ -497,67 +411,35 @@ int Split_domain(Mesh *mesh) {
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 	int nsorted[MAX_DIMENSION], index[3];
 
-//	if (dimension == 2) {
-//		nsorted[0] = PetscMin(n[0]-nbc,n[1]-nbc);
-//		nsorted[1] = PetscMax(n[0]-nbc,n[1]-nbc);
-//	} else if (dimension == 3) {
-//		sort3Index(n, nsorted, index); 
-//		for (int i=0; i<3; i++)
-//			nsorted[i] = nsorted[i]-nbc;
-//	} else {
-//		pERROR_MSG("Only 2D and 3D are supported for domain splitting");
-//		return 1;
-//	}	
 	if (dimension == 2) n[2] = nbc+1;
 	sort3Index(n, nsorted, index); 
-	for (int i=0; i<3; i++)
-			nsorted[i] = nsorted[i]-nbc;
-//	if (dimension == 2) {
-//		int minp, maxp, sqrtp;
-//		int cost1, cost2;
-//		int temp1, temp2;
-//
-//		sqrtp = (int) floor(sqrt(procs));
-//		sqrtp = PetscMin(sqrtp, nsorted[0]);
-//		minp = (int) floor(sqrt(procs*nsorted[0]/nsorted[1]));
-//		minp = PetscMin(minp, nsorted[0]);
-//		cost2 = nsorted[1]*procs;
-//		for (int ip=minp; ip>0; ip--) {
-//			maxp = procs/ip;
-//			if (ip*maxp == procs) {minp = ip; break;}
-//		}
-//		cost1 = (minp-1)*nsorted[1] + (maxp-1)*nsorted[0];
-//		for (int ip=minp+1; ip<=sqrtp; ip++) {
-//			temp2 = procs/ip;
-//			if (ip*temp2 == procs) {
-//				temp1 = ip;
-//				cost2 = (temp1-1)*nsorted[1] + (temp2-1)*nsorted[0];
-//				break;
-//			}
-//		}
-//		if (cost1 > cost2) {minp = temp1; maxp = temp2;}
-//		if (maxp > nsorted[1]) {
-//			pERROR_MSG("Factoring total no. of procs in 2D failed");
-//			pERROR_MSG("Rerun with different no. of procs or mesh sizes");
-//			return 1;
-//		};
-//		if (nsorted[0] == n[1]-nbc) {
-//			dimProcs[0] = maxp;
-//			dimProcs[1] = minp;
-//		} else {
-//			dimProcs[0] = minp;
-//			dimProcs[1] = maxp;
-//		}
-//	} else if (dimension == 3) {
-		int l[3];
-		double para[3]; 
-		Split_domain3D(procs, nsorted, l, para);
-		for (int i=0; i<3; i++)	dimProcs[i] = l[index[i]];
-		PetscPrintf(PETSC_COMM_WORLD,"Chosen: ");
-		for (int i=0; i<dimension; i++)
-			PetscPrintf(PETSC_COMM_WORLD,"p[%d] = %d, ", i, dimProcs[i]);
-		PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf\n", (int)para[0], (int)para[1], para[2]);
-//	}
+	for (int i=0; i<3; i++) nsorted[i] = nsorted[i]-nbc;
+
+	int l[3];
+	double para[3]; 
+	if (dimension == 2) {
+		l[0] = 1;
+		for (int i=1; i<3; i++)	l[i] = procs;
+		para[0] = (double) CommCost3D(l, nsorted); // intialize with maximum cost
+		para[1] = (double) nsorted[0]*nsorted[1]*nsorted[2];
+		para[2] = (double) para[1];
+		factorize2(procs, 1, nsorted, l, para);
+	} else if (dimension == 3) {
+		ierr = Split_domain3D(procs, nsorted, l, para);
+	}
+
+	if (l[0] > nsorted[0] || l[1] > nsorted[1] || l[2] > nsorted[2]) {
+		pERROR_MSG("Factorization of total no. of procs failed");
+		pERROR_MSG("Rerun with different no. of procs or mesh sizes");
+		return 1;
+	};
+	for (int i=0; i<3; i++)	dimProcs[i] = l[index[i]];
+
+	PetscPrintf(PETSC_COMM_WORLD,"Chosen: \n");
+	for (int i=0; i<dimension; i++)
+		PetscPrintf(PETSC_COMM_WORLD,"p[%d] = %d, ", i, dimProcs[i]);
+	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf\n", (int)para[0], (int)para[1], para[2]);
+	
 	return ierr;
 }
 
