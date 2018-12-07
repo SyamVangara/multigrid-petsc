@@ -72,6 +72,7 @@ int main(int argc, char *argv[]) {
 	PetscFinalize();
 	MPI_Finalize();
 	return 0;
+	
 	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
 	if (!set) {
 		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 

@@ -328,7 +328,9 @@ static void CheckAndAssign(int *ijk, int *n, int *commcost, double *maxload, dou
 }
 
 static void factorize2(int p, int i, int *nsorted, int *l, double *para) {
-	// Factorizes a number into 2 numbers based a cost function
+	// Factorize "p*i" into three factors (with "i" being one of them)
+	// such that communication cost, maximum load and load factors
+	// are reduced in that order of priority.
 		
 	double	temp = ((double)p*nsorted[1])/((double)nsorted[2]); 
 	int	mopt = (int) floor(sqrt(temp));
@@ -361,8 +363,10 @@ static void factorize2(int p, int i, int *nsorted, int *l, double *para) {
 	return 0;
 }
 
-int Split_domain3D(int procs, int *nsorted, int *l, double *para) {
-	// Splits a 3D domain such that communication cost is reduced 
+int factorize3(int procs, int *nsorted, int *l, double *para) {
+	// Factorize "procs" into three factors such that 
+	// communication cost, maximum load and load factors
+	// are reduced in that order of priority.
 	
 	for (int i=0; i<3; i++)	l[i] = procs;
 	para[0] = (double) CommCost3D(l, nsorted); // intialize with maximum cost
@@ -393,9 +397,10 @@ int Split_domain3D(int procs, int *nsorted, int *l, double *para) {
 	return 0;
 }
 
-int Split_domain(Mesh *mesh) {
-	// Split the domain for MPI parallelization
-	// ========================================
+int factorize(Mesh *mesh) {
+	// Factorize "procs" depending on the dimension such that 
+	// communication cost, maximum load and load factors
+	// are reduced in that order of priority.
 	
 	int	procs, rank;
 	int	ierr = 0;
@@ -425,11 +430,10 @@ int Split_domain(Mesh *mesh) {
 		para[2] = (double) para[1];
 		factorize2(procs, 1, nsorted, l, para);
 	} else if (dimension == 3) {
-		ierr = Split_domain3D(procs, nsorted, l, para);
+		ierr = factorize3(procs, nsorted, l, para);
 	}
 
 	if (l[0] > nsorted[0] || l[1] > nsorted[1] || l[2] > nsorted[2]) {
-		pERROR_MSG("Factorization of total no. of procs failed");
 		pERROR_MSG("Rerun with different no. of procs or mesh sizes");
 		return 1;
 	};
@@ -441,6 +445,50 @@ int Split_domain(Mesh *mesh) {
 	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf\n", (int)para[0], (int)para[1], para[2]);
 	
 	return ierr;
+}
+
+int split_domain(Mesh *mesh) {
+	// Split the domain for given factorization of total
+	// no. of procs.
+	
+	int	procs, rank;
+	int	ierr = 0;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	int dimension = mesh->dimension;
+	int *l = mesh->dimProcs;
+	int *n = mesh->n;
+	int (*range)[2] = mesh->range;
+	int *blockID = mesh->blockID;
+
+	blockID[2] = rank/(l[0]*l[1]);
+	blockID[1] = (rank-blockID[2]*l[0]*l[1])/l[0];
+	blockID[0] = (rank-blockID[2]*l[0]*l[1]-blockID[1]*l[0]);
+	
+	int rem[3], quo[3];
+	for (int i=0; i<dimension; i++) {
+		rem[i] = n[i]%l[i];
+		quo[i] = n[i]/l[i];
+	}
+
+	for (int i=0; i<dimension; i++) {
+		for (int j=0; j<2; j++)
+			range[i][j] = quo[i]*(blockID[i]+j) + ((blockID[i]+j < rem[i]) ? blockID[i]+j : rem[i]);
+	}
+		PetscPrintf(PETSC_COMM_WORLD,"Rewrite this function with n-2/l not n/l\n");
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
+	for (int i=0; i<dimension; i++)
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
+	for (int i=0; i<dimension; i++)
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][0], range[i][1]);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+	
+	return 0;
 }
 
 int CreateMesh(Mesh *mesh) {
@@ -497,7 +545,8 @@ int CreateMesh(Mesh *mesh) {
 	}
 	
 	ierr = Compute_coord(mesh); pCHKERR_RETURN("Coordinate computation failed");
-	ierr = Split_domain(mesh); pCHKERR_RETURN("Domain splitting failed");
+	ierr = factorize(mesh); pCHKERR_RETURN("Factorization of total no. of procs failed");
+	ierr = split_domain(mesh); pCHKERR_RETURN("Domain splitting failed");
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;

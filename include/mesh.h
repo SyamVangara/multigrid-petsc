@@ -31,6 +31,7 @@
 
 typedef struct {
 	int	dimension;
+	int	blockID[MAX_DIMENSION];
 	int	type[MAX_DIMENSION];
 	int	n[MAX_DIMENSION];
 	int	dimProcs[MAX_DIMENSION];
