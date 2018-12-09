@@ -22,6 +22,12 @@ static int CommCost3D(int *l, int *n) {
 	return (l[0]-1)*n[1]*n[2] + n[0]*(l[1]-1)*n[2] + n[0]*n[1]*(l[2]-1); 
 }
 
+static int ComputeNInterfaces3D(int *l) {
+	// Compute number of interfaces to communicate data
+		
+	return (l[0]-1)*l[1]*l[2] + l[0]*(l[1]-1)*l[2] + l[0]*l[1]*(l[2]-1); 
+}
+
 static void ComputeLoad(int *n, int *l, double *load) {
 	// Compute the maximum and minimum loads, and corresponding load factors
 	
@@ -298,32 +304,37 @@ int MetricCoefficients2D(Array2d *metrics, double **coord, ArrayInt2d *IsGlobalT
 	return ierr;
 }
 
-static void CheckAndAssign(int *ijk, int *n, int *commcost, double *maxload, double *loadfac, int *l) {
+static void CheckAndAssign(int *ijk, int *n, int *commcost, double *maxload, double *loadfac, int *nInterfaces, int *l) {
 	// - Check if given factorization (ijk) is better based on provided communication
 	// cost, maximum load and load factor
 	// - If yes, then that factorization is assigned in ascending order and 
 	// returned in "l" along with corresponding communication cost, maximum load and
 	// load factor	
 	
-	int ijks[3], tcost;
+	int ijks[3], tcost, tInterfaces;
 	double load[3];
 		
 	sort3(ijk, ijks);
 	tcost =  CommCost3D(ijks, n);
 	ComputeLoad(n, ijks, load);
-	PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf\n", ijks[0], ijks[1], ijks[2], tcost, load[0], load[2]);
+	tInterfaces = ComputeNInterfaces3D(ijks);
+	PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf, nInterfaces = %d\n", 
+			ijks[0], ijks[1], ijks[2], tcost, load[0], load[2], tInterfaces);
 	
 	if (tcost < *commcost ||
 	   (tcost == *commcost &&
 	   (load[0] < *maxload ||
 	   (load[0] == *maxload &&
-	   load[2] < *loadfac)))) {
+	   (load[2] < *loadfac ||
+	   (load[2] == *loadfac &&
+	    tInterfaces < *nInterfaces)))))) {
 		l[0] = ijks[0];
 		l[1] = ijks[1];
 		l[2] = ijks[2];
 		*commcost = tcost;
 		*maxload = load[0];
 		*loadfac = load[2];
+		*nInterfaces = tInterfaces;
 	}
 }
 
@@ -339,12 +350,13 @@ static void factorize2(int p, int i, int *nsorted, int *l, double *para) {
 	int	cost = (int) para[0];
 	double	maxload = para[1];
 	double	loadfac = para[2];
+	int	nInterfaces = (int) para[3];
 
 	for (int j=mopt; j>0; j--) {
 		k = p/j;
 		if (k*j == p) {
 			int ijk[3] = {i, j, k};
-			CheckAndAssign(ijk, nsorted, &cost, &maxload, &loadfac, l);
+			CheckAndAssign(ijk, nsorted, &cost, &maxload, &loadfac, &nInterfaces, l);
 			break;
 		}
 	}
@@ -352,13 +364,14 @@ static void factorize2(int p, int i, int *nsorted, int *l, double *para) {
 		k = p/j;
 		if (k*j == p) {
 			int ijk[3] = {i, j, k};
-			CheckAndAssign(ijk, nsorted, &cost, &maxload, &loadfac, l);
+			CheckAndAssign(ijk, nsorted, &cost, &maxload, &loadfac, &nInterfaces, l);
 			break;
 		}
 	}
 	para[0] = (double) cost;
 	para[1] = maxload;
 	para[2] = loadfac;
+	para[3] = (double) nInterfaces;
 
 	return 0;
 }
@@ -372,6 +385,7 @@ int factorize3(int procs, int *nsorted, int *l, double *para) {
 	para[0] = (double) CommCost3D(l, nsorted); // intialize with maximum cost
 	para[1] = (double) nsorted[0]*nsorted[1]*nsorted[2];
 	para[2] = (double) para[1];
+	para[3] = (double) ComputeNInterfaces3D(l);
 
 	double temp = (double)(procs*nsorted[0]*nsorted[0])/(double)(nsorted[1]*nsorted[2]);
 	int lopt = (int) floor(pow(temp,(1.0/3.0)));
@@ -421,13 +435,14 @@ int factorize(Mesh *mesh) {
 	for (int i=0; i<3; i++) nsorted[i] = nsorted[i]-nbc;
 
 	int l[3];
-	double para[3]; 
+	double para[4]; 
 	if (dimension == 2) {
 		l[0] = 1;
 		for (int i=1; i<3; i++)	l[i] = procs;
 		para[0] = (double) CommCost3D(l, nsorted); // intialize with maximum cost
 		para[1] = (double) nsorted[0]*nsorted[1]*nsorted[2];
 		para[2] = (double) para[1];
+		para[3] = (double) ComputeNInterfaces3D(l);
 		factorize2(procs, 1, nsorted, l, para);
 	} else if (dimension == 3) {
 		ierr = factorize3(procs, nsorted, l, para);
@@ -442,7 +457,7 @@ int factorize(Mesh *mesh) {
 	PetscPrintf(PETSC_COMM_WORLD,"Chosen: \n");
 	for (int i=0; i<dimension; i++)
 		PetscPrintf(PETSC_COMM_WORLD,"p[%d] = %d, ", i, dimProcs[i]);
-	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf\n", (int)para[0], (int)para[1], para[2]);
+	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
 	
 	return ierr;
 }
@@ -462,6 +477,7 @@ int split_domain(Mesh *mesh) {
 	int *n = mesh->n;
 	int (*range)[2] = mesh->range;
 	int *blockID = mesh->blockID;
+	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 
 	blockID[2] = rank/(l[0]*l[1]);
 	blockID[1] = (rank-blockID[2]*l[0]*l[1])/l[0];
@@ -469,15 +485,18 @@ int split_domain(Mesh *mesh) {
 	
 	int rem[3], quo[3];
 	for (int i=0; i<dimension; i++) {
-		rem[i] = n[i]%l[i];
-		quo[i] = n[i]/l[i];
+		rem[i] = (n[i]-nbc)%l[i];
+		quo[i] = (n[i]-nbc)/l[i];
 	}
 
 	for (int i=0; i<dimension; i++) {
 		for (int j=0; j<2; j++)
-			range[i][j] = quo[i]*(blockID[i]+j) + ((blockID[i]+j < rem[i]) ? blockID[i]+j : rem[i]);
+			range[i][j] = 1 + quo[i]*(blockID[i]+j) + ((blockID[i]+j < rem[i]) ? blockID[i]+j : rem[i]) ;
 	}
-		PetscPrintf(PETSC_COMM_WORLD,"Rewrite this function with n-2/l not n/l\n");
+	for (int i=0; i<dimension; i++) {
+		if (blockID[i] == 0) range[i][0] = range[i][0] - 1;
+		if (blockID[i] == l[i]-1) range[i][1] = range[i][1] + 1;
+	}
 
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
 	for (int i=0; i<dimension; i++)
