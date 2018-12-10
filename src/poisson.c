@@ -19,7 +19,8 @@ static int ipow(int base, int exp);
 int totalUnknowns(int *n, int totalGrids);
 
 void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
-void ViewMeshInfo(Mesh mesh);
+//void ViewMeshInfo(Mesh mesh);
+void ViewGridInfo(Grids grids);
 void ViewGridsInfo(Indices indices);
 void ViewIndexMapsInfoLevel(Level level, int l);
 void ViewIndexMapsInfo(Indices indices);
@@ -46,7 +47,8 @@ int main(int argc, char *argv[]) {
 	PetscInitialize(&argc, &argv, "poisson.in", 0);
 
 	Problem		prob;
-	Mesh		mesh;
+//	Mesh		mesh;
+	Grids		grids;
 	Indices		indices;
 	Operator	op;
 	Solver		solver;
@@ -66,91 +68,91 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.err", "w", stderr);
 	
 	PetscBool	set;	
-	ierr = CreateMesh(&mesh); pCHKERR_RETURN("Mesh creation failed");
-	ViewMeshInfo(mesh);
-	DestroyMesh(&mesh);
+	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
+	ViewGridInfo(grids);
+	DestroyGrids(&grids);
 	PetscFinalize();
 	MPI_Finalize();
 	return 0;
 	
-	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
-	if (!set) {
-		PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
-	PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
-	PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
-	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
-	
-	if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
-		PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
-		PetscFinalize();
-		MPI_Finalize();
-		return 0;
-	}
+	//PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
+	//if (!set) {
+	//	PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
+	//	PetscFinalize();
+	//	MPI_Finalize();
+	//	return 0;
+	//}
+//	//PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
+	//PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
+	//PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
+	//PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
+	//PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
+	//PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
+	//
+	//if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
+	//	PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
+	//	PetscFinalize();
+	//	MPI_Finalize();
+	//	return 0;
+	//}
 
-//	SetUpMesh(&mesh, meshflag);
-//	if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
-//	if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
-//	if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
+//	//SetUpMesh(&mesh, meshflag);
+//	//if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
+//	//if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
+//	//if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
 
-//	ViewMeshInfo(mesh);
-	
-	indices.coarseningFactor = 2;
-	SetUpIndices(&mesh, &indices);
+//	//ViewMeshInfo(mesh);
+	//
+	//indices.coarseningFactor = 2;
+	//SetUpIndices(&mesh, &indices);
 
-//	ViewGridsInfo(indices);
+//	//ViewGridsInfo(indices);
 
-	mapping(&indices, mappingStyleflag);
-	
-//	ViewIndexMapsInfo(indices);
-//	ViewRangesInfo(indices);
-	
-	SetUpOperator(&indices, &op);
-	GridTransferOperators(op, indices);
+	//mapping(&indices, mappingStyleflag);
+	//
+//	//ViewIndexMapsInfo(indices);
+//	//ViewRangesInfo(indices);
+	//
+	//SetUpOperator(&indices, &op);
+	//GridTransferOperators(op, indices);
 
-//	ViewOperatorInfo(op);
-	
-	if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
-	if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
-	if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);
-	if (cyc == 3) SetUpSolver(&indices, &solver, D1CYCLE);
-	if (cyc == 4) SetUpSolver(&indices, &solver, D2CYCLE);
-	if (cyc == 7) SetUpSolver(&indices, &solver, D1PSCYCLE);
-	if (cyc == 8) SetUpSolver(&indices, &solver, PetscPCMG);
-	if (cyc == 9) SetUpSolver(&indices, &solver, FILTER);
-	if (cyc == 10) SetUpSolver(&indices, &solver, VFILTER);
-	if (cyc == 11) SetUpSolver(&indices, &solver, ADDITIVE);
-	if (cyc == 12) SetUpSolver(&indices, &solver, ADDITIVEScaled);
+//	//ViewOperatorInfo(op);
+	//
+	//if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
+	//if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
+	//if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);
+	//if (cyc == 3) SetUpSolver(&indices, &solver, D1CYCLE);
+	//if (cyc == 4) SetUpSolver(&indices, &solver, D2CYCLE);
+	//if (cyc == 7) SetUpSolver(&indices, &solver, D1PSCYCLE);
+	//if (cyc == 8) SetUpSolver(&indices, &solver, PetscPCMG);
+	//if (cyc == 9) SetUpSolver(&indices, &solver, FILTER);
+	//if (cyc == 10) SetUpSolver(&indices, &solver, VFILTER);
+	//if (cyc == 11) SetUpSolver(&indices, &solver, ADDITIVE);
+	//if (cyc == 12) SetUpSolver(&indices, &solver, ADDITIVEScaled);
 
-//	ViewSolverInfo(indices, solver);
+//	//ViewSolverInfo(indices, solver);
 
-	Assemble(&prob, &mesh, &indices, &op, &solver);
+	//Assemble(&prob, &mesh, &indices, &op, &solver);
 
-//	ViewLinSysMatsInfo(*(solver.assem), 0);
-//	ViewGridTransferMatsInfo(*(solver.assem), 0, cyc);
-	
-	Solve(&solver);
-	
-	SetUpPostProcess(&pp);
-	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
-	
-	PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
-	
-	DestroyPostProcess(&pp);
-	DestroySolver(&solver);
-	DestroyOperator(&op);
-	DestroyIndices(&indices);
-	DestroyMesh(&mesh);
-	PetscFinalize();
-	MPI_Finalize();
+//	//ViewLinSysMatsInfo(*(solver.assem), 0);
+//	//ViewGridTransferMatsInfo(*(solver.assem), 0, cyc);
+	//
+	//Solve(&solver);
+	//
+	//SetUpPostProcess(&pp);
+	//Postprocessing(&prob, &mesh, &indices, &solver, &pp);
+	//
+	//PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
+	//
+	//DestroyPostProcess(&pp);
+	//DestroySolver(&solver);
+	//DestroyOperator(&op);
+	//DestroyIndices(&indices);
+	//DestroyMesh(&mesh);
+	//PetscFinalize();
+	//MPI_Finalize();
 
-	return 0;
+	//return 0;
 }
 
 int ipow(int base, int exp) {
@@ -232,36 +234,37 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 
 }
 
-void ViewMeshInfo(Mesh mesh) {
+void ViewGridInfo(Grids grids) {
 	// Prints the info in mesh data structure
 
-	int	dimension = mesh.dimension;
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: dimension = %d\n", dimension);
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	int	dimension = grids.topo->dimension;
+	double	*para = grids.grid->para;
+	PetscPrintf(PETSC_COMM_WORLD,"Grid: dimension = %d\n", dimension);
+	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"type[%d] = %d  ", dim, mesh.type[dim]);
+		PetscPrintf(PETSC_COMM_WORLD,"gridtype[%d] = %d  ", dim, grids.topo->gridtype[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, mesh.n[dim]);
+		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grids.grid->n[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, mesh.dimProcs[dim]);
+		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, grids.topo->dimProcs[dim]);
 	}
-	PetscPrintf(PETSC_COMM_WORLD,"\n");
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: ");
+	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
+	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		for (int i=0; i<2; i++) {
-			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, mesh.bounds[dim][i]);
+			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, grids.topo->bounds[dim][i]);
 		}
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Mesh: h = %f\n", mesh.h);
+	PetscPrintf(PETSC_COMM_WORLD,"Grid: h = %f\n", grids.grid->h);
       
 //	for (int i=0;i<dimension;i++) {
 //		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);

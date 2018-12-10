@@ -215,10 +215,8 @@ void MetricsNonUniform2(void *mesh1, double x, double y, double *metrics) {
 	metrics[4] = 0.0;
 }
 
-int Compute_coord(Mesh *mesh) {
+int Compute_coord(Grid *grid) {
 	// computes coords in each direction of the structured grid
-	//
-	// MeshType type: {UNIFORM, NONUNIFORM}
 	
 	int	ierr = 0;
 	double	length, d[MAX_DIMENSION];
@@ -226,19 +224,21 @@ int Compute_coord(Mesh *mesh) {
 	int	*n;
 	double	**coord;
 	int	*type;
-	n 	= mesh->n;
-	coord	= mesh->coord;
-	type	= mesh->type;
+	int	dimension = grid->topo->dimension;
+	Topo	*topo = grid->topo;
+	n 	= grid->n;
+	coord	= grid->coord;
+	type	= grid->topo->gridtype;
 	
-	for(int i=0;i<mesh->dimension;i++){
+	for(int i=0;i<dimension;i++){
 		if (n[i]<MIN_POINTS) {
 			PetscPrintf(PETSC_COMM_WORLD,
 				"ERROR: %s:%d: Need at least %d points in each direction\n",
 				__FILE__,__LINE__,MIN_POINTS);
 			return 1;
 		}
-		coord[i][0] = mesh->bounds[i][0]; //Lower bound
-		coord[i][n[i]-1] = mesh->bounds[i][1]; //Upper bound
+		coord[i][0] = topo->bounds[i][0]; //Lower bound
+		coord[i][n[i]-1] = topo->bounds[i][1]; //Upper bound
 		
 		length = (coord[i][n[i]-1]-coord[i][0]);
 		double tmp_d = (length/(double)(n[i]-1));
@@ -246,21 +246,21 @@ int Compute_coord(Mesh *mesh) {
 		d[i] = 0.0;
 		for(int j=1;j<n[i]-1;j++){
 			if (type[i] == 0) coord[i][j] = coord[i][j-1] + tmp_d;
-			if (type[i] == 1) coord[i][j] = mesh->bounds[i][1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
+			if (type[i] == 1) coord[i][j] = grid->topo->bounds[i][1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
 			if (type[i] == 2) {
 				tmp_eta = (j/(double)(n[i]-1));
-				coord[i][j] = mesh->bounds[i][0]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
+				coord[i][j] = grid->topo->bounds[i][0]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
 			}
 			d[i] = fmax(d[i],fabs(coord[i][j]-coord[i][j-1])); 
 		}
 		d[i] = fmax(d[i],fabs(coord[i][n[i]-2]-coord[i][n[i]-1])); 
 	}
 
-	mesh->h = 0.0;
-	for (int i=0;i<mesh->dimension;i++){
-		mesh->h += d[i]*d[i];
+	grid->h = 0.0;
+	for (int i=0;i<dimension;i++){
+		grid->h += d[i]*d[i];
 	}
-	mesh->h = sqrt(mesh->h);
+	grid->h = sqrt(grid->h);
 
 	return ierr;
 }
@@ -318,8 +318,8 @@ static void CheckAndAssign(int *ijk, int *n, int *commcost, double *maxload, dou
 	tcost =  CommCost3D(ijks, n);
 	ComputeLoad(n, ijks, load);
 	tInterfaces = ComputeNInterfaces3D(ijks);
-	PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf, nInterfaces = %d\n", 
-			ijks[0], ijks[1], ijks[2], tcost, load[0], load[2], tInterfaces);
+//	PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf, nInterfaces = %d\n", 
+//			ijks[0], ijks[1], ijks[2], tcost, load[0], load[2], tInterfaces);
 	
 	if (tcost < *commcost ||
 	   (tcost == *commcost &&
@@ -411,7 +411,7 @@ int factorize3(int procs, int *nsorted, int *l, double *para) {
 	return 0;
 }
 
-int factorize(Mesh *mesh) {
+int factorize(Grid *grid) {
 	// Factorize "procs" depending on the dimension such that 
 	// communication cost, maximum load and load factors
 	// are reduced in that order of priority.
@@ -422,10 +422,11 @@ int factorize(Mesh *mesh) {
 	MPI_Comm_size(MPI_COMM_WORLD, &procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
-	int dimension = mesh->dimension;
-	int *dimProcs = mesh->dimProcs;
-	int *n = mesh->n;
-	double *range = mesh->range;
+	int dimension = grid->topo->dimension;
+	int *dimProcs = grid->topo->dimProcs;
+	int *n = grid->n;
+	double *range = grid->range;
+	double *para = grid->para;; 
 	
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 	int nsorted[MAX_DIMENSION], index[3];
@@ -435,7 +436,6 @@ int factorize(Mesh *mesh) {
 	for (int i=0; i<3; i++) nsorted[i] = nsorted[i]-nbc;
 
 	int l[3];
-	double para[4]; 
 	if (dimension == 2) {
 		l[0] = 1;
 		for (int i=1; i<3; i++)	l[i] = procs;
@@ -454,15 +454,15 @@ int factorize(Mesh *mesh) {
 	};
 	for (int i=0; i<3; i++)	dimProcs[i] = l[index[i]];
 
-	PetscPrintf(PETSC_COMM_WORLD,"Chosen: \n");
-	for (int i=0; i<dimension; i++)
-		PetscPrintf(PETSC_COMM_WORLD,"p[%d] = %d, ", i, dimProcs[i]);
-	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
+//	PetscPrintf(PETSC_COMM_WORLD,"Chosen: \n");
+//	for (int i=0; i<dimension; i++)
+//		PetscPrintf(PETSC_COMM_WORLD,"p[%d] = %d, ", i, dimProcs[i]);
+//	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
 	
 	return ierr;
 }
 
-int split_domain(Mesh *mesh) {
+int split_domain(Grid *grid) {
 	// Split the domain for given factorization of total
 	// no. of procs.
 	
@@ -472,11 +472,11 @@ int split_domain(Mesh *mesh) {
 	MPI_Comm_size(MPI_COMM_WORLD, &procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
-	int dimension = mesh->dimension;
-	int *l = mesh->dimProcs;
-	int *n = mesh->n;
-	int (*range)[2] = mesh->range;
-	int *blockID = mesh->blockID;
+	int dimension = grid->topo->dimension;
+	int *l = grid->topo->dimProcs;
+	int *n = grid->n;
+	int (*range)[2] = grid->range;
+	int *blockID = grid->topo->blockID;
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 
 	blockID[2] = rank/(l[0]*l[1]);
@@ -498,74 +498,174 @@ int split_domain(Mesh *mesh) {
 		if (blockID[i] == l[i]-1) range[i][1] = range[i][1] + 1;
 	}
 
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
-	for (int i=0; i<dimension; i++)
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
-	for (int i=0; i<dimension; i++)
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][0], range[i][1]);
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
-	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
+//	for (int i=0; i<dimension; i++)
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
+//	for (int i=0; i<dimension; i++)
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][0], range[i][1]);
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
 	
 	return 0;
 }
 
-int CreateMesh(Mesh *mesh) {
-	// Creates mesh
-	// ============
-	//
-	// Allocates memory
-	// Computes coords of a structured mesh
-	// Assigns metric coefficients computing function
-	int ierr = 0;
+//int CreateMesh(Mesh *mesh) {
+//	// Creates mesh
+//	// ============
+//	//
+//	// Allocates memory
+//	// Computes coords of a structured mesh
+//	// Assigns metric coefficients computing function
+//	int ierr = 0;
+//
+//	// Reads mesh inputs
+//	PetscBool	set;	
+//	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh->dimension), &set);
+//	if (!set) {
+//		pERROR_MSG("Dimension of the problem not set");
+//		pERROR_MSG("Set '-dim n' for n-dimension");
+//		return 1;
+//	} else if (mesh->dimension > 3 || mesh->dimension < 2) {
+//		pERROR_MSG("Only 2D or 3D is valid");
+//		return 1;
+//	}
+//	int		nmax;
+//	nmax = mesh->dimension;
+//	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh->n, &nmax, &set);
+//	if (!set || nmax != mesh->dimension) {
+//		pERROR_MSG("No. of mesh points not set properly");
+//		pERROR_MSG("Set '-npts n0,n1,n2' for no. of mesh points in each of the three dimensions");
+//		return 1;
+//	}
+//	PetscOptionsGetIntArray(NULL, NULL, "-mesh_type", mesh->type, &nmax, &set);
+//	if (!set || nmax != mesh->dimension) {
+//		pERROR_MSG("Mesh type is not set properly");
+//		pERROR_MSG("Set '-mesh_type n1,n2,n3' for n1, n2 and n3 type spacing in each direction");
+//		return 1;
+//	}
+//	nmax = mesh->dimension*2;
+//	double	temp[MAX_DIMENSION*2];
+//	PetscOptionsGetRealArray(NULL, NULL, "-bounds", temp, &nmax, &set);
+//	if (!set || nmax != mesh->dimension*2) {
+//		pERROR_MSG("Mesh bounds are not set properly");
+//		pERROR_MSG("Set '-bounds l0,u0,l1,u1,l2,u2' for lower and upper bounds in each of the three dimensions");
+//		return 1;
+//	}
+//	for (int i=0; i<mesh->dimension; i++) {
+//		for (int j=0; j<2; j++) {
+//			mesh->bounds[i][j] = temp[i*2+j];
+//		}
+//	}
+//	ierr = malloc2dY(&(mesh->coord), mesh->dimension, mesh->n);
+//	if (ierr != 0) {
+//		pERROR_MSG("Mesh memory allocation failed");
+//		return 1;
+//	}
+//	
+//	ierr = Compute_coord(grid); pCHKERR_RETURN("Coordinate computation failed");
+//	ierr = factorize(grid); pCHKERR_RETURN("Factorization of total no. of procs failed");
+//	ierr = split_domain(grid); pCHKERR_RETURN("Domain splitting failed");
+////	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
+////	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
+////	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
+//
+//	return ierr;
+//}
+//
+//void DestroyMesh(Mesh *mesh) {
+//	// Deallocates memory
+//	
+//	if (mesh->coord != NULL) free2dArray(&(mesh->coord));
+//
+//}
 
-	// Reads mesh inputs
+int ReadTopo(Topo *topo) {
+	// Reads topological information from input
+	
+	int		ierr = 0;
 	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh->dimension), &set);
+
+	PetscOptionsGetInt(NULL, NULL, "-dim", &(topo->dimension), &set);
 	if (!set) {
 		pERROR_MSG("Dimension of the problem not set");
 		pERROR_MSG("Set '-dim n' for n-dimension");
 		return 1;
-	} else if (mesh->dimension > 3 || mesh->dimension < 2) {
+	} else if (topo->dimension > 3 || topo->dimension < 2) {
 		pERROR_MSG("Only 2D or 3D is valid");
 		return 1;
 	}
+	
 	int		nmax;
-	nmax = mesh->dimension;
-	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh->n, &nmax, &set);
-	if (!set || nmax != mesh->dimension) {
-		pERROR_MSG("No. of mesh points not set properly");
-		pERROR_MSG("Set '-npts n0,n1,n2' for no. of mesh points in each of the three dimensions");
+	nmax = topo->dimension;
+	
+	PetscOptionsGetIntArray(NULL, NULL, "-grid_type", topo->gridtype, &nmax, &set);
+	if (!set || nmax != topo->dimension) {
+		pERROR_MSG("Grid type is not set properly");
+		pERROR_MSG("Set '-grid_type n1,n2,n3' for n1, n2 and n3 type spacing in each direction");
 		return 1;
 	}
-	PetscOptionsGetIntArray(NULL, NULL, "-mesh_type", mesh->type, &nmax, &set);
-	if (!set || nmax != mesh->dimension) {
-		pERROR_MSG("Mesh type is not set properly");
-		pERROR_MSG("Set '-mesh_type n1,n2,n3' for n1, n2 and n3 type spacing in each direction");
-		return 1;
-	}
-	nmax = mesh->dimension*2;
+	nmax = topo->dimension*2;
 	double	temp[MAX_DIMENSION*2];
 	PetscOptionsGetRealArray(NULL, NULL, "-bounds", temp, &nmax, &set);
-	if (!set || nmax != mesh->dimension*2) {
-		pERROR_MSG("Mesh bounds are not set properly");
+	if (!set || nmax != topo->dimension*2) {
+		pERROR_MSG("Grid bounds are not set properly");
 		pERROR_MSG("Set '-bounds l0,u0,l1,u1,l2,u2' for lower and upper bounds in each of the three dimensions");
 		return 1;
 	}
-	for (int i=0; i<mesh->dimension; i++) {
+	for (int i=0; i<topo->dimension; i++) {
 		for (int j=0; j<2; j++) {
-			mesh->bounds[i][j] = temp[i*2+j];
+			topo->bounds[i][j] = temp[i*2+j];
 		}
 	}
-	ierr = malloc2dY(&(mesh->coord), mesh->dimension, mesh->n);
-	if (ierr != 0) {
+
+	return ierr;
+}
+
+int CreateGrids(Grids *grids) {
+	// Creates all grids
+	// =================
+	//
+	// Reads information
+	// Allocates memory
+	
+	int ierr = 0;
+	
+	grids->topo = malloc(sizeof(Topo));
+	Topo	*topo = grids->topo;
+	
+	ierr = ReadTopo(topo); if(ierr) return 1;
+
+	PetscBool	set;	
+	PetscOptionsGetInt(NULL, NULL, "-ngrids", &(grids->ngrids), &set);
+	if (!set) {
+		pERROR_MSG("Number of grids for MG not set");
+		pERROR_MSG("Set '-ngrids n' for n grids");
+		return 1;
+	}
+	grids->grid = malloc(grids->ngrids*sizeof(Grid));
+
+	int	nmax;
+	Grid	*grid = grids->grid;
+
+	grid->topo = grids->topo;
+	nmax = topo->dimension;
+
+	PetscOptionsGetIntArray(NULL, NULL, "-npts", grid->n, &nmax, &set);
+	if (!set || nmax != topo->dimension) {
+		pERROR_MSG("No. of grid points not set properly");
+		pERROR_MSG("Set '-npts n0,n1,n2' for no. of grid points in each of the three dimensions");
+		return 1;
+	}
+	ierr = malloc2dY(&(grid->coord), topo->dimension, grid->n);
+	if (ierr) {
 		pERROR_MSG("Mesh memory allocation failed");
 		return 1;
 	}
 	
-	ierr = Compute_coord(mesh); pCHKERR_RETURN("Coordinate computation failed");
-	ierr = factorize(mesh); pCHKERR_RETURN("Factorization of total no. of procs failed");
-	ierr = split_domain(mesh); pCHKERR_RETURN("Domain splitting failed");
+	ierr = Compute_coord(grid); pCHKERR_RETURN("Coordinate computation failed");
+	ierr = factorize(grid); pCHKERR_RETURN("Factorization of total no. of procs failed");
+	ierr = split_domain(grid); pCHKERR_RETURN("Domain splitting failed");
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
@@ -573,9 +673,11 @@ int CreateMesh(Mesh *mesh) {
 	return ierr;
 }
 
-void DestroyMesh(Mesh *mesh) {
+void DestroyGrids(Grids *grids) {
 	// Deallocates memory
 	
-	if (mesh->coord != NULL) free2dArray(&(mesh->coord));
+	if (grids->grid->coord) free2dArray(&(grids->grid->coord));
+	if (grids->grid) free(grids->grid);
+	if (grids->topo) free(grids->topo);
 
 }

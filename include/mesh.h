@@ -18,31 +18,51 @@
 #define MIN_POINTS 3
 
 //typedef enum {UNIFORM, NONUNIFORM1, NONUNIFORM2} MeshType;
-//
-//typedef struct {
-//	int	dimension;
-//	MeshType type;
-//	int	n[MAX_DIMENSION];
-//	double	bounds[MAX_DIMENSION][2];
-////	double	**coord;
-////	double	h;
-////	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
-//} Topo;
 
 typedef struct {
 	int	dimension;
+	int	gridtype[MAX_DIMENSION];
 	int	blockID[MAX_DIMENSION];
-	int	type[MAX_DIMENSION];
-	int	n[MAX_DIMENSION];
 	int	dimProcs[MAX_DIMENSION];
 	double	bounds[MAX_DIMENSION][2];
-	double	range[MAX_DIMENSION][2];
-	double	**coord;
-	double	h;
+} Topo;
+
+typedef struct {
+	int	dimension;
+	int	gridtype[MAX_DIMENSION];
+	int	blockID[MAX_DIMENSION];
+	int	dimProcs[MAX_DIMENSION];
+	double	bounds[MAX_DIMENSION][2];
+	int	n[MAX_DIMENSION]; // Grids in each direction
+	int	cfactor[MAX_DIMENSION]; // Coarsening factor for next grid
+	double	range[MAX_DIMENSION][2]; // Range of grid points
+	double	**coord; // Coordinates in each direction
+	double	h; // Grid characteristic length
+	double	para[4]; // Domain splitting quality measures
 	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
 } Mesh;
 
-int CreateMesh(Mesh *mesh);
-void DestroyMesh(Mesh *mesh);
+typedef struct {
+	Topo	*topo; //Topology info
+	int	n[MAX_DIMENSION]; // Grids in each direction
+	int	cfactor[MAX_DIMENSION]; // Coarsening factor for next grid
+	double	range[MAX_DIMENSION][2]; // Range of grid points
+	double	**coord; // Coordinates in each direction
+	double	h; // Grid characteristic length
+	double	para[4]; // Domain splitting quality measures
+	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
+} Grid;
+
+typedef struct {
+	int	ngrids; // Total number of grids
+	Topo	*topo; // Topology info
+	Grid	*grid; // Store each grid
+} Grids;
+
+int CreateGrids(Grids *grids);
+void DestroyGrids(Grids *grids);
+
+//int CreateMesh(Mesh *mesh);
+//void DestroyMesh(Mesh *mesh);
 
 #endif
