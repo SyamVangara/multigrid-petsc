@@ -234,37 +234,47 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 
 }
 
-void ViewGridInfo(Grids grids) {
-	// Prints the info in mesh data structure
-
+void ViewTopoInfo(Topo topo) {
+	// Prints the info in Topo data structure
+	
 	int	dimension = grids.topo->dimension;
-	double	*para = grids.grid->para;
-	PetscPrintf(PETSC_COMM_WORLD,"Grid: dimension = %d\n", dimension);
-	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
+	
+	PetscPrintf(PETSC_COMM_WORLD,"Topo: dimension = %d\n", dimension);
+
+	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"gridtype[%d] = %d  ", dim, grids.topo->gridtype[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
-	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
-	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grids.grid->n[dim]);
-	}
-	PetscPrintf(PETSC_COMM_WORLD,"\n");
-	
-	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
+
+	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, grids.topo->dimProcs[dim]);
 	}
-	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
-	PetscPrintf(PETSC_COMM_WORLD,"Grid: ");
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+
+	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		for (int i=0; i<2; i++) {
 			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, grids.topo->bounds[dim][i]);
 		}
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
+}
+
+void ViewGridInfo(Grid grid) {
+	// Prints the info in mesh data structure
+
+	int	dimension = grid.topo->dimension;
+	double	*para = grid->para;
+	for (int dim = 0; dim<dimension; dim++) {
+		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grids.grid->n[dim]);
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Grid: h = %f\n", grids.grid->h);
+	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
+	
+	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grids.grid->h);
       
 //	for (int i=0;i<dimension;i++) {
 //		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);
