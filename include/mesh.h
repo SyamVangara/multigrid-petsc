@@ -16,6 +16,7 @@
 #define PI 3.14159265358979323846
 #define MAX_DIMENSION 3
 #define MIN_POINTS 3
+#define	MAX_GRIDS 40
 
 //typedef enum {UNIFORM, NONUNIFORM1, NONUNIFORM2} MeshType;
 
@@ -45,7 +46,6 @@ typedef struct {
 typedef struct {
 	Topo	*topo; //Topology info
 	int	n[MAX_DIMENSION]; // Grids in each direction
-	int	cfactor[MAX_DIMENSION]; // Coarsening factor for next grid
 	double	range[MAX_DIMENSION][2]; // Range of grid points
 	double	**coord; // Coordinates in each direction
 	double	h; // Grid characteristic length
@@ -55,6 +55,7 @@ typedef struct {
 
 typedef struct {
 	int	ngrids; // Total number of grids
+	int	cfactor[MAX_GRIDS][MAX_DIMENSION]; // Coarsening factors for all grids
 	Topo	*topo; // Topology info
 	Grid	*grid; // Store each grid
 } Grids;

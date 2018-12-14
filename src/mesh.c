@@ -510,76 +510,6 @@ int split_domain(Grid *grid) {
 	return 0;
 }
 
-//int CreateMesh(Mesh *mesh) {
-//	// Creates mesh
-//	// ============
-//	//
-//	// Allocates memory
-//	// Computes coords of a structured mesh
-//	// Assigns metric coefficients computing function
-//	int ierr = 0;
-//
-//	// Reads mesh inputs
-//	PetscBool	set;	
-//	PetscOptionsGetInt(NULL, NULL, "-dim", &(mesh->dimension), &set);
-//	if (!set) {
-//		pERROR_MSG("Dimension of the problem not set");
-//		pERROR_MSG("Set '-dim n' for n-dimension");
-//		return 1;
-//	} else if (mesh->dimension > 3 || mesh->dimension < 2) {
-//		pERROR_MSG("Only 2D or 3D is valid");
-//		return 1;
-//	}
-//	int		nmax;
-//	nmax = mesh->dimension;
-//	PetscOptionsGetIntArray(NULL, NULL, "-npts", mesh->n, &nmax, &set);
-//	if (!set || nmax != mesh->dimension) {
-//		pERROR_MSG("No. of mesh points not set properly");
-//		pERROR_MSG("Set '-npts n0,n1,n2' for no. of mesh points in each of the three dimensions");
-//		return 1;
-//	}
-//	PetscOptionsGetIntArray(NULL, NULL, "-mesh_type", mesh->type, &nmax, &set);
-//	if (!set || nmax != mesh->dimension) {
-//		pERROR_MSG("Mesh type is not set properly");
-//		pERROR_MSG("Set '-mesh_type n1,n2,n3' for n1, n2 and n3 type spacing in each direction");
-//		return 1;
-//	}
-//	nmax = mesh->dimension*2;
-//	double	temp[MAX_DIMENSION*2];
-//	PetscOptionsGetRealArray(NULL, NULL, "-bounds", temp, &nmax, &set);
-//	if (!set || nmax != mesh->dimension*2) {
-//		pERROR_MSG("Mesh bounds are not set properly");
-//		pERROR_MSG("Set '-bounds l0,u0,l1,u1,l2,u2' for lower and upper bounds in each of the three dimensions");
-//		return 1;
-//	}
-//	for (int i=0; i<mesh->dimension; i++) {
-//		for (int j=0; j<2; j++) {
-//			mesh->bounds[i][j] = temp[i*2+j];
-//		}
-//	}
-//	ierr = malloc2dY(&(mesh->coord), mesh->dimension, mesh->n);
-//	if (ierr != 0) {
-//		pERROR_MSG("Mesh memory allocation failed");
-//		return 1;
-//	}
-//	
-//	ierr = Compute_coord(grid); pCHKERR_RETURN("Coordinate computation failed");
-//	ierr = factorize(grid); pCHKERR_RETURN("Factorization of total no. of procs failed");
-//	ierr = split_domain(grid); pCHKERR_RETURN("Domain splitting failed");
-////	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
-////	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
-////	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
-//
-//	return ierr;
-//}
-//
-//void DestroyMesh(Mesh *mesh) {
-//	// Deallocates memory
-//	
-//	if (mesh->coord != NULL) free2dArray(&(mesh->coord));
-//
-//}
-
 int ReadTopo(Topo *topo) {
 	// Reads topological information from input
 	
@@ -622,6 +552,64 @@ int ReadTopo(Topo *topo) {
 	return ierr;
 }
 
+int create_coarse_grids(Grids *grids) {
+	// Creates coarse grids
+
+	int	ierr=0;
+
+	int	g=0;
+
+	Grid	*topgrid = grids->grid+g;
+	Grid	*botgrid = grids->grid+g+1;
+	int	dimension = grids->topo->dimension;
+	int	ngrids = grids->ngrids;
+	int	*cfactor = grids->cfactor[g];
+
+	botgrid->topo = topgrid->topo;
+
+	for (int i=0;i<dimension;i++) {
+		int temp;
+		temp = (topgrid->n[i]-1)/cfactor[i];
+		if (temp*cfactor[i] != topgrid->n[i]-1 || temp==0) {
+			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening of %d-grid along %d-direction failed\n",__FILE__,__LINE__,g,i);
+			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Change no. of points along %d-direction or no. of grids from %d to %d\n",__FILE__,__LINE__,i,ngrids,g+1);
+			return 1;
+		}
+		botgrid->n[i] = temp+1;
+
+		for (int j=0;j<2;j++)
+			botgrid->range[i][j] = (topgrid->range[i][j]+cfactor[i]-1)/cfactor[i];
+	}
+
+	ierr = malloc2dY(&(botgrid->coord), dimension, botgrid->n);
+	if (ierr) {
+		PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Memory allocation for %d-grid failed\n",__FILE__,__LINE__,g+1);
+		return 1;
+	}
+	
+	for (int i=0;i<dimension;i++) {
+		for (int j=0;j<botgrid->n[i];j++) {
+			botgrid->coord[i][j] = topgrid->coord[i][cfactor[i]*j];
+		}
+	}
+	
+	double	d[MAX_DIMENSION];
+	for (int i=0;i<dimension;i++) {
+		d[i] = 0.0;
+		for (int j=1;j<botgrid->n[i];j++) {
+			d[i] = fmax(d[i],fabs(botgrid->coord[i][j]-botgrid->coord[i][j-1])); 
+		}
+	}
+
+	botgrid->h = 0.0;
+	for (int i=0;i<dimension;i++){
+		botgrid->h += d[i]*d[i];
+	}
+	botgrid->h = sqrt(botgrid->h);
+
+	return 0;
+}
+
 int CreateGrids(Grids *grids) {
 	// Creates all grids
 	// =================
@@ -662,10 +650,17 @@ int CreateGrids(Grids *grids) {
 		pERROR_MSG("Mesh memory allocation failed");
 		return 1;
 	}
+
+//	for (int i=0;i<topo->dimension;i++) grids->grid->cfactor[i] = 2; // Default coarsening factor "2"
 	
+	for (int i=0;i<MAX_GRIDS;i++)
+		for (int j=0;j<MAX_DIMENSION;j++)
+			grids->cfactor[i][j] = 2; // Default coarsening factor "2"
+
 	ierr = Compute_coord(grid); pCHKERR_RETURN("Coordinate computation failed");
 	ierr = factorize(grid); pCHKERR_RETURN("Factorization of total no. of procs failed");
 	ierr = split_domain(grid); pCHKERR_RETURN("Domain splitting failed");
+	ierr = create_coarse_grids(grids); pCHKERR_RETURN("Coarse grids creation failed");
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
@@ -676,7 +671,8 @@ int CreateGrids(Grids *grids) {
 void DestroyGrids(Grids *grids) {
 	// Deallocates memory
 	
-	if (grids->grid->coord) free2dArray(&(grids->grid->coord));
+	for (int i=0;i<grids->ngrids;i++)
+		if (grids->grid[i].coord) free2dArray(&(grids->grid[i].coord));
 	if (grids->grid) free(grids->grid);
 	if (grids->topo) free(grids->topo);
 
