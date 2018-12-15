@@ -20,8 +20,9 @@ int totalUnknowns(int *n, int totalGrids);
 
 void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
 //void ViewMeshInfo(Mesh mesh);
-void ViewGridInfo(Grids grids);
-void ViewGridsInfo(Indices indices);
+//void ViewGridInfo(Grid grid);
+void ViewGridsInfo(Grids grids);
+void ViewIndicesInfo(Indices indices);
 void ViewIndexMapsInfoLevel(Level level, int l);
 void ViewIndexMapsInfo(Indices indices);
 void ViewRangesInfo(Indices indices);
@@ -69,7 +70,7 @@ int main(int argc, char *argv[]) {
 	
 	PetscBool	set;	
 	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
-	ViewGridInfo(grids);
+	ViewGridsInfo(grids);
 	DestroyGrids(&grids);
 	PetscFinalize();
 	MPI_Finalize();
@@ -106,7 +107,7 @@ int main(int argc, char *argv[]) {
 	//indices.coarseningFactor = 2;
 	//SetUpIndices(&mesh, &indices);
 
-//	//ViewGridsInfo(indices);
+//	//ViewIndicesInfo(indices);
 
 	//mapping(&indices, mappingStyleflag);
 	//
@@ -234,47 +235,47 @@ void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver sol
 
 }
 
-void ViewTopoInfo(Topo topo) {
+void ViewTopoInfo(Topo *topo) {
 	// Prints the info in Topo data structure
 	
-	int	dimension = grids.topo->dimension;
+	int	dimension = topo->dimension;
 	
 	PetscPrintf(PETSC_COMM_WORLD,"Topo: dimension = %d\n", dimension);
 
 	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"gridtype[%d] = %d  ", dim, grids.topo->gridtype[dim]);
+		PetscPrintf(PETSC_COMM_WORLD,"gridtype[%d] = %d  ", dim, topo->gridtype[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
 	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, grids.topo->dimProcs[dim]);
+		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, topo->dimProcs[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
 	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		for (int i=0; i<2; i++) {
-			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, grids.topo->bounds[dim][i]);
+			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, topo->bounds[dim][i]);
 		}
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
 
 void ViewGridInfo(Grid grid) {
-	// Prints the info in mesh data structure
+	// Prints the info in Grid data structure
 
 	int	dimension = grid.topo->dimension;
-	double	*para = grid->para;
+	double	*para = grid.para;
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grids.grid->n[dim]);
+		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grid.n[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
 	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
 	
-	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grids.grid->h);
+	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grid.h);
       
 //	for (int i=0;i<dimension;i++) {
 //		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);
@@ -285,7 +286,30 @@ void ViewGridInfo(Grid grid) {
 //	}
 }
 
-void ViewGridsInfo(Indices indices) {
+void ViewGridsInfo(Grids grids) {
+	// Prints the info of Grids data structure
+	
+	int ngrids = grids.ngrids;
+	PetscPrintf(PETSC_COMM_WORLD,"Grids: ngrids = %d\n", ngrids);
+
+	PetscPrintf(PETSC_COMM_WORLD,"Grids: ");
+	for (int i=0; i<ngrids; i++) {
+		PetscPrintf(PETSC_COMM_WORLD,"cfactor[%d] = ", i);
+		for (int dim=0; dim<grids.topo->dimension; dim++) {
+			PetscPrintf(PETSC_COMM_WORLD,"%d  ", grids.cfactor[i][dim]);
+		}
+		PetscPrintf(PETSC_COMM_WORLD,"\n");
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	
+	ViewTopoInfo(grids.topo);
+	for (int i=0; i<ngrids; i++) {
+		PetscPrintf(PETSC_COMM_WORLD,"Grid[%d]: \n",i);
+		ViewGridInfo(grids.grid[i]);
+	}
+}
+
+void ViewIndicesInfo(Indices indices) {
 	// Prints the info of GridId in each level
 	
 	int	procs, rank;

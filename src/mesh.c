@@ -552,18 +552,18 @@ int ReadTopo(Topo *topo) {
 	return ierr;
 }
 
-int create_coarse_grids(Grids *grids) {
+int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor, int g) {
 	// Creates coarse grids
 
 	int	ierr=0;
 
-	int	g=0;
-
-	Grid	*topgrid = grids->grid+g;
-	Grid	*botgrid = grids->grid+g+1;
-	int	dimension = grids->topo->dimension;
-	int	ngrids = grids->ngrids;
-	int	*cfactor = grids->cfactor[g];
+//	int	g=0;
+//
+//	Grid	*topgrid = grids->grid+g;
+//	Grid	*botgrid = grids->grid+g+1;
+	int	dimension = topgrid->topo->dimension;
+//	int	ngrids = grids->ngrids;
+//	int	*cfactor = grids->cfactor[g];
 
 	botgrid->topo = topgrid->topo;
 
@@ -571,8 +571,8 @@ int create_coarse_grids(Grids *grids) {
 		int temp;
 		temp = (topgrid->n[i]-1)/cfactor[i];
 		if (temp*cfactor[i] != topgrid->n[i]-1 || temp==0) {
-			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening of %d-grid along %d-direction failed\n",__FILE__,__LINE__,g,i);
-			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Change no. of points along %d-direction or no. of grids from %d to %d\n",__FILE__,__LINE__,i,ngrids,g+1);
+//			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening of %d-grid along %d-direction failed\n",__FILE__,__LINE__,g,i);
+//			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Change no. of points along %d-direction or no. of grids from %d to %d\n",__FILE__,__LINE__,i,ngrids,g+1);
 			return 1;
 		}
 		botgrid->n[i] = temp+1;
@@ -583,7 +583,8 @@ int create_coarse_grids(Grids *grids) {
 
 	ierr = malloc2dY(&(botgrid->coord), dimension, botgrid->n);
 	if (ierr) {
-		PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Memory allocation for %d-grid failed\n",__FILE__,__LINE__,g+1);
+		pERROR_MSG("Mesh memory allocation failed");
+//		PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Memory allocation for %d-grid failed\n",__FILE__,__LINE__,g+1);
 		return 1;
 	}
 	
@@ -606,8 +607,18 @@ int create_coarse_grids(Grids *grids) {
 		botgrid->h += d[i]*d[i];
 	}
 	botgrid->h = sqrt(botgrid->h);
+	
+	double load[3];
+	ComputeLoad(botgrid->n, botgrid->topo->dimProcs, load);
 
+	botgrid->para[0] = (double) CommCost3D(botgrid->topo->dimProcs, botgrid->n);
+	botgrid->para[1] = load[0];
+	botgrid->para[2] = load[2];
+	botgrid->para[3] = topgrid->para[3];
 	return 0;
+}
+
+int create_coarse_grids(Grids *grids) {
 }
 
 int CreateGrids(Grids *grids) {
