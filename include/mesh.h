@@ -45,6 +45,7 @@ typedef struct {
 
 typedef struct {
 	Topo	*topo; //Topology info
+	int	id; // grid id; 0:finest, ngrids-1:coarsest
 	int	n[MAX_DIMENSION]; // Grids in each direction
 	double	range[MAX_DIMENSION][2]; // Range of grid points
 	double	**coord; // Coordinates in each direction

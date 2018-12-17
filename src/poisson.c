@@ -268,6 +268,7 @@ void ViewGridInfo(Grid grid) {
 
 	int	dimension = grid.topo->dimension;
 	double	*para = grid.para;
+	PetscPrintf(PETSC_COMM_WORLD,"Grid-%d: \n", grid.id+1);
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grid.n[dim]);
 	}
@@ -290,10 +291,9 @@ void ViewGridsInfo(Grids grids) {
 	// Prints the info of Grids data structure
 	
 	int ngrids = grids.ngrids;
-	PetscPrintf(PETSC_COMM_WORLD,"Grids: ngrids = %d\n", ngrids);
-
-	PetscPrintf(PETSC_COMM_WORLD,"Grids: ");
-	for (int i=0; i<ngrids; i++) {
+	PetscPrintf(PETSC_COMM_WORLD,"Grids: \n");
+	PetscPrintf(PETSC_COMM_WORLD,"ngrids = %d\n", ngrids);
+	for (int i=0; i<ngrids-1; i++) {
 		PetscPrintf(PETSC_COMM_WORLD,"cfactor[%d] = ", i);
 		for (int dim=0; dim<grids.topo->dimension; dim++) {
 			PetscPrintf(PETSC_COMM_WORLD,"%d  ", grids.cfactor[i][dim]);
@@ -304,7 +304,6 @@ void ViewGridsInfo(Grids grids) {
 	
 	ViewTopoInfo(grids.topo);
 	for (int i=0; i<ngrids; i++) {
-		PetscPrintf(PETSC_COMM_WORLD,"Grid[%d]: \n",i);
 		ViewGridInfo(grids.grid[i]);
 	}
 }

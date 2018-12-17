@@ -552,18 +552,13 @@ int ReadTopo(Topo *topo) {
 	return ierr;
 }
 
-int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor, int g) {
-	// Creates coarse grids
+int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
+	// Creates botgrid by coarsening topgrid using coarsening factors (cfactor)
 
 	int	ierr=0;
 
-//	int	g=0;
-//
-//	Grid	*topgrid = grids->grid+g;
-//	Grid	*botgrid = grids->grid+g+1;
 	int	dimension = topgrid->topo->dimension;
-//	int	ngrids = grids->ngrids;
-//	int	*cfactor = grids->cfactor[g];
+	char	dir[4] = "ijk";
 
 	botgrid->topo = topgrid->topo;
 
@@ -571,8 +566,8 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor, int g) {
 		int temp;
 		temp = (topgrid->n[i]-1)/cfactor[i];
 		if (temp*cfactor[i] != topgrid->n[i]-1 || temp==0) {
-//			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening of %d-grid along %d-direction failed\n",__FILE__,__LINE__,g,i);
-//			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Change no. of points along %d-direction or no. of grids from %d to %d\n",__FILE__,__LINE__,i,ngrids,g+1);
+			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening along %.1s-th direction failed\n",__FILE__,__LINE__,dir+i);
+			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Change no. of points along %.1s-th direction or no. of grids\n",__FILE__,__LINE__,dir+i);
 			return 1;
 		}
 		botgrid->n[i] = temp+1;
@@ -584,7 +579,6 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor, int g) {
 	ierr = malloc2dY(&(botgrid->coord), dimension, botgrid->n);
 	if (ierr) {
 		pERROR_MSG("Mesh memory allocation failed");
-//		PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Memory allocation for %d-grid failed\n",__FILE__,__LINE__,g+1);
 		return 1;
 	}
 	
@@ -619,6 +613,24 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor, int g) {
 }
 
 int create_coarse_grids(Grids *grids) {
+	
+	int	ierr=0;
+	int	ngrids = grids->ngrids; 
+	int	dimension = grids->topo->dimension;
+	
+	for (int i=0; i<ngrids-1; i++) {
+		Grid	*topgrid = grids->grid+i;
+		Grid	*botgrid = grids->grid+i+1;
+		int	*cfactor = grids->cfactor[i];
+		botgrid->id = i+1;
+		ierr = create_coarse_grid(topgrid, botgrid, cfactor);
+		if (ierr) {
+			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening of grid-%d failed\n",__FILE__,__LINE__,i+1);
+			return 1;
+		}
+	}
+
+	return 0;	
 }
 
 int CreateGrids(Grids *grids) {
@@ -648,6 +660,7 @@ int CreateGrids(Grids *grids) {
 	Grid	*grid = grids->grid;
 
 	grid->topo = grids->topo;
+	grid->id = 0;
 	nmax = topo->dimension;
 
 	PetscOptionsGetIntArray(NULL, NULL, "-npts", grid->n, &nmax, &set);
@@ -662,8 +675,6 @@ int CreateGrids(Grids *grids) {
 		return 1;
 	}
 
-//	for (int i=0;i<topo->dimension;i++) grids->grid->cfactor[i] = 2; // Default coarsening factor "2"
-	
 	for (int i=0;i<MAX_GRIDS;i++)
 		for (int j=0;j<MAX_DIMENSION;j++)
 			grids->cfactor[i][j] = 2; // Default coarsening factor "2"
