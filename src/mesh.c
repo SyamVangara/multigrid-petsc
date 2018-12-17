@@ -35,7 +35,7 @@ static void ComputeLoad(int *n, int *l, double *load) {
 
 	for (int i=0; i<3; i++) {
 		q[i] = n[i]/l[i];
-		if (n[i] % l[i] == 0)
+		if (q[i]*l[i] == n[i])
 			ones[i] = 0;
 		else
 			ones[i] = 1;
@@ -318,8 +318,6 @@ static void CheckAndAssign(int *ijk, int *n, int *commcost, double *maxload, dou
 	tcost =  CommCost3D(ijks, n);
 	ComputeLoad(n, ijks, load);
 	tInterfaces = ComputeNInterfaces3D(ijks);
-//	PetscPrintf(PETSC_COMM_WORLD,"(%d, %d, %d); CommCost = %d, MaxLoad = %lf, LoadFactor = %lf, nInterfaces = %d\n", 
-//			ijks[0], ijks[1], ijks[2], tcost, load[0], load[2], tInterfaces);
 	
 	if (tcost < *commcost ||
 	   (tcost == *commcost &&
@@ -497,15 +495,6 @@ int split_domain(Grid *grid) {
 		if (blockID[i] == 0) range[i][0] = range[i][0] - 1;
 		if (blockID[i] == l[i]-1) range[i][1] = range[i][1] + 1;
 	}
-
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
-//	for (int i=0; i<dimension; i++)
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
-//	for (int i=0; i<dimension; i++)
-//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][0], range[i][1]);
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
 	
 	return 0;
 }
@@ -602,10 +591,14 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	}
 	botgrid->h = sqrt(botgrid->h);
 	
-	double load[3];
-	ComputeLoad(botgrid->n, botgrid->topo->dimProcs, load);
+	double	load[3];
+	int	nreduced[3], nbc = 2; // Default no. of BC points in a direction
 
-	botgrid->para[0] = (double) CommCost3D(botgrid->topo->dimProcs, botgrid->n);
+	if (dimension == 2) botgrid->n[2] = 1 + nbc;
+	for (int i=0;i<3;i++) nreduced[i] = botgrid->n[i]-nbc;
+	ComputeLoad(nreduced, botgrid->topo->dimProcs, load);
+
+	botgrid->para[0] = (double) CommCost3D(botgrid->topo->dimProcs, nreduced);
 	botgrid->para[1] = load[0];
 	botgrid->para[2] = load[2];
 	botgrid->para[3] = topgrid->para[3];

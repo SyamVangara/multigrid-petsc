@@ -19,9 +19,7 @@ static int ipow(int base, int exp);
 int totalUnknowns(int *n, int totalGrids);
 
 void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
-//void ViewMeshInfo(Mesh mesh);
-//void ViewGridInfo(Grid grid);
-void ViewGridsInfo(Grids grids);
+void ViewGridsInfo(Grids grids, int verbose);
 void ViewIndicesInfo(Indices indices);
 void ViewIndexMapsInfoLevel(Level level, int l);
 void ViewIndexMapsInfo(Indices indices);
@@ -70,7 +68,7 @@ int main(int argc, char *argv[]) {
 	
 	PetscBool	set;	
 	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
-	ViewGridsInfo(grids);
+	ViewGridsInfo(grids, 0);
 	DestroyGrids(&grids);
 	PetscFinalize();
 	MPI_Finalize();
@@ -240,61 +238,80 @@ void ViewTopoInfo(Topo *topo) {
 	
 	int	dimension = topo->dimension;
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Topo: dimension = %d\n", dimension);
+	PetscPrintf(PETSC_COMM_WORLD,"Topo:\n");
+	PetscPrintf(PETSC_COMM_WORLD,"dimension = %d\n", dimension);
 
-	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"gridtype[%d] = %d  ", dim, topo->gridtype[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
-	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"procs_%d = %d  ", dim, topo->dimProcs[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
-	PetscPrintf(PETSC_COMM_WORLD,"Topo: ");
 	for (int dim = 0; dim<dimension; dim++) {
 		for (int i=0; i<2; i++) {
 			PetscPrintf(PETSC_COMM_WORLD,"bounds[%d][%d] = %f  ", dim, i, topo->bounds[dim][i]);
 		}
 	}
-	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	PetscPrintf(PETSC_COMM_WORLD,"\n\n");
 }
 
-void ViewGridInfo(Grid grid) {
+void ViewGridInfo(Grid grid, int verbose) {
 	// Prints the info in Grid data structure
 
 	int	dimension = grid.topo->dimension;
+	int	*blockID = grid.topo->blockID;
+	int	(*range)[2] = grid.range;
 	double	*para = grid.para;
+	double	**coord = grid.coord;
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
 	PetscPrintf(PETSC_COMM_WORLD,"Grid-%d: \n", grid.id+1);
 	for (int dim = 0; dim<dimension; dim++) {
 		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grid.n[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"CommCost = %d, MaxLoad = %d, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], para[2], (int)para[3]);
+	double	commTocomp = para[0]/((grid.n[0]-2)*(grid.n[1]-2)*(grid.n[2]-2));
+	PetscPrintf(PETSC_COMM_WORLD,"TotalCommCost = %d, MaxLoad = %d, Comm-to-Comp = %lf, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], commTocomp, para[2], (int)para[3]);
 	
 	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grid.h);
-      
-//	for (int i=0;i<dimension;i++) {
-//		PetscPrintf(PETSC_COMM_WORLD,"Mesh: coord[%d]:",i);
-//		for (int j=0;j<mesh.n[i];j++) {
-//			PetscPrintf(PETSC_COMM_WORLD," %f ",mesh.coord[i][j]);
-//		}
-//		PetscPrintf(PETSC_COMM_WORLD,"\n");
-//	}
+      	
+	if (verbose) {
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
+		for (int i=0; i<dimension; i++)
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
+		for (int i=0; i<dimension; i++)
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][0], range[i][1]);
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+		
+		for (int i=0;i<dimension;i++) {
+			PetscPrintf(PETSC_COMM_WORLD,"coord[%d]:",i);
+			for (int j=0;j<grid.n[i];j++) {
+				PetscPrintf(PETSC_COMM_WORLD," %f ",coord[i][j]);
+			}
+			PetscPrintf(PETSC_COMM_WORLD,"\n");
+		}
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
 
-void ViewGridsInfo(Grids grids) {
+void ViewGridsInfo(Grids grids, int verbose) {
 	// Prints the info of Grids data structure
 	
 	int ngrids = grids.ngrids;
 	PetscPrintf(PETSC_COMM_WORLD,"Grids: \n");
-	PetscPrintf(PETSC_COMM_WORLD,"ngrids = %d\n", ngrids);
+	PetscPrintf(PETSC_COMM_WORLD,"Total no. of grids = %d\n", ngrids);
 	for (int i=0; i<ngrids-1; i++) {
-		PetscPrintf(PETSC_COMM_WORLD,"cfactor[%d] = ", i);
+		PetscPrintf(PETSC_COMM_WORLD,"coarsening factors[%d] = ", i);
 		for (int dim=0; dim<grids.topo->dimension; dim++) {
 			PetscPrintf(PETSC_COMM_WORLD,"%d  ", grids.cfactor[i][dim]);
 		}
@@ -304,7 +321,7 @@ void ViewGridsInfo(Grids grids) {
 	
 	ViewTopoInfo(grids.topo);
 	for (int i=0; i<ngrids; i++) {
-		ViewGridInfo(grids.grid[i]);
+		ViewGridInfo(grids.grid[i], verbose);
 	}
 }
 
