@@ -46,7 +46,6 @@ int main(int argc, char *argv[]) {
 	PetscInitialize(&argc, &argv, "poisson.in", 0);
 
 	Problem		prob;
-//	Mesh		mesh;
 	Grids		grids;
 	Indices		indices;
 	Operator	op;
@@ -69,6 +68,11 @@ int main(int argc, char *argv[]) {
 	PetscBool	set;	
 	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
 	ViewGridsInfo(grids, 0);
+
+	ierr = CreateIndices(&grids, &indices); pCHKERR_RETURN("Creation of indices failed");
+	ViewIndicesInfo(indices);
+	
+	DestroyIndices(&indices);
 	DestroyGrids(&grids);
 	PetscFinalize();
 	MPI_Finalize();
@@ -82,7 +86,6 @@ int main(int argc, char *argv[]) {
 	//	return 0;
 	//}
 //	//PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
-	//PetscOptionsGetInt(NULL, NULL, "-levels", &(indices.levels), NULL);
 	//PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
 	//PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
 	//PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
@@ -179,59 +182,59 @@ int totalUnknowns(int *n, int totalGrids) {
 	return length;
 }
 
-void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag) {
-	// Prints complete some info of problem, grids, solver
-	
-	int	procs, rank;
-
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	if (rank==0) {
-	printf("=============================================================\n");
-	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
-	if (meshflag==0) printf("Mesh Type:			Uniform\n");
-	if (meshflag==1) printf("Mesh Type:			Non Uniform\n");
-	printf("Number of grids:		%d\n",op.totalGrids);
-	printf("Number of levels:		%d\n",solver.assem->levels);
-	printf("Number of grids per level:	");
-	for (int l=0;l<indices.levels;l++) {
-		printf("%d	", indices.level[l].grids);
-	}
-	printf("\n");
-	printf("Number of unknowns per level:	");
-	for (int l=0;l<indices.levels;l++) {
-		printf("%d	", indices.level[l].global.ni);
-	}
-	printf("\n");
-	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
-	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
-	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
-	if (cyc == 12) printf("Cycle :				AdditiveScaled\n");
-	if (cyc == 11) printf("Cycle :				Additive\n");
-	if (cyc == 10) printf("Cycle :				V-Filter\n");
-	if (cyc == 9) printf("Cycle :				Filter\n");
-	if (cyc == 8) printf("Cycle :				Petsc-V-Cycle\n");
-	if (cyc == 7) printf("Cycle :				D1PS-Cycle\n");
-	if (cyc == 4) printf("Cycle :				D2-Cycle\n");
-	if (cyc == 3) printf("Cycle :				D1-Cycle\n");
-	if (cyc == 2) printf("Cycle :				E-Cycle\n");
-	if (cyc == 1) printf("Cycle :				I-Cycle\n");
-	if (cyc == 0) printf("Cycle :				V-Cycle\n");
-	
-	if (cyc == 7) printf("Number of smoothing steps :	pre: %d and post: %d per iteration \n", solver.v[0], solver.v[0]);
-	if (cyc == 3 || cyc == 4) printf("Number of smoothing steps :	%d per iteration \n", solver.v[0]);
-	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
-	if (cyc == 0 || cyc == 8) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-	if (cyc == 9) printf("Number of smoothing steps :	%d(filtered fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-	if (cyc == 10) printf("Number of smoothing steps :	%d(fine and Filtered fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-	if (cyc == 11 || cyc ==12) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-	printf("Number of processes:		%d\n",procs);
-	printf("Number of iterations:		%d\n",solver.numIter);
-	printf("=============================================================\n");
-	}
-
-}
+//void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag) {
+//	// Prints complete some info of problem, grids, solver
+//	
+//	int	procs, rank;
+//
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	if (rank==0) {
+//	printf("=============================================================\n");
+//	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
+//	if (meshflag==0) printf("Mesh Type:			Uniform\n");
+//	if (meshflag==1) printf("Mesh Type:			Non Uniform\n");
+//	printf("Number of grids:		%d\n",op.totalGrids);
+//	printf("Number of levels:		%d\n",solver.assem->levels);
+//	printf("Number of grids per level:	");
+//	for (int l=0;l<indices.levels;l++) {
+//		printf("%d	", indices.level[l].grids);
+//	}
+//	printf("\n");
+//	printf("Number of unknowns per level:	");
+//	for (int l=0;l<indices.levels;l++) {
+//		printf("%d	", indices.level[l].global.ni);
+//	}
+//	printf("\n");
+//	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
+//	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
+//	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
+//	if (cyc == 12) printf("Cycle :				AdditiveScaled\n");
+//	if (cyc == 11) printf("Cycle :				Additive\n");
+//	if (cyc == 10) printf("Cycle :				V-Filter\n");
+//	if (cyc == 9) printf("Cycle :				Filter\n");
+//	if (cyc == 8) printf("Cycle :				Petsc-V-Cycle\n");
+//	if (cyc == 7) printf("Cycle :				D1PS-Cycle\n");
+//	if (cyc == 4) printf("Cycle :				D2-Cycle\n");
+//	if (cyc == 3) printf("Cycle :				D1-Cycle\n");
+//	if (cyc == 2) printf("Cycle :				E-Cycle\n");
+//	if (cyc == 1) printf("Cycle :				I-Cycle\n");
+//	if (cyc == 0) printf("Cycle :				V-Cycle\n");
+//	
+//	if (cyc == 7) printf("Number of smoothing steps :	pre: %d and post: %d per iteration \n", solver.v[0], solver.v[0]);
+//	if (cyc == 3 || cyc == 4) printf("Number of smoothing steps :	%d per iteration \n", solver.v[0]);
+//	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
+//	if (cyc == 0 || cyc == 8) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
+//	if (cyc == 9) printf("Number of smoothing steps :	%d(filtered fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
+//	if (cyc == 10) printf("Number of smoothing steps :	%d(fine and Filtered fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
+//	if (cyc == 11 || cyc ==12) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
+//	printf("Number of processes:		%d\n",procs);
+//	printf("Number of iterations:		%d\n",solver.numIter);
+//	printf("=============================================================\n");
+//	}
+//
+//}
 
 void ViewTopoInfo(Topo *topo) {
 	// Prints the info in Topo data structure
@@ -325,186 +328,199 @@ void ViewGridsInfo(Grids grids, int verbose) {
 	}
 }
 
+void ViewLevelInfo(Level level) {
+	// Prints the info of Level data structure
+	
+	PetscPrintf(PETSC_COMM_WORLD,"No. of grids = %d\n", level.grids);
+	
+	PetscPrintf(PETSC_COMM_WORLD,"gridIDs = ");
+	for (int lg=0;lg<level.grids;lg++) {
+		PetscPrintf(PETSC_COMM_WORLD,"%d ",level.gridId[lg]);
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+}
+
 void ViewIndicesInfo(Indices indices) {
-	// Prints the info of GridId in each level
+	// Prints the info of Indices data structure
 	
 	int	procs, rank;
 	
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
+	PetscPrintf(PETSC_COMM_WORLD,"Indices: \n");
+	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", indices.levels);
 	for (int l=0;l<indices.levels;l++) {
-		for (int lg=0;lg<indices.level[l].grids;lg++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; gridId: %d; (ni, hi): (%d, %f); (nj, hj): (%d, %f)\n",rank,l,indices.level[l].gridId[lg], indices.level[l].grid[lg].ni, indices.level[l].h[lg][0], indices.level[l].grid[lg].nj, indices.level[l].h[lg][1]);
-		}
+		PetscPrintf(PETSC_COMM_WORLD,"Level-%d:\n", l);
+		ViewLevelInfo(indices.level[l]);
 	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
 
-void ViewIndexMapsInfoLevel(Level level, int l) {
-/********************************************************************************
- *
- * Print the Index maps of the given level
- *
- ********************************************************************************/ 
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
-	for (int p=0;p<procs+1;p++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",level.ranges[p]);
-	}
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: Map from grid indices to global index:\n",rank,l);
-	for (int lg=0; lg<level.grids; lg++) {
-		for (int i=0; i<level.grid[lg].ni; i++) {
-			for (int j=0; j<level.grid[lg].nj; j++) {
-				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: level_gridId = %d: gridId = %d: (row = %d, col = %d) -> (global_index = %d)\n",rank,l,lg,level.gridId[lg],i,j,level.grid[lg].data[i*level.grid[lg].nj+j]);
-			}
-		}
-	}
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: Map from global index to grid indices:\n",rank,l);
-	for (int i=0;i<level.global.ni;i++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (global_index = %d) -> (row = %d, col = %d, gridId = %d)\n",rank,l,i,level.global.data[i*level.global.nj+0], level.global.data[i*level.global.nj+1], level.global.data[i*level.global.nj+2]);
-	}
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
-
-void ViewIndexMapsInfo(Indices indices) {
-	// Prints the info of index maps between global and grids
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	for (int l=0;l<indices.levels;l++) {
-		ViewIndexMapsInfoLevel(indices.level[l], l);
-	}
-}
-
-void ViewRangesInfo(Indices indices) {
-	// Prints the info of index maps between global and grids
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	for (int l=0;l<indices.levels;l++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
-		for (int p=0;p<procs+1;p++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",indices.level[l].ranges[p]);
-		}
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
-
-void ViewSolverInfo(Indices indices, Solver solver) {
-	// Prints the info in Solver struct
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	if (solver.cycle==VCYCLE) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; numIter = %d; Cycle = VCYCLE\n",rank,solver.numIter);
-	} else {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; numIter = %d; Cycle = ICYCLE\n",rank,solver.numIter);
-	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
-
-void ViewOperatorInfo(Operator op) {
-	// Prints the info in Operator struct
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; Total num of grids = %d:\n",rank,op.totalGrids);
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-	for (int l=0;l<op.totalGrids-1;l++) {
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; res[%d]:\n",rank,l);
-		for (int i=0;i<op.res[l].ni;i++) {
-			for (int j=0;j<op.res[l].nj;j++) {
-				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%f ",op.res[l].data[i*op.res[l].nj+j]);
-			}
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-		}
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; pro[%d]:\n",rank,l);
-		for (int i=0;i<op.pro[l].ni;i++) {
-			for (int j=0;j<op.pro[l].nj;j++) {
-				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%f ",op.pro[l].data[i*op.pro[l].nj+j]);
-			}
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
-		}
-	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
-
-void ViewLinSysMatsInfo(Assembly assem, int view) {
-	// Prints the info of Assembly struct
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	for (int l=0;l<assem.levels;l++) {
-		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
-		if (view == 0) {
-			MatView(assem.A[l],PETSC_VIEWER_STDOUT_WORLD);
-			MatView(assem.A2[l],PETSC_VIEWER_STDOUT_WORLD);
-		}
-		if (view == 1) {
-			MatView(assem.A[l],PETSC_VIEWER_DRAW_WORLD);
-			MatView(assem.A2[l],PETSC_VIEWER_DRAW_WORLD);
-		}
-		VecView(assem.b[l],PETSC_VIEWER_STDOUT_WORLD);
-	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
-
-void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc) {
-	// Prints the info of Assembly struct
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-
-	if (cyc == 3)
-	{
-		PetscPrintf(PETSC_COMM_WORLD,"\nres:\n");
-		if (view == 0) MatView(assem.res[0],PETSC_VIEWER_STDOUT_WORLD);
-		if (view == 1) MatView(assem.res[0],PETSC_VIEWER_DRAW_WORLD);
-		PetscPrintf(PETSC_COMM_WORLD,"\npro:\n");
-		if (view == 0) MatView(assem.pro[0],PETSC_VIEWER_STDOUT_WORLD);
-		if (view == 1) MatView(assem.pro[0],PETSC_VIEWER_DRAW_WORLD);
-		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-		ISView(*(assem.topIS),PETSC_VIEWER_STDOUT_WORLD);
-		ISView(*(assem.bottomIS),PETSC_VIEWER_STDOUT_WORLD);
-	}
-
-	for (int l=0;l<assem.levels-1;l++) {
-		PetscPrintf(PETSC_COMM_WORLD,"res[%d]:\n",l);
-		if (view == 0) MatView(assem.res[l],PETSC_VIEWER_STDOUT_WORLD);
-		if (view == 1) MatView(assem.res[l],PETSC_VIEWER_DRAW_WORLD);
-		PetscPrintf(PETSC_COMM_WORLD,"pro[%d]:\n",l);
-		if (view == 0) MatView(assem.pro[l],PETSC_VIEWER_STDOUT_WORLD);
-		if (view == 1) MatView(assem.pro[l],PETSC_VIEWER_DRAW_WORLD);
-	}
-	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-}
+//void ViewIndexMapsInfoLevel(Level level, int l) {
+///********************************************************************************
+// *
+// * Print the Index maps of the given level
+// *
+// ********************************************************************************/ 
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
+//	for (int p=0;p<procs+1;p++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",level.ranges[p]);
+//	}
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: Map from grid indices to global index:\n",rank,l);
+//	for (int lg=0; lg<level.grids; lg++) {
+//		for (int i=0; i<level.grid[lg].ni; i++) {
+//			for (int j=0; j<level.grid[lg].nj; j++) {
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: level_gridId = %d: gridId = %d: (row = %d, col = %d) -> (global_index = %d)\n",rank,l,lg,level.gridId[lg],i,j,level.grid[lg].data[i*level.grid[lg].nj+j]);
+//			}
+//		}
+//	}
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: Map from global index to grid indices:\n",rank,l);
+//	for (int i=0;i<level.global.ni;i++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d: level = %d: (global_index = %d) -> (row = %d, col = %d, gridId = %d)\n",rank,l,i,level.global.data[i*level.global.nj+0], level.global.data[i*level.global.nj+1], level.global.data[i*level.global.nj+2]);
+//	}
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//}
+//
+//void ViewIndexMapsInfo(Indices indices) {
+//	// Prints the info of index maps between global and grids
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	for (int l=0;l<indices.levels;l++) {
+//		ViewIndexMapsInfoLevel(indices.level[l], l);
+//	}
+//}
+//
+//void ViewRangesInfo(Indices indices) {
+//	// Prints the info of index maps between global and grids
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	for (int l=0;l<indices.levels;l++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; level: %d; ranges: ", rank, l);
+//		for (int p=0;p<procs+1;p++) {
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ",indices.level[l].ranges[p]);
+//		}
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//}
+//
+//void ViewSolverInfo(Indices indices, Solver solver) {
+//	// Prints the info in Solver struct
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	if (solver.cycle==VCYCLE) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; numIter = %d; Cycle = VCYCLE\n",rank,solver.numIter);
+//	} else {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; numIter = %d; Cycle = ICYCLE\n",rank,solver.numIter);
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//}
+//
+//void ViewOperatorInfo(Operator op) {
+//	// Prints the info in Operator struct
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; Total num of grids = %d:\n",rank,op.totalGrids);
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//	for (int l=0;l<op.totalGrids-1;l++) {
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; res[%d]:\n",rank,l);
+//		for (int i=0;i<op.res[l].ni;i++) {
+//			for (int j=0;j<op.res[l].nj;j++) {
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%f ",op.res[l].data[i*op.res[l].nj+j]);
+//			}
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//		}
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = %d; pro[%d]:\n",rank,l);
+//		for (int i=0;i<op.pro[l].ni;i++) {
+//			for (int j=0;j<op.pro[l].nj;j++) {
+//				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%f ",op.pro[l].data[i*op.pro[l].nj+j]);
+//			}
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"\n");
+//		}
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//}
+//
+//void ViewLinSysMatsInfo(Assembly assem, int view) {
+//	// Prints the info of Assembly struct
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	for (int l=0;l<assem.levels;l++) {
+//		PetscPrintf(PETSC_COMM_WORLD,"A[%d]:\n",l);
+//		if (view == 0) {
+//			MatView(assem.A[l],PETSC_VIEWER_STDOUT_WORLD);
+//			MatView(assem.A2[l],PETSC_VIEWER_STDOUT_WORLD);
+//		}
+//		if (view == 1) {
+//			MatView(assem.A[l],PETSC_VIEWER_DRAW_WORLD);
+//			MatView(assem.A2[l],PETSC_VIEWER_DRAW_WORLD);
+//		}
+//		VecView(assem.b[l],PETSC_VIEWER_STDOUT_WORLD);
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//}
+//
+//void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc) {
+//	// Prints the info of Assembly struct
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//
+//	if (cyc == 3)
+//	{
+//		PetscPrintf(PETSC_COMM_WORLD,"\nres:\n");
+//		if (view == 0) MatView(assem.res[0],PETSC_VIEWER_STDOUT_WORLD);
+//		if (view == 1) MatView(assem.res[0],PETSC_VIEWER_DRAW_WORLD);
+//		PetscPrintf(PETSC_COMM_WORLD,"\npro:\n");
+//		if (view == 0) MatView(assem.pro[0],PETSC_VIEWER_STDOUT_WORLD);
+//		if (view == 1) MatView(assem.pro[0],PETSC_VIEWER_DRAW_WORLD);
+//		PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//		ISView(*(assem.topIS),PETSC_VIEWER_STDOUT_WORLD);
+//		ISView(*(assem.bottomIS),PETSC_VIEWER_STDOUT_WORLD);
+//	}
+//
+//	for (int l=0;l<assem.levels-1;l++) {
+//		PetscPrintf(PETSC_COMM_WORLD,"res[%d]:\n",l);
+//		if (view == 0) MatView(assem.res[l],PETSC_VIEWER_STDOUT_WORLD);
+//		if (view == 1) MatView(assem.res[l],PETSC_VIEWER_DRAW_WORLD);
+//		PetscPrintf(PETSC_COMM_WORLD,"pro[%d]:\n",l);
+//		if (view == 0) MatView(assem.pro[l],PETSC_VIEWER_STDOUT_WORLD);
+//		if (view == 1) MatView(assem.pro[l],PETSC_VIEWER_DRAW_WORLD);
+//	}
+//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+//}

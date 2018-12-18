@@ -18,16 +18,16 @@
 typedef struct {
 	int		grids;   // num of grids in this level
 	int		*gridId; // Grid Id of each grid in a given level
-	double		(*h)[2]; // Delta h in reference domain
+	double		(*h)[2]; // Delta h in reference domain // ! Remove
 	int		*ranges; // ranges of global indices processes
-	ArrayInt2d	global;  // global to grid map
-	ArrayInt2d	*grid;   // grid to global map
+	ArrayInt2d	global;  // global to grid map// ! Remove
+	ArrayInt2d	*grid;   // grid to global map// ! Remove
 } Level;
 
 typedef struct {
 	int	levels;
-	int	totalGrids;
-	int	coarseningFactor;
+	int	totalGrids; // ! Remove
+	int	coarseningFactor; // ! Remove
 	Level	*level;
 } Indices;
 
@@ -79,7 +79,8 @@ typedef struct {
 	FILE	*YgridData;
 } PostProcess;
 
-void SetUpIndices(Mesh *mesh, Indices *indices);
+int CreateIndices(Grids *grids, Indices *indices);
+//void SetUpIndices(Mesh *mesh, Indices *indices);
 void DestroyIndices(Indices *indices);
 void mapping(Indices *indices, int mappingStyleflag);
 
@@ -92,7 +93,8 @@ void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 void DestroySolver(Solver *solver);
 void Solve(Solver *solver);
 
-void SetUpPostProcess(PostProcess *pp);
+int CreateOperator(Indices *indices, Operator *op);
+//void SetUpPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);
 void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp);
 

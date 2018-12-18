@@ -1,6 +1,17 @@
 //#include "matbuild.h"
 #include "solver.h"
 
+#define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
+#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
+#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define PI 3.14159265358979323846
+
+#define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
+#define pCHKERR_PRNT(message) {if(ierr==1) {pERROR_MSG(message);}}
+#define pCHKERR_RETURN(message) {if(ierr==1) {pERROR_RETURN(message);}}
+
 #define METRICS(i,j) (metrics.data[(i)*metrics.nj+(j)])
 //#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
 #define PMETRICS(i) ((metrics.data)+((i)*metrics.nj))
@@ -24,8 +35,8 @@ static int ipow(int base, int exp) {
 	return result;
 }
 
-void GridId(Indices *indices) {
-	// Computes the gridId range and number grids in each level
+void AssignGridID(Indices *indices, int ngrids) {
+	// Assigns gridIDs for all the grids in each level
 	
 	int q, count;
 	
@@ -34,11 +45,11 @@ void GridId(Indices *indices) {
 		indices->level[l].grids = 1;
 		q += 1;
 	}
-	indices->level[indices->levels-1].grids += (indices->totalGrids-q);
+	indices->level[indices->levels-1].grids += (ngrids-q);
 	
 	count = 0;
 	for (int l=0;l<indices->levels;l++) {
-			indices->level[l].gridId = malloc(indices->level[l].grids*sizeof(int));
+		indices->level[l].gridId = malloc(indices->level[l].grids*sizeof(int));
 		for (int g=0;g<indices->level[l].grids;g++) {
 			indices->level[l].gridId[g] = count;
 			count += 1;
@@ -46,300 +57,353 @@ void GridId(Indices *indices) {
 	}
 }
 
-void CreateIndexMaps(Mesh *mesh, Indices *indices) {
-	// Allocate memory to global-to-grid and grid-to-global maps
-	
-	int	temp, g;
-	int	totaln, n0, n1, fn0, fn1;
-	int	factor;
-	const	int	M = 3; // i,j,g
-	
-	factor = indices->coarseningFactor;
-	fn0 = mesh->n[0];
-	fn1 = mesh->n[1];
-	for (int l=0;l<indices->levels;l++) {
-		totaln = 0;
-		for (int lg=0;lg<indices->level[l].grids;lg++) {
-			g = indices->level[l].gridId[lg];
-			temp = ipow(factor,g);
-			n0 = (fn0-1)/temp - 1;
-			n1 = (fn1-1)/temp - 1;
-			totaln = totaln + n0*n1; 
-			CreateArrayInt2d(n1, n0,&(indices->level[l].grid[lg]));
-		}
-		CreateArrayInt2d(totaln, M, &(indices->level[l].global));
-	}
-}
+//void CreateIndexMaps(Mesh *mesh, Indices *indices) {
+//	// Allocate memory to global-to-grid and grid-to-global maps
+//	
+//	int	temp, g;
+//	int	totaln, n0, n1, fn0, fn1;
+//	int	factor;
+//	const	int	M = 3; // i,j,g
+//	
+//	factor = indices->coarseningFactor;
+//	fn0 = mesh->n[0];
+//	fn1 = mesh->n[1];
+//	for (int l=0;l<indices->levels;l++) {
+//		totaln = 0;
+//		for (int lg=0;lg<indices->level[l].grids;lg++) {
+//			g = indices->level[l].gridId[lg];
+//			temp = ipow(factor,g);
+//			n0 = (fn0-1)/temp - 1;
+//			n1 = (fn1-1)/temp - 1;
+//			totaln = totaln + n0*n1; 
+//			CreateArrayInt2d(n1, n0,&(indices->level[l].grid[lg]));
+//		}
+//		CreateArrayInt2d(totaln, M, &(indices->level[l].global));
+//	}
+//}
+//
+//void DestroyIndexMaps(Indices *indices) {
+//	// Free the memory of global-to-grid and grid-to-global maps	
+//	
+//	for (int l=0;l<indices->levels;l++) {
+//		for (int g=0;g<indices->level[l].grids;g++) {
+//			DeleteArrayInt2d(&(indices->level[l].grid[g]));
+//		}
+//		DeleteArrayInt2d(&(indices->level[l].global));
+//	}
+//}
 
-void DestroyIndexMaps(Indices *indices) {
-	// Free the memory of global-to-grid and grid-to-global maps	
-	
-	for (int l=0;l<indices->levels;l++) {
-		for (int g=0;g<indices->level[l].grids;g++) {
-			DeleteArrayInt2d(&(indices->level[l].grid[g]));
-		}
-		DeleteArrayInt2d(&(indices->level[l].global));
-	}
-}
-
-void SetUpIndices(Mesh *mesh, Indices *indices) {
+int CreateIndices(Grids *grids, Indices *indices) {
 	// Get the GridId range, then allocate memory
 	
 	int	procs;
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	
+	PetscBool	set;	
+	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices->levels), &set);
+	if (!set) {
+		pERROR_MSG("Number of levels for MG solver not set");
+		pERROR_MSG("Set '-levels n' for n levels");
+		return 1;
+	} else if (grids->ngrids < indices->levels) {
+		pERROR_MSG("Number of grids cannot be less than no. of levels");
+		return 1;
+	}
+	
 	indices->level = malloc(indices->levels*sizeof(Level));
-	GridId(indices);	
+	AssignGridID(indices, grids->ngrids);
 	for (int i=0;i<indices->levels;i++) {
 		indices->level[i].ranges = malloc((procs+1)*sizeof(int));
-		indices->level[i].grid = malloc(indices->level[i].grids*sizeof(ArrayInt2d));
-		indices->level[i].h = malloc(indices->level[i].grids*sizeof(double[2]));
+//		indices->level[i].grid = malloc(indices->level[i].grids*sizeof(ArrayInt2d));
+//		indices->level[i].h = malloc(indices->level[i].grids*sizeof(double[2]));
 	}
-	CreateIndexMaps(mesh, indices);
-	for (int l=0;l<indices->levels;l++) {
-		for (int lg=0;lg<indices->level[l].grids;lg++) {
-			indices->level[l].h[lg][0] = 1.0/(indices->level[l].grid[lg].ni+1);
-			indices->level[l].h[lg][1] = 1.0/(indices->level[l].grid[lg].nj+1);
-		}
-	}
+//	CreateIndexMaps(mesh, indices);
+//	for (int l=0;l<indices->levels;l++) {
+//		for (int lg=0;lg<indices->level[l].grids;lg++) {
+//			indices->level[l].h[lg][0] = 1.0/(indices->level[l].grid[lg].ni+1);
+//			indices->level[l].h[lg][1] = 1.0/(indices->level[l].grid[lg].nj+1);
+//		}
+//	}
+
+	return 0;
 }
+
+//void SetUpIndices(Mesh *mesh, Indices *indices) {
+//	// Get the GridId range, then allocate memory
+//	
+//	int	procs;
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	
+//	indices->level = malloc(indices->levels*sizeof(Level));
+//	GridId(indices);	
+//	for (int i=0;i<indices->levels;i++) {
+//		indices->level[i].ranges = malloc((procs+1)*sizeof(int));
+//		indices->level[i].grid = malloc(indices->level[i].grids*sizeof(ArrayInt2d));
+//		indices->level[i].h = malloc(indices->level[i].grids*sizeof(double[2]));
+//	}
+//	CreateIndexMaps(mesh, indices);
+//	for (int l=0;l<indices->levels;l++) {
+//		for (int lg=0;lg<indices->level[l].grids;lg++) {
+//			indices->level[l].h[lg][0] = 1.0/(indices->level[l].grid[lg].ni+1);
+//			indices->level[l].h[lg][1] = 1.0/(indices->level[l].grid[lg].nj+1);
+//		}
+//	}
+//}
 
 void DestroyIndices(Indices *indices) {
 	// Free the memory allocated to indices
 	
-	DestroyIndexMaps(indices);
+//	DestroyIndexMaps(indices);
 	for (int l=0;l<indices->levels;l++) {
-		free(indices->level[l].grid);
-		free(indices->level[l].h);
+//		free(indices->level[l].grid);
+//		free(indices->level[l].h);
 		free(indices->level[l].gridId);
 		free(indices->level[l].ranges);
 	}
 	free(indices->level);
 }
 
-void GetRanges(int *ranges, int totaln) {
-	// Computes the ranges of indices for all processes for a given total number of indices	
-	//
-	// length of ranges = procs + 1
-	// range[p] - index start in process "p"
-	// range[p+1] - (index end + 1) in process "p"
-	
-	int	remainder, quotient;
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	remainder = (totaln)%procs;
-	quotient  = (totaln)/procs;
-	ranges[0] = 0;
-	for (int p=0;p<procs;p++) {
-		if (p<remainder) {
-			ranges[p+1] = ranges[p] + (quotient + 1);
-		}
-		else {
-			ranges[p+1] = ranges[p] + quotient;
-		}
-	}
-}
+//void GetRanges(int *ranges, int totaln) {
+//	// Computes the ranges of indices for all processes for a given total number of indices	
+//	//
+//	// length of ranges = procs + 1
+//	// range[p] - index start in process "p"
+//	// range[p+1] - (index end + 1) in process "p"
+//	
+//	int	remainder, quotient;
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	remainder = (totaln)%procs;
+//	quotient  = (totaln)/procs;
+//	ranges[0] = 0;
+//	for (int p=0;p<procs;p++) {
+//		if (p<remainder) {
+//			ranges[p+1] = ranges[p] + (quotient + 1);
+//		}
+//		else {
+//			ranges[p+1] = ranges[p] + quotient;
+//		}
+//	}
+//}
+//
+//void mappingLocalGridAfterGrid(Indices *indices) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	// Mapping style: Within the process points are arranged in a Grid-After-After pattern
+//	
+//	int	count;
+//	int	grids, factor, gfactor;
+//	int 	g;
+//	int	*ranges, *gridranges;
+//	ArrayInt2d	a, b, fine;
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	
+//	factor = indices->coarseningFactor;
+//	for (int l=0;l<indices->levels;l++) {
+//		ranges 	= indices->level[l].ranges;
+//		fine 	= indices->level[l].grid[0]; // Fine grid of level "l"
+//		grids	= indices->level[l].grids;
+//		GetRanges(ranges, fine.ni*fine.nj); // Domain decomposition on fine grid gives ranges of global indices for fine grid in each rank
+//
+//		// Compute the number of points of each grid in each rank and store them temporarily in "gridranges"
+//		// Logically: gridranges[rank][g] - num of points of grid "g" in "rank"
+//		gridranges = calloc((procs*grids)+1, sizeof(int));
+//		count	= 0; // counts number of fine grid points
+//		rank	= 0; // Keeps track of the rank
+//		for (int i=0;i<fine.ni;i++) {
+//			for (int j=0;j<fine.nj;j++) {
+//				gfactor = 1;
+//				for (int lg=0;lg<grids;lg++) {
+//					// Check if the (i,j) has a corresponding point on grid "lg"
+//					// If yes then count it towards num of points that grid has in the "rank"
+//					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue; 
+//					gfactor =  gfactor*factor;
+//					gridranges[rank*(grids)+lg] += 1;
+//				}
+//				count += 1;
+//				if (count == ranges[rank+1]) {
+//					// update the ending global index of ranges in "rank"
+//					ranges[rank+1] = ranges[rank] + gridranges[rank*(grids)]; 
+//					for (int lg=1;lg<grids;lg++) {
+//						ranges[rank+1] += gridranges[rank*(grids)+lg];
+//					}
+//					rank += 1;
+//				}
+//			}
+//		}
+//	
+//		// Then compute ranges for grids in each rank and use "gridranges" to store them
+//		// Logically:	gridranges[rank][g] - starting index of grid "g" in rank
+//		// 		gridranges[rank][g+1] - (ending index + 1) of grid "g" in rank	
+//		gridranges[procs*grids] = ranges[procs];
+//		for (int i=(procs*grids)-1;i>=0;i=i-1) {
+//			gridranges[i] = gridranges[i+1]-gridranges[i];
+//		}
+//		
+//		// Mapping
+//		a = indices->level[l].global;
+//		for (int lg=0;lg<indices->level[l].grids;lg++) {
+//			g = indices->level[l].gridId[lg];
+//			b = indices->level[l].grid[lg];
+//			rank  = 0;
+//			count = gridranges[lg];
+//			for (int i=0;i<b.ni;i++) {
+//				for (int j=0;j<b.nj;j++) {
+//					while (count == gridranges[rank*grids+lg+1]) {
+//						rank += 1;
+//						count = gridranges[rank*grids+lg];
+//					}
+//					b.data[i*b.nj+j] = count;
+//					a.data[count*a.nj+0] = i;
+//					a.data[count*a.nj+1] = j;
+//					a.data[count*a.nj+2] = g;
+//					count = count + 1;
+//				}
+//			}
+//		}
+//		free(gridranges);
+//	}
+//}
+//
+//void mappingThroughGrids(Indices *indices) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	// Mapping style: places points of any grid corresponding to same (x, y) physical coordinates next to each other
+//	
+//	int	count, fcount;
+//	int	factor, gfactor;
+//	int	ig, jg;
+//	int	gfine, g;
+//	int	*ranges;
+//	ArrayInt2d	a, b, fine;
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	factor = indices->coarseningFactor;
+//	for (int l=0;l<indices->levels;l++) {
+//		count = 0; // counts number of points mapped
+//		a 	= indices->level[l].global;
+//		ranges 	= indices->level[l].ranges;
+//		gfine 	= indices->level[l].gridId[0];
+//		fine 	= indices->level[l].grid[0];
+//
+//		// Compute the ranges of fine grid indices for processes
+//		GetRanges(ranges, fine.ni*fine.nj);
+//		fcount = 0; // counts number of fine grid points mapped
+//		rank = 0; // Keeps track of the rank
+//		for (int i=0;i<fine.ni;i++) {
+//			for (int j=0;j<fine.nj;j++) {
+//				for (int lg=0;lg<indices->level[l].grids;lg++) {
+//					g = indices->level[l].gridId[lg];
+//					gfactor = ipow(factor, g-gfine);
+//					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue;
+//					ig = (i+1)/gfactor-1;
+//					jg = (j+1)/gfactor-1;
+//					b = indices->level[l].grid[lg];
+//					b.data[ig*b.nj+jg] = count;
+//					a.data[count*a.nj+0] = ig;
+//					a.data[count*a.nj+1] = jg;
+//					a.data[count*a.nj+2] = g;
+//					count = count + 1;
+//				}
+//				fcount += 1;
+//				if (fcount == ranges[rank+1]) {
+//					ranges[rank+1] = count; // update the number of points in "rank"
+//					rank += 1;
+//				}
+//			}
+//		}
+//	}
+//}
+//
+//void mappingGridAfterGrid(Indices *indices) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	// Mapping style: places all the points of a grid together
+//	
+//	int	count;
+//	int	g;
+//	int	*ranges;
+//	ArrayInt2d	a, b;
+//	
+//	for (int l=0;l<indices->levels;l++) {
+//		count = 0;
+//		a = indices->level[l].global;
+//		ranges 	= indices->level[l].ranges;
+//		for (int lg=0;lg<indices->level[l].grids;lg++) {
+//			g = indices->level[l].gridId[lg];
+//			b = indices->level[l].grid[lg];
+//			for (int i=0;i<b.ni;i++) {
+//				for (int j=0;j<b.nj;j++) {
+//					b.data[i*b.nj+j] = count;
+//					a.data[count*a.nj+0] = i;
+//					a.data[count*a.nj+1] = j;
+//					a.data[count*a.nj+2] = g;
+//					count = count + 1;
+//				}
+//			}
+//		}
+//		GetRanges(ranges, count);
+//	}
+//
+//}
+//
+//void mapping(Indices *indices, int mappingStyleflag) {
+//	// Maps global indices to grid unknowns and vice-versa
+//	
+//       	if (mappingStyleflag == 0) {
+//		mappingGridAfterGrid(indices);
+//	} else if (mappingStyleflag == 1) {
+//		mappingThroughGrids(indices);
+//	} else if (mappingStyleflag == 2) {
+//		mappingLocalGridAfterGrid(indices);
+//	} else {
+//		printf("Unknown indices mapping style\n");
+//	}
+//}
 
-void mappingLocalGridAfterGrid(Indices *indices) {
-	// Maps global indices to grid unknowns and vice-versa
-	// Mapping style: Within the process points are arranged in a Grid-After-After pattern
-	
-	int	count;
-	int	grids, factor, gfactor;
-	int 	g;
-	int	*ranges, *gridranges;
-	ArrayInt2d	a, b, fine;
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	
-	factor = indices->coarseningFactor;
-	for (int l=0;l<indices->levels;l++) {
-		ranges 	= indices->level[l].ranges;
-		fine 	= indices->level[l].grid[0]; // Fine grid of level "l"
-		grids	= indices->level[l].grids;
-		GetRanges(ranges, fine.ni*fine.nj); // Domain decomposition on fine grid gives ranges of global indices for fine grid in each rank
 
-		// Compute the number of points of each grid in each rank and store them temporarily in "gridranges"
-		// Logically: gridranges[rank][g] - num of points of grid "g" in "rank"
-		gridranges = calloc((procs*grids)+1, sizeof(int));
-		count	= 0; // counts number of fine grid points
-		rank	= 0; // Keeps track of the rank
-		for (int i=0;i<fine.ni;i++) {
-			for (int j=0;j<fine.nj;j++) {
-				gfactor = 1;
-				for (int lg=0;lg<grids;lg++) {
-					// Check if the (i,j) has a corresponding point on grid "lg"
-					// If yes then count it towards num of points that grid has in the "rank"
-					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue; 
-					gfactor =  gfactor*factor;
-					gridranges[rank*(grids)+lg] += 1;
-				}
-				count += 1;
-				if (count == ranges[rank+1]) {
-					// update the ending global index of ranges in "rank"
-					ranges[rank+1] = ranges[rank] + gridranges[rank*(grids)]; 
-					for (int lg=1;lg<grids;lg++) {
-						ranges[rank+1] += gridranges[rank*(grids)+lg];
-					}
-					rank += 1;
-				}
-			}
-		}
-	
-		// Then compute ranges for grids in each rank and use "gridranges" to store them
-		// Logically:	gridranges[rank][g] - starting index of grid "g" in rank
-		// 		gridranges[rank][g+1] - (ending index + 1) of grid "g" in rank	
-		gridranges[procs*grids] = ranges[procs];
-		for (int i=(procs*grids)-1;i>=0;i=i-1) {
-			gridranges[i] = gridranges[i+1]-gridranges[i];
-		}
-		
-		// Mapping
-		a = indices->level[l].global;
-		for (int lg=0;lg<indices->level[l].grids;lg++) {
-			g = indices->level[l].gridId[lg];
-			b = indices->level[l].grid[lg];
-			rank  = 0;
-			count = gridranges[lg];
-			for (int i=0;i<b.ni;i++) {
-				for (int j=0;j<b.nj;j++) {
-					while (count == gridranges[rank*grids+lg+1]) {
-						rank += 1;
-						count = gridranges[rank*grids+lg];
-					}
-					b.data[i*b.nj+j] = count;
-					a.data[count*a.nj+0] = i;
-					a.data[count*a.nj+1] = j;
-					a.data[count*a.nj+2] = g;
-					count = count + 1;
-				}
-			}
-		}
-		free(gridranges);
-	}
-}
-
-void mappingThroughGrids(Indices *indices) {
-	// Maps global indices to grid unknowns and vice-versa
-	// Mapping style: places points of any grid corresponding to same (x, y) physical coordinates next to each other
-	
-	int	count, fcount;
-	int	factor, gfactor;
-	int	ig, jg;
-	int	gfine, g;
-	int	*ranges;
-	ArrayInt2d	a, b, fine;
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	factor = indices->coarseningFactor;
-	for (int l=0;l<indices->levels;l++) {
-		count = 0; // counts number of points mapped
-		a 	= indices->level[l].global;
-		ranges 	= indices->level[l].ranges;
-		gfine 	= indices->level[l].gridId[0];
-		fine 	= indices->level[l].grid[0];
-
-		// Compute the ranges of fine grid indices for processes
-		GetRanges(ranges, fine.ni*fine.nj);
-		fcount = 0; // counts number of fine grid points mapped
-		rank = 0; // Keeps track of the rank
-		for (int i=0;i<fine.ni;i++) {
-			for (int j=0;j<fine.nj;j++) {
-				for (int lg=0;lg<indices->level[l].grids;lg++) {
-					g = indices->level[l].gridId[lg];
-					gfactor = ipow(factor, g-gfine);
-					if ((i+1)%gfactor!=0 || (j+1)%gfactor!=0) continue;
-					ig = (i+1)/gfactor-1;
-					jg = (j+1)/gfactor-1;
-					b = indices->level[l].grid[lg];
-					b.data[ig*b.nj+jg] = count;
-					a.data[count*a.nj+0] = ig;
-					a.data[count*a.nj+1] = jg;
-					a.data[count*a.nj+2] = g;
-					count = count + 1;
-				}
-				fcount += 1;
-				if (fcount == ranges[rank+1]) {
-					ranges[rank+1] = count; // update the number of points in "rank"
-					rank += 1;
-				}
-			}
-		}
-	}
-}
-
-void mappingGridAfterGrid(Indices *indices) {
-	// Maps global indices to grid unknowns and vice-versa
-	// Mapping style: places all the points of a grid together
-	
-	int	count;
-	int	g;
-	int	*ranges;
-	ArrayInt2d	a, b;
-	
-	for (int l=0;l<indices->levels;l++) {
-		count = 0;
-		a = indices->level[l].global;
-		ranges 	= indices->level[l].ranges;
-		for (int lg=0;lg<indices->level[l].grids;lg++) {
-			g = indices->level[l].gridId[lg];
-			b = indices->level[l].grid[lg];
-			for (int i=0;i<b.ni;i++) {
-				for (int j=0;j<b.nj;j++) {
-					b.data[i*b.nj+j] = count;
-					a.data[count*a.nj+0] = i;
-					a.data[count*a.nj+1] = j;
-					a.data[count*a.nj+2] = g;
-					count = count + 1;
-				}
-			}
-		}
-		GetRanges(ranges, count);
-	}
-
-}
-
-void mapping(Indices *indices, int mappingStyleflag) {
-	// Maps global indices to grid unknowns and vice-versa
-	
-       	if (mappingStyleflag == 0) {
-		mappingGridAfterGrid(indices);
-	} else if (mappingStyleflag == 1) {
-		mappingThroughGrids(indices);
-	} else if (mappingStyleflag == 2) {
-		mappingLocalGridAfterGrid(indices);
-	} else {
-		printf("Unknown indices mapping style\n");
-	}
-}
-
-
-void SetUpOperator(Indices *indices, Operator *op) {
+int CreateOperator(Grids *grids, Operator *op) {
 	// Allocates memory to Operator struct
 	int	order; // order of grid transfer operators
+	int	ngrids = grids->ngrids;
 	int	stencilSize;
 	
-	order = indices->coarseningFactor; // order of grid transfer operators is same as the coarsening factor
-	op->totalGrids = indices->totalGrids;
-	op->res = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
-	op->pro = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
+	order = grids->cfactor; // order of grid transfer operators is same as the coarsening factor
+	op->res = malloc((ngrids-1)*sizeof(ArrayInt2d));
+	op->pro = malloc((ngrids-1)*sizeof(ArrayInt2d));
 	stencilSize = 1;
-	for (int i=0;i<op->totalGrids-1;i++) {
+	for (int i=0;i<ngrids-1;i++) {
 		stencilSize = (stencilSize+1)*order-1;
 		CreateArray2d(stencilSize, stencilSize, op->res+i);
 		CreateArray2d(stencilSize, stencilSize, op->pro+i);
 	}
 
 }
+
+//int CreateOperator(Indices *indices, Operator *op) {
+//	// Allocates memory to Operator struct
+//	int	order; // order of grid transfer operators
+//	int	stencilSize;
+//	
+//	order = indices->coarseningFactor; // order of grid transfer operators is same as the coarsening factor
+//	op->totalGrids = indices->totalGrids;
+//	op->res = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
+//	op->pro = malloc((op->totalGrids-1)*sizeof(ArrayInt2d));
+//	stencilSize = 1;
+//	for (int i=0;i<op->totalGrids-1;i++) {
+//		stencilSize = (stencilSize+1)*order-1;
+//		CreateArray2d(stencilSize, stencilSize, op->res+i);
+//		CreateArray2d(stencilSize, stencilSize, op->pro+i);
+//	}
+//
+//}
 
 void DestroyOperator(Operator *op) {
 	// Free the memory in Operator struct
@@ -351,6 +415,17 @@ void DestroyOperator(Operator *op) {
 	free(op->res);
 	free(op->pro);
 }
+
+//void DestroyOperator(Operator *op) {
+//	// Free the memory in Operator struct
+//	
+//	for (int i=0;i<op->totalGrids-1;i++) {
+//		DeleteArray2d(op->res+i);
+//		DeleteArray2d(op->pro+i);
+//	}
+//	free(op->res);
+//	free(op->pro);
+//}
 
 void GridTransferOperator(Array2d *Iop, int factor, int totalGrids) {
 	// Builds stencilwise grid transfer operator between any two grids that have "x" grids inbetween
@@ -440,7 +515,6 @@ void GridTransferOperators(Operator op, Indices indices) {
 	GridTransferOperator(op.res, indices.coarseningFactor, op.totalGrids);
 	GridTransferOperator(op.pro, indices.coarseningFactor, op.totalGrids);
 }
-
 
 //void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem) {
 //	// Assembles matrices and vectors in all levels
