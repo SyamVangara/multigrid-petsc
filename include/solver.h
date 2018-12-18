@@ -16,20 +16,25 @@
 #include "mesh.h"
 
 typedef struct {
-	int		grids;   // num of grids in this level
+	int		ngrids;   // num of grids in this level
 	int		*gridId; // Grid Id of each grid in a given level
 	double		(*h)[2]; // Delta h in reference domain // ! Remove
-	int		*ranges; // ranges of global indices processes
+	int		(*ranges)[2]; // ranges of global indices for each grid
 	ArrayInt2d	global;  // global to grid map// ! Remove
 	ArrayInt2d	*grid;   // grid to global map// ! Remove
 } Level;
 
 typedef struct {
-	int	levels;
+	int	nlevels;
 	int	totalGrids; // ! Remove
 	int	coarseningFactor; // ! Remove
+	Mat 	*res;
+	Mat 	*pro;
+	Mat	*A;
+	Vec	*b;
+	Vec	*u;
 	Level	*level;
-} Indices;
+} Levels;
 
 typedef struct {
 	int	totalGrids;
@@ -52,11 +57,12 @@ typedef struct {
 	IS	**gridIS; // moreNorm flag related info begins
 } Assembly;
 
-typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE, D1PSCYCLE, PetscPCMG, FILTER, VFILTER, ADDITIVE, ADDITIVEScaled} Cycle;
+//typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE, D1PSCYCLE, PetscPCMG, FILTER, VFILTER, ADDITIVE, ADDITIVEScaled} Cycle;
 //typedef enum {False, True} CustomBool;
 
 typedef struct {
-	Cycle		cycle;
+	int		cycle;
+//	Cycle		cycle;
 //	CustomBool	moreInfo;
 	int		moreInfo; // 0: False; 1: True
 	int		numIter;
@@ -67,7 +73,8 @@ typedef struct {
 	double		*rNormGlobal;
 	// more info ends
 	double		*rnorm;
-	Assembly	*assem;
+	Levels		levels;
+//	Assembly	*assem;
 } Solver;
 
 typedef struct {
@@ -79,22 +86,26 @@ typedef struct {
 	FILE	*YgridData;
 } PostProcess;
 
-int CreateIndices(Grids *grids, Indices *indices);
-//void SetUpIndices(Mesh *mesh, Indices *indices);
-void DestroyIndices(Indices *indices);
+int CreateLevels(Grids *grids, Levels *levels);
+void DestroyLevels(Levels *levels);
+
+//int CreateIndices(Grids *grids, Indices *indices);
+////void SetUpIndices(Mesh *mesh, Indices *indices);
+//void DestroyIndices(Indices *indices);
 void mapping(Indices *indices, int mappingStyleflag);
 
-void SetUpOperator(Indices *indices, Operator *op);
+int CreateOperator(Indices *indices, Operator *op);
+//void SetUpOperator(Indices *indices, Operator *op);
 void DestroyOperator(Operator *op);
 void GridTransferOperators(Operator op, Indices indices);
 
-void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
+void CreateSolver(Indices *indices, Solver *solver, Cycle cyc); 
+//void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 //void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc, CustomBool moreInfo);
 void DestroySolver(Solver *solver);
 void Solve(Solver *solver);
 
-int CreateOperator(Indices *indices, Operator *op);
-//void SetUpPostProcess(PostProcess *pp);
+void SetUpPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);
 void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp);
 

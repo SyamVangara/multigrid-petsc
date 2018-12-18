@@ -35,23 +35,24 @@ static int ipow(int base, int exp) {
 	return result;
 }
 
-void AssignGridID(Indices *indices, int ngrids) {
+void AssignGridID(Levels *levels, int ngrids) {
 	// Assigns gridIDs for all the grids in each level
 	
-	int q, count;
+	int	nlevels = levels->nlevels;
+	Level	*level = levels->level;
 	
-	q = 0;
-	for (int l=0;l<indices->levels;l++) {
-		indices->level[l].grids = 1;
+	int q = 0; 
+	for (int l=0;l<nlevels;l++) {
+		level[l].ngrids = 1;
 		q += 1;
 	}
-	indices->level[indices->levels-1].grids += (ngrids-q);
+	level[nlevels-1].ngrids += (ngrids-q);
 	
-	count = 0;
-	for (int l=0;l<indices->levels;l++) {
-		indices->level[l].gridId = malloc(indices->level[l].grids*sizeof(int));
-		for (int g=0;g<indices->level[l].grids;g++) {
-			indices->level[l].gridId[g] = count;
+	int count = 0;
+	for (int l=0;l<nlevels;l++) {
+		level[l].gridId = malloc(level[l].ngrids*sizeof(int));
+		for (int g=0;g<level[l].ngrids;g++) {
+			level[l].gridId[g] = count;
 			count += 1;
 		}
 	}
@@ -93,38 +94,39 @@ void AssignGridID(Indices *indices, int ngrids) {
 //	}
 //}
 
-int CreateIndices(Grids *grids, Indices *indices) {
+void GetRanges(Grids *grids, Level *level) {
+	// Get range of global indices for each grid in a given level
+	// This assumes lexicographical ordering of grid points
+	
+	int dimension = grids->topo->dimension;	
+}
+
+int CreateLevels(Grids *grids, Levels *levels) {
 	// Get the GridId range, then allocate memory
 	
 	int	procs;
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	
+	if (!grids) {
+		pERROR_MSG("NULL pointer encountered");
+		return 1;
+	}
 	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-levels", &(indices->levels), &set);
+	PetscOptionsGetInt(NULL, NULL, "-levels", &(levels->nlevels), &set);
 	if (!set) {
 		pERROR_MSG("Number of levels for MG solver not set");
-		pERROR_MSG("Set '-levels n' for n levels");
+		pERROR_MSG("Set '-nlevels n' for n levels");
 		return 1;
-	} else if (grids->ngrids < indices->levels) {
+	} else if (grids->ngrids < levels->nlevels) {
 		pERROR_MSG("Number of grids cannot be less than no. of levels");
 		return 1;
 	}
 	
-	indices->level = malloc(indices->levels*sizeof(Level));
-	AssignGridID(indices, grids->ngrids);
-	for (int i=0;i<indices->levels;i++) {
-		indices->level[i].ranges = malloc((procs+1)*sizeof(int));
-//		indices->level[i].grid = malloc(indices->level[i].grids*sizeof(ArrayInt2d));
-//		indices->level[i].h = malloc(indices->level[i].grids*sizeof(double[2]));
+	levels->level = malloc(levels->nlevels*sizeof(Level));
+	AssignGridID(levels, grids->ngrids);
+	for (int i=0;i<levels->nlevels;i++) {
+		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(int[2]));
 	}
-//	CreateIndexMaps(mesh, indices);
-//	for (int l=0;l<indices->levels;l++) {
-//		for (int lg=0;lg<indices->level[l].grids;lg++) {
-//			indices->level[l].h[lg][0] = 1.0/(indices->level[l].grid[lg].ni+1);
-//			indices->level[l].h[lg][1] = 1.0/(indices->level[l].grid[lg].nj+1);
-//		}
-//	}
-
 	return 0;
 }
 
@@ -150,18 +152,28 @@ int CreateIndices(Grids *grids, Indices *indices) {
 //	}
 //}
 
-void DestroyIndices(Indices *indices) {
+void DestroyLevels(Levels *levels) {
 	// Free the memory allocated to indices
 	
-//	DestroyIndexMaps(indices);
-	for (int l=0;l<indices->levels;l++) {
-//		free(indices->level[l].grid);
-//		free(indices->level[l].h);
-		free(indices->level[l].gridId);
-		free(indices->level[l].ranges);
+	for (int l=0;l<levels->nlevels;l++) {
+		free(levels->level[l].gridId);
+		free(levels->level[l].ranges);
 	}
-	free(indices->level);
+	free(levels->level);
 }
+
+//void DestroyIndices(Indices *indices) {
+//	// Free the memory allocated to indices
+//	
+////	DestroyIndexMaps(indices);
+//	for (int l=0;l<indices->levels;l++) {
+////		free(indices->level[l].grid);
+////		free(indices->level[l].h);
+//		free(indices->level[l].gridId);
+//		free(indices->level[l].ranges);
+//	}
+//	free(indices->level);
+//}
 
 //void GetRanges(int *ranges, int totaln) {
 //	// Computes the ranges of indices for all processes for a given total number of indices	

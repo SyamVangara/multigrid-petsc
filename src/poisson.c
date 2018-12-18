@@ -55,7 +55,6 @@ int main(int argc, char *argv[]) {
 	int		cyc;
 	int		meshflag;
 	int		mappingStyleflag;
-	int		vmax = 2;
 
 	int	ierr=0;
 
@@ -78,18 +77,7 @@ int main(int argc, char *argv[]) {
 	MPI_Finalize();
 	return 0;
 	
-	//PetscOptionsGetInt(NULL, NULL, "-iter", &(solver.numIter), &set);
-	//if (!set) {
-	//	PetscPrintf(PETSC_COMM_WORLD, "ERROR: Number of iterations not set properly!\n"); 
-	//	PetscFinalize();
-	//	MPI_Finalize();
-	//	return 0;
-	//}
-//	//PetscOptionsGetInt(NULL, NULL, "-grids", &(indices.totalGrids), NULL);
-	//PetscOptionsGetInt(NULL, NULL, "-cycle", &(cyc), NULL);
 	//PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
-	//PetscOptionsGetIntArray(NULL, NULL, "-v", solver.v, &vmax, NULL);
-	//PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver.moreInfo), NULL);
 	//
 	//if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
 	//	PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
