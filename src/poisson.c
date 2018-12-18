@@ -15,19 +15,20 @@
 #define FUNC2D(i,j) (-2*PI*PI*sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 #define SOL2D(i,j) (sin(PI*coord[0][(j)])*sin(PI*coord[1][(i)]))
 
-static int ipow(int base, int exp);
+//static int ipow(int base, int exp);
 int totalUnknowns(int *n, int totalGrids);
 
-void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
+//void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
 void ViewGridsInfo(Grids grids, int verbose);
-void ViewIndicesInfo(Indices indices);
-void ViewIndexMapsInfoLevel(Level level, int l);
-void ViewIndexMapsInfo(Indices indices);
-void ViewRangesInfo(Indices indices);
-void ViewSolverInfo(Indices indices, Solver solver);
-void ViewOperatorInfo(Operator op);
-void ViewLinSysMatsInfo(Assembly assem, int view);
-void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);
+//void ViewIndicesInfo(Indices indices);
+void ViewLevelsInfo(Solver solver);
+//void ViewIndexMapsInfoLevel(Level level, int l);
+//void ViewIndexMapsInfo(Indices indices);
+//void ViewRangesInfo(Indices indices);
+//void ViewSolverInfo(Indices indices, Solver solver);
+//void ViewOperatorInfo(Operator op);
+//void ViewLinSysMatsInfo(Assembly assem, int view);
+//void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);
 
 int main(int argc, char *argv[]) {
 	
@@ -47,14 +48,10 @@ int main(int argc, char *argv[]) {
 
 	Problem		prob;
 	Grids		grids;
-	Indices		indices;
-	Operator	op;
+//	Indices		indices;
+//	Operator	op;
 	Solver		solver;
-	PostProcess	pp;	
-	
-	int		cyc;
-	int		meshflag;
-	int		mappingStyleflag;
+//	PostProcess	pp;	
 
 	int	ierr=0;
 
@@ -64,14 +61,13 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.out", "w", stdout);
 //	freopen("poisson.err", "w", stderr);
 	
-	PetscBool	set;	
 	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
 	ViewGridsInfo(grids, 0);
 
-	ierr = CreateIndices(&grids, &indices); pCHKERR_RETURN("Creation of indices failed");
-	ViewIndicesInfo(indices);
+	ierr = CreateSolver(&grids, &solver); pCHKERR_RETURN("Solver creation failed");
+	ViewLevelsInfo(solver);
 	
-	DestroyIndices(&indices);
+	DestroySolver(&solver);
 	DestroyGrids(&grids);
 	PetscFinalize();
 	MPI_Finalize();
@@ -145,17 +141,17 @@ int main(int argc, char *argv[]) {
 	//return 0;
 }
 
-int ipow(int base, int exp) {
-
-	int result = 1;
-	while (exp) {
-		if (exp & 1)
-			result *= base;
-		exp >>= 1;
-		base *= base;
-	}
-	return result;
-}
+//int ipow(int base, int exp) {
+//
+//	int result = 1;
+//	while (exp) {
+//		if (exp & 1)
+//			result *= base;
+//		exp >>= 1;
+//		base *= base;
+//	}
+//	return result;
+//}
 
 int totalUnknowns(int *n, int totalGrids) {
 		
@@ -319,16 +315,22 @@ void ViewGridsInfo(Grids grids, int verbose) {
 void ViewLevelInfo(Level level) {
 	// Prints the info of Level data structure
 	
-	PetscPrintf(PETSC_COMM_WORLD,"No. of grids = %d\n", level.grids);
+	PetscPrintf(PETSC_COMM_WORLD,"No. of grids = %d\n", level.ngrids);
 	
 	PetscPrintf(PETSC_COMM_WORLD,"gridIDs = ");
-	for (int lg=0;lg<level.grids;lg++) {
+	for (int lg=0;lg<level.ngrids;lg++) {
 		PetscPrintf(PETSC_COMM_WORLD,"%d ",level.gridId[lg]);
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	
+	PetscPrintf(PETSC_COMM_WORLD,"Global index ranges = ");
+	for (int lg=0;lg<level.ngrids;lg++) {
+		PetscPrintf(PETSC_COMM_WORLD,"(%d,%d) ",level.ranges[lg][0],level.ranges[lg][1]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
 
-void ViewIndicesInfo(Indices indices) {
+void ViewLevelsInfo(Solver solver) {
 	// Prints the info of Indices data structure
 	
 	int	procs, rank;
@@ -336,14 +338,33 @@ void ViewIndicesInfo(Indices indices) {
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
-	PetscPrintf(PETSC_COMM_WORLD,"Indices: \n");
-	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", indices.levels);
-	for (int l=0;l<indices.levels;l++) {
+	Levels *levels = solver.levels;
+
+	PetscPrintf(PETSC_COMM_WORLD,"Levels: \n");
+	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", levels->nlevels);
+	for (int l=0;l<levels->nlevels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"Level-%d:\n", l);
-		ViewLevelInfo(indices.level[l]);
+		ViewLevelInfo(levels->level[l]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
+
+//void ViewIndicesInfo(Indices indices) {
+//	// Prints the info of Indices data structure
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//
+//	PetscPrintf(PETSC_COMM_WORLD,"Indices: \n");
+//	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", indices.levels);
+//	for (int l=0;l<indices.levels;l++) {
+//		PetscPrintf(PETSC_COMM_WORLD,"Level-%d:\n", l);
+//		ViewLevelInfo(indices.level[l]);
+//	}
+//	PetscPrintf(PETSC_COMM_WORLD,"\n");
+//}
 
 //void ViewIndexMapsInfoLevel(Level level, int l) {
 ///********************************************************************************

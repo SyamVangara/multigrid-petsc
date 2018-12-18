@@ -135,85 +135,85 @@ static void sort3(int *n, int *nsorted) {
 	}
 }
 
-void MetricsUniform(void *mesh, double x, double y, double *metrics) {
-	//Computes following metrics at (x,y)
-	//
-	//metrics[0] = (xi_x)^2 + (xi_y)^2
-	//metrics[1] = (eta_x)^2 + (eta_y)^2
-	//metrics[2] = (xi_xx) + (xi_yy)
-	//metrics[3] = (eta_xx) + (eta_yy)
-	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
-	
-	metrics[0] = 1.0;
-	metrics[1] = 1.0;
-	metrics[2] = 0.0;
-	metrics[3] = 0.0; 
-	metrics[4] = 0.0;
-}
-
-void MetricsNonUniform1(void *mesh1, double x, double y, double *metrics) {
-	//Computes following metrics at (x,y)
-	//
-	//metrics[0] = (xi_x)^2 + (xi_y)^2
-	//metrics[1] = (eta_x)^2 + (eta_y)^2
-	//metrics[2] = (xi_xx) + (xi_yy)
-	//metrics[3] = (eta_xx) + (eta_yy)
-	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
-	//
-	//bounds[0] - Lower bound of "x"
-	//bounds[1] - Upper bound of "x"
-	//bounds[2] - Lower bound of "y"
-	//bounds[3] - Upper bound of "y"
-	
-	double	temp;
-	double	*bounds;
-	Mesh	*mesh;
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	mesh = (Mesh*)mesh1;
-	bounds = mesh->bounds;
-	temp = ((bounds[3]-bounds[2])*(bounds[3]-bounds[2])-(bounds[3]-y)*(bounds[3]-y));
-	metrics[0] = 1.0;
-	metrics[1] = 4.0/(PI*PI*temp);
-	metrics[2] = 0.0;
-	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
-	metrics[4] = 0.0;
-}
-
-void MetricsNonUniform2(void *mesh1, double x, double y, double *metrics) {
-	//Computes following metrics at (x,y)
-	//
-	//metrics[0] = (xi_x)^2 + (xi_y)^2
-	//metrics[1] = (eta_x)^2 + (eta_y)^2
-	//metrics[2] = (xi_xx) + (xi_yy)
-	//metrics[3] = (eta_xx) + (eta_yy)
-	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
-	//
-	//bounds[0] - Lower bound of "x"
-	//bounds[1] - Upper bound of "x"
-	//bounds[2] - Lower bound of "y"
-	//bounds[3] - Upper bound of "y"
-	
-	double	temp;
-	double	*bounds;
-	Mesh	*mesh;
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	mesh = (Mesh*)mesh1;
-	bounds = mesh->bounds;
-	temp = ((exp(2)-1)*(exp(2)-1))/(((y-bounds[2])*(exp(2)-1)+(bounds[3]-bounds[2]))*((y-bounds[2])*(exp(2)-1)+(bounds[3]-bounds[2])));
-	metrics[0] = 1.0/((bounds[1]-bounds[0])*(bounds[1]-bounds[0]));
-	metrics[1] = 0.25*temp;
-	metrics[2] = 0.0;
-	metrics[3] = (-0.5)*temp; 
-	metrics[4] = 0.0;
-}
+//void MetricsUniform(void *mesh, double x, double y, double *metrics) {
+//	//Computes following metrics at (x,y)
+//	//
+//	//metrics[0] = (xi_x)^2 + (xi_y)^2
+//	//metrics[1] = (eta_x)^2 + (eta_y)^2
+//	//metrics[2] = (xi_xx) + (xi_yy)
+//	//metrics[3] = (eta_xx) + (eta_yy)
+//	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+//	
+//	metrics[0] = 1.0;
+//	metrics[1] = 1.0;
+//	metrics[2] = 0.0;
+//	metrics[3] = 0.0; 
+//	metrics[4] = 0.0;
+//}
+//
+//void MetricsNonUniform1(void *mesh1, double x, double y, double *metrics) {
+//	//Computes following metrics at (x,y)
+//	//
+//	//metrics[0] = (xi_x)^2 + (xi_y)^2
+//	//metrics[1] = (eta_x)^2 + (eta_y)^2
+//	//metrics[2] = (xi_xx) + (xi_yy)
+//	//metrics[3] = (eta_xx) + (eta_yy)
+//	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+//	//
+//	//bounds[0] - Lower bound of "x"
+//	//bounds[1] - Upper bound of "x"
+//	//bounds[2] - Lower bound of "y"
+//	//bounds[3] - Upper bound of "y"
+//	
+//	double	temp;
+//	double	*bounds;
+//	Mesh	*mesh;
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	mesh = (Mesh*)mesh1;
+//	bounds = mesh->bounds;
+//	temp = ((bounds[3]-bounds[2])*(bounds[3]-bounds[2])-(bounds[3]-y)*(bounds[3]-y));
+//	metrics[0] = 1.0;
+//	metrics[1] = 4.0/(PI*PI*temp);
+//	metrics[2] = 0.0;
+//	metrics[3] = (-2.0*(bounds[3]-y))/(PI*sqrt(temp*temp*temp)); 
+//	metrics[4] = 0.0;
+//}
+//
+//void MetricsNonUniform2(void *mesh1, double x, double y, double *metrics) {
+//	//Computes following metrics at (x,y)
+//	//
+//	//metrics[0] = (xi_x)^2 + (xi_y)^2
+//	//metrics[1] = (eta_x)^2 + (eta_y)^2
+//	//metrics[2] = (xi_xx) + (xi_yy)
+//	//metrics[3] = (eta_xx) + (eta_yy)
+//	//metrics[4] = (xi_x)(eta_x) + (xi_y)(eta_y)
+//	//
+//	//bounds[0] - Lower bound of "x"
+//	//bounds[1] - Upper bound of "x"
+//	//bounds[2] - Lower bound of "y"
+//	//bounds[3] - Upper bound of "y"
+//	
+//	double	temp;
+//	double	*bounds;
+//	Mesh	*mesh;
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	mesh = (Mesh*)mesh1;
+//	bounds = mesh->bounds;
+//	temp = ((exp(2)-1)*(exp(2)-1))/(((y-bounds[2])*(exp(2)-1)+(bounds[3]-bounds[2]))*((y-bounds[2])*(exp(2)-1)+(bounds[3]-bounds[2])));
+//	metrics[0] = 1.0/((bounds[1]-bounds[0])*(bounds[1]-bounds[0]));
+//	metrics[1] = 0.25*temp;
+//	metrics[2] = 0.0;
+//	metrics[3] = (-0.5)*temp; 
+//	metrics[4] = 0.0;
+//}
 
 int Compute_coord(Grid *grid) {
 	// computes coords in each direction of the structured grid
@@ -370,8 +370,6 @@ static void factorize2(int p, int i, int *nsorted, int *l, double *para) {
 	para[1] = maxload;
 	para[2] = loadfac;
 	para[3] = (double) nInterfaces;
-
-	return 0;
 }
 
 int factorize3(int procs, int *nsorted, int *l, double *para) {
@@ -388,8 +386,7 @@ int factorize3(int procs, int *nsorted, int *l, double *para) {
 	double temp = (double)(procs*nsorted[0]*nsorted[0])/(double)(nsorted[1]*nsorted[2]);
 	int lopt = (int) floor(pow(temp,(1.0/3.0)));
 	int cubethp = (int) floor(pow(procs,(1.0/3.0)));
-	int fac, mopt, k, tcost, sqrtm;
-	double load[3];
+	int fac;
 
 	for (int i=lopt; i>0; i--) {
 		fac = procs/i;
@@ -423,7 +420,6 @@ int factorize(Grid *grid) {
 	int dimension = grid->topo->dimension;
 	int *dimProcs = grid->topo->dimProcs;
 	int *n = grid->n;
-	double *range = grid->range;
 	double *para = grid->para;; 
 	
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
@@ -465,7 +461,6 @@ int split_domain(Grid *grid) {
 	// no. of procs.
 	
 	int	procs, rank;
-	int	ierr = 0;
 	
 	MPI_Comm_size(MPI_COMM_WORLD, &procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -609,7 +604,6 @@ int create_coarse_grids(Grids *grids) {
 	
 	int	ierr=0;
 	int	ngrids = grids->ngrids; 
-	int	dimension = grids->topo->dimension;
 	
 	for (int i=0; i<ngrids-1; i++) {
 		Grid	*topgrid = grids->grid+i;

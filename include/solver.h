@@ -73,7 +73,7 @@ typedef struct {
 	double		*rNormGlobal;
 	// more info ends
 	double		*rnorm;
-	Levels		levels;
+	Levels		*levels;
 //	Assembly	*assem;
 } Solver;
 
@@ -92,14 +92,14 @@ void DestroyLevels(Levels *levels);
 //int CreateIndices(Grids *grids, Indices *indices);
 ////void SetUpIndices(Mesh *mesh, Indices *indices);
 //void DestroyIndices(Indices *indices);
-void mapping(Indices *indices, int mappingStyleflag);
+//void mapping(Indices *indices, int mappingStyleflag);
 
-int CreateOperator(Indices *indices, Operator *op);
+int CreateOperator(Grids *grids, Operator *op);
 //void SetUpOperator(Indices *indices, Operator *op);
 void DestroyOperator(Operator *op);
-void GridTransferOperators(Operator op, Indices indices);
+void GridTransferOperators(Operator op, Levels levels);
 
-void CreateSolver(Indices *indices, Solver *solver, Cycle cyc); 
+int CreateSolver(Grids *grids, Solver *solver); 
 //void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 //void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc, CustomBool moreInfo);
 void DestroySolver(Solver *solver);
@@ -107,9 +107,9 @@ void Solve(Solver *solver);
 
 void SetUpPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);
-void Postprocessing(Problem *prob, Mesh *mesh, Indices *indices, Solver *solver, PostProcess *pp);
+void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp);
 
-void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Solver *solver);
+void Assemble(Problem *prob, Mesh *mesh, Levels *levels, Operator *op, Solver *solver);
 
 #endif
 

@@ -18,22 +18,22 @@
 #define F(i,j) (f.data[((i)*f.nj+(j))])
 #define U(i,j) (u.data[((i)*u.nj+(j))])
 
-static int ipow(int base, int exp) {
-	// Computes integer power of a real or integer
-	//
-	// base - real or int
-	// exp - int
-	// output: base^(exp)
-
-	int result = 1;
-	while (exp) {
-		if (exp & 1)
-			result *= base;
-		exp >>= 1;
-		base *= base;
-	}
-	return result;
-}
+//static int ipow(int base, int exp) {
+//	// Computes integer power of a real or integer
+//	//
+//	// base - real or int
+//	// exp - int
+//	// output: base^(exp)
+//
+//	int result = 1;
+//	while (exp) {
+//		if (exp & 1)
+//			result *= base;
+//		exp >>= 1;
+//		base *= base;
+//	}
+//	return result;
+//}
 
 void AssignGridID(Levels *levels, int ngrids) {
 	// Assigns gridIDs for all the grids in each level
@@ -98,7 +98,52 @@ void GetRanges(Grids *grids, Level *level) {
 	// Get range of global indices for each grid in a given level
 	// This assumes lexicographical ordering of grid points
 	
-	int dimension = grids->topo->dimension;	
+	int	dimension = grids->topo->dimension;
+	int	lngrids = level->ngrids;
+	int	*gridID = level->gridId;
+	int	(*grange)[2] = level->ranges; // Global index ranges
+	int	crange[MAX_DIMENSION][2]; // Coordinate ranges
+	for (int i=0; i<MAX_DIMENSION; i++)
+		for (int j=0; j<2; j++)
+			crange[i][j] = 0;
+	const	int	nbc = 2; // Assuming 2 BC points per direction
+	
+	int	g0 = 0; // Lower global index for this level's first grid
+	int	*deltag = malloc(lngrids*sizeof(int)); // No. of unknown points for each grid 
+							// in this level
+
+	for (int lg=0; lg<lngrids; lg++) {
+		Grid	*grid = grids->grid+gridID[lg];
+		int	*n = grid->n;
+
+		for (int dim=0; dim<dimension; dim++) {
+			for (int i=0; i<2; i++) {
+				crange[dim][i] = grid->range[dim][i];
+				if (crange[dim][i] == n[dim])
+					crange[dim][i] = n[dim]-nbc/2;
+				else if (crange[dim][i] == 0)
+					crange[dim][i] = nbc/2;
+			}
+		}
+		
+		int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
+			+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);
+		deltag[lg] = (crange[0][1]-crange[0][0])*(crange[1][1]-crange[1][0]);
+		if (dimension == 3) {
+			lg0 = lg0*(crange[2][1]-crange[2][0]) 
+				+ (crange[2][0]-1)*(n[1]-nbc)*(n[0]-nbc);
+			deltag[lg] *= (crange[2][1]-crange[2][0]);
+		}
+		g0 += lg0;
+	}
+
+	grange[0][0] = g0;
+	grange[0][1] = grange[0][0] + deltag[0];
+	for (int lg=1; lg<lngrids; lg++) {
+		grange[lg][0] = grange[lg-1][1];
+		grange[lg][1] = grange[lg][0] + deltag[lg];
+	}
+	free(deltag);
 }
 
 int CreateLevels(Grids *grids, Levels *levels) {
@@ -126,6 +171,7 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	AssignGridID(levels, grids->ngrids);
 	for (int i=0;i<levels->nlevels;i++) {
 		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(int[2]));
+		GetRanges(grids, levels->level+i);
 	}
 	return 0;
 }
@@ -381,23 +427,24 @@ void DestroyLevels(Levels *levels) {
 //}
 
 
-int CreateOperator(Grids *grids, Operator *op) {
-	// Allocates memory to Operator struct
-	int	order; // order of grid transfer operators
-	int	ngrids = grids->ngrids;
-	int	stencilSize;
-	
-	order = grids->cfactor; // order of grid transfer operators is same as the coarsening factor
-	op->res = malloc((ngrids-1)*sizeof(ArrayInt2d));
-	op->pro = malloc((ngrids-1)*sizeof(ArrayInt2d));
-	stencilSize = 1;
-	for (int i=0;i<ngrids-1;i++) {
-		stencilSize = (stencilSize+1)*order-1;
-		CreateArray2d(stencilSize, stencilSize, op->res+i);
-		CreateArray2d(stencilSize, stencilSize, op->pro+i);
-	}
-
-}
+//int CreateOperator(Grids *grids, Operator *op) {
+//	// Allocates memory to Operator struct
+//	int	order; // order of grid transfer operators
+//	int	ngrids = grids->ngrids;
+//	int	stencilSize;
+//	
+//	order = grids->cfactor; // order of grid transfer operators is same as the coarsening factor
+//	op->res = malloc((ngrids-1)*sizeof(ArrayInt2d));
+//	op->pro = malloc((ngrids-1)*sizeof(ArrayInt2d));
+//	stencilSize = 1;
+//	for (int i=0;i<ngrids-1;i++) {
+//		stencilSize = (stencilSize+1)*order-1;
+//		CreateArray2d(stencilSize, stencilSize, op->res+i);
+//		CreateArray2d(stencilSize, stencilSize, op->pro+i);
+//	}
+//	
+//	return 0;
+//}
 
 //int CreateOperator(Indices *indices, Operator *op) {
 //	// Allocates memory to Operator struct
@@ -417,16 +464,16 @@ int CreateOperator(Grids *grids, Operator *op) {
 //
 //}
 
-void DestroyOperator(Operator *op) {
-	// Free the memory in Operator struct
-	
-	for (int i=0;i<op->totalGrids-1;i++) {
-		DeleteArray2d(op->res+i);
-		DeleteArray2d(op->pro+i);
-	}
-	free(op->res);
-	free(op->pro);
-}
+//void DestroyOperator(Operator *op) {
+//	// Free the memory in Operator struct
+//	
+//	for (int i=0;i<op->totalGrids-1;i++) {
+//		DeleteArray2d(op->res+i);
+//		DeleteArray2d(op->pro+i);
+//	}
+//	free(op->res);
+//	free(op->pro);
+//}
 
 //void DestroyOperator(Operator *op) {
 //	// Free the memory in Operator struct
@@ -439,59 +486,59 @@ void DestroyOperator(Operator *op) {
 //	free(op->pro);
 //}
 
-void GridTransferOperator(Array2d *Iop, int factor, int totalGrids) {
-	// Builds stencilwise grid transfer operator between any two grids that have "x" grids inbetween
-	// where x = {0,...,totalGrids-2}
-	
-	int 	ni0, nj0;
-	double	*weight;
-	int 	nil, njl;
-	double	*datal;
-	int 	niu, nju;
-	double	*datau;
-	int 	iu, ju;
-	
-	ni0 = Iop[0].ni;
-	nj0 = Iop[0].nj;
-	weight = Iop[0].data;
-	for (int l=0;l<totalGrids-2;l++) {
-		nil = Iop[l].ni;
-		njl = Iop[l].nj;
-		datal = Iop[l].data;
-		
-		niu = Iop[l+1].ni;
-		nju = Iop[l+1].nj;
-		datau = Iop[l+1].data;
-		// Initialization
-		for (int i=0;i<niu*nju;i++) {
-			datau[i] = 0.0;
-		}
-		// Building the operator
-		for (int il=0;il<nil;il++) {
-			for (int jl=0;jl<njl;jl++) {
-				iu = factor*(il+1)-1-ni0/2;
-				ju = factor*(jl+1)-1-nj0/2;
-				for (int i0=0;i0<ni0;i0++) {
-					for (int j0=0;j0<nj0;j0++) {
-						datau[(iu+i0)*nju+(ju+j0)] += weight[i0*nj0+j0]*datal[il*nil+jl];
-					}
-				}
-			}
-		}
-	}
-
-}
-
-void ProlongationOperator(Array2d pro) {
-	// Builds prolongation 2D stencilwise operator (pro)
-	// Stencil size: pro.ni x pro.nj
-	if(pro.ni != 3 || pro.nj != 3) {printf("Error in ProlongationOperator\n"); return;}
-	for (int i=0;i<pro.ni;i++) {
- 		pro.data[i*pro.nj]= 0.5 - 0.25*fabs(1-i);
- 		pro.data[i*pro.nj+1]= 1.0 - 0.5*fabs(1-i);
- 		pro.data[i*pro.nj+2]= 0.5 - 0.25*fabs(1-i);
-	}
-}
+//void GridTransferOperator(Array2d *Iop, int factor, int totalGrids) {
+//	// Builds stencilwise grid transfer operator between any two grids that have "x" grids inbetween
+//	// where x = {0,...,totalGrids-2}
+//	
+//	int 	ni0, nj0;
+//	double	*weight;
+//	int 	nil, njl;
+//	double	*datal;
+//	int 	niu, nju;
+//	double	*datau;
+//	int 	iu, ju;
+//	
+//	ni0 = Iop[0].ni;
+//	nj0 = Iop[0].nj;
+//	weight = Iop[0].data;
+//	for (int l=0;l<totalGrids-2;l++) {
+//		nil = Iop[l].ni;
+//		njl = Iop[l].nj;
+//		datal = Iop[l].data;
+//		
+//		niu = Iop[l+1].ni;
+//		nju = Iop[l+1].nj;
+//		datau = Iop[l+1].data;
+//		// Initialization
+//		for (int i=0;i<niu*nju;i++) {
+//			datau[i] = 0.0;
+//		}
+//		// Building the operator
+//		for (int il=0;il<nil;il++) {
+//			for (int jl=0;jl<njl;jl++) {
+//				iu = factor*(il+1)-1-ni0/2;
+//				ju = factor*(jl+1)-1-nj0/2;
+//				for (int i0=0;i0<ni0;i0++) {
+//					for (int j0=0;j0<nj0;j0++) {
+//						datau[(iu+i0)*nju+(ju+j0)] += weight[i0*nj0+j0]*datal[il*nil+jl];
+//					}
+//				}
+//			}
+//		}
+//	}
+//
+//}
+//
+//void ProlongationOperator(Array2d pro) {
+//	// Builds prolongation 2D stencilwise operator (pro)
+//	// Stencil size: pro.ni x pro.nj
+//	if(pro.ni != 3 || pro.nj != 3) {printf("Error in ProlongationOperator\n"); return;}
+//	for (int i=0;i<pro.ni;i++) {
+// 		pro.data[i*pro.nj]= 0.5 - 0.25*fabs(1-i);
+// 		pro.data[i*pro.nj+1]= 1.0 - 0.5*fabs(1-i);
+// 		pro.data[i*pro.nj+2]= 0.5 - 0.25*fabs(1-i);
+//	}
+//}
 
 //void RestrictionOperator(Array2d res) {
 //	// Builds Restriction 2D stencilwise operator (res)
@@ -506,27 +553,27 @@ void ProlongationOperator(Array2d pro) {
 //	res.data[res.nj+1] = 1.0;
 //}
 
-void RestrictionOperator(Array2d res) {
-	// Builds Restriction 2D stencilwise operator (res)
-	// Stencil size: res.ni x res.nj
-	if(res.ni != 3 || res.nj != 3) {printf("Error in RestrictionOperator\n"); return;}
-	for (int i=0;i<res.nj;i++) {
- 		res.data[i*res.nj]= 0.125 - 0.0625*fabs(1-i);
- 		res.data[i*res.nj+1]= 0.25 - 0.125*fabs(1-i);
- 		res.data[i*res.nj+2]= 0.125 - 0.0625*fabs(1-i);
-	}
-}
-
-void GridTransferOperators(Operator op, Indices indices) {
-	// Builds stencilwise grid transfer operators between any two grids that have "x" grids inbetween
-	// where x = {0,...,levels-2}
-	if (op.totalGrids < 2) return;
-	RestrictionOperator(op.res[0]);
-	ProlongationOperator(op.pro[0]);
-	
-	GridTransferOperator(op.res, indices.coarseningFactor, op.totalGrids);
-	GridTransferOperator(op.pro, indices.coarseningFactor, op.totalGrids);
-}
+//void RestrictionOperator(Array2d res) {
+//	// Builds Restriction 2D stencilwise operator (res)
+//	// Stencil size: res.ni x res.nj
+//	if(res.ni != 3 || res.nj != 3) {printf("Error in RestrictionOperator\n"); return;}
+//	for (int i=0;i<res.nj;i++) {
+// 		res.data[i*res.nj]= 0.125 - 0.0625*fabs(1-i);
+// 		res.data[i*res.nj+1]= 0.25 - 0.125*fabs(1-i);
+// 		res.data[i*res.nj+2]= 0.125 - 0.0625*fabs(1-i);
+//	}
+//}
+//
+//void GridTransferOperators(Operator op, Levels levels) {
+//	// Builds stencilwise grid transfer operators between any two grids that have "x" grids inbetween
+//	// where x = {0,...,levels-2}
+//	if (op.totalGrids < 2) return;
+//	RestrictionOperator(op.res[0]);
+//	ProlongationOperator(op.pro[0]);
+//	
+//	GridTransferOperator(op.res, levels.coarseningFactor, op.totalGrids);
+//	GridTransferOperator(op.pro, levels.coarseningFactor, op.totalGrids);
+//}
 
 //void Assemble(Problem *prob, Mesh *mesh, Indices *indices, Operator *op, Assembly *assem) {
 //	// Assembles matrices and vectors in all levels
