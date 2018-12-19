@@ -549,7 +549,7 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	for (int i=0;i<dimension;i++) {
 		int temp;
 		temp = (topgrid->n[i]-1)/cfactor[i];
-		if (temp*cfactor[i] != topgrid->n[i]-1 || temp==0) {
+		if (temp*cfactor[i] != topgrid->n[i]-1 || temp==1) {
 			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Coarsening along %.1s-th direction failed\n",__FILE__,__LINE__,dir+i);
 			PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: Change no. of points along %.1s-th direction or no. of grids\n",__FILE__,__LINE__,dir+i);
 			return 1;
