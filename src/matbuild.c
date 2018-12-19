@@ -101,15 +101,15 @@ void GetRanges(Grids *grids, Level *level) {
 	int	dimension = grids->topo->dimension;
 	int	lngrids = level->ngrids;
 	int	*gridID = level->gridId;
-	int	(*grange)[2] = level->ranges; // Global index ranges
+	long int	(*grange)[2] = level->ranges; // Global index ranges
 	int	crange[MAX_DIMENSION][2]; // Coordinate ranges
 	for (int i=0; i<MAX_DIMENSION; i++)
 		for (int j=0; j<2; j++)
 			crange[i][j] = 0;
 	const	int	nbc = 2; // Assuming 2 BC points per direction
 	
-	int	g0 = 0; // Lower global index for this level's first grid
-	int	*deltag = malloc(lngrids*sizeof(int)); // No. of unknown points for each grid 
+	long int	g0 = 0; // Lower global index for this level's first grid
+	long int	*deltag = malloc(lngrids*sizeof(long int)); // No. of unknown points for each grid 
 							// in this level
 
 	for (int lg=0; lg<lngrids; lg++) {
@@ -126,7 +126,7 @@ void GetRanges(Grids *grids, Level *level) {
 			}
 		}
 		
-		int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
+		long int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
 			+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);
 		deltag[lg] = (crange[0][1]-crange[0][0])*(crange[1][1]-crange[1][0]);
 		if (dimension == 3) {
@@ -170,7 +170,7 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	levels->level = malloc(levels->nlevels*sizeof(Level));
 	AssignGridID(levels, grids->ngrids);
 	for (int i=0;i<levels->nlevels;i++) {
-		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(int[2]));
+		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(long int[2]));
 		GetRanges(grids, levels->level+i);
 	}
 	return 0;
