@@ -312,9 +312,14 @@ void ViewGridsInfo(Grids grids, int verbose) {
 	}
 }
 
-void ViewLevelInfo(Level level) {
+void ViewLevelInfo(Level level, int verbose) {
 	// Prints the info of Level data structure
 	
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
 	PetscPrintf(PETSC_COMM_WORLD,"No. of grids = %d\n", level.ngrids);
 	
 	PetscPrintf(PETSC_COMM_WORLD,"gridIDs = ");
@@ -323,9 +328,14 @@ void ViewLevelInfo(Level level) {
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Global index ranges = ");
-	for (int lg=0;lg<level.ngrids;lg++) {
-		PetscPrintf(PETSC_COMM_WORLD,"(%ld,%ld) ",level.ranges[lg][0],level.ranges[lg][1]);
+	if (verbose) {
+		PetscPrintf(PETSC_COMM_WORLD, "Global index ranges = \n");
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ",rank);
+		for (int lg=0;lg<level.ngrids;lg++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld,%ld) ",level.ranges[lg][0],level.ranges[lg][1]);
+		}
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
@@ -344,7 +354,7 @@ void ViewLevelsInfo(Solver solver) {
 	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", levels->nlevels);
 	for (int l=0;l<levels->nlevels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"Level-%d:\n", l);
-		ViewLevelInfo(levels->level[l]);
+		ViewLevelInfo(levels->level[l], 1);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
