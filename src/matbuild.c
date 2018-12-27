@@ -109,8 +109,7 @@ void GetRanges(Grids *grids, Level *level) {
 	const	int	nbc = 2; // Assuming 2 BC points per direction
 	
 	long int	g0 = 0; // Lower global index for this level's first grid
-	long int	*deltag = malloc(lngrids*sizeof(long int)); // No. of unknown points for each grid 
-							// in this level
+	long int	*deltag = malloc(lngrids*sizeof(long int)); // No. of unknown points for each grid in this level
 
 	for (int lg=0; lg<lngrids; lg++) {
 		Grid	*grid = grids->grid+gridID[lg];

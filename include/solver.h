@@ -69,8 +69,8 @@ typedef struct {
 	int		v[2];
 	// For more info; move them to a different struct?
 	int		grids;
-	double		**rNormGrid;
-	double		*rNormGlobal;
+	double		**rNormGrid; // !Remove
+	double		*rNormGlobal; // !Remove
 	// more info ends
 	double		*rnorm;
 	Levels		*levels;

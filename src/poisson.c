@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.err", "w", stderr);
 	
 	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
-	ViewGridsInfo(grids, 0);
+	ViewGridsInfo(grids, 1);
 
 	ierr = CreateSolver(&grids, &solver); pCHKERR_RETURN("Solver creation failed");
 	ViewLevelsInfo(solver);
