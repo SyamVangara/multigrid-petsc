@@ -108,6 +108,39 @@ int malloc3d(double ****a, int p, int q, int r) {
 	return 0;
 }
 
+int malloc2dIntY(int ***a, int n, int *m) {
+	// Allocate contiguous memory for 2d array "A" with variable row length (nxm(i))
+	//
+	// Pointer to the pointer of array - "&A" (= a)
+	// Number of rows (n), columns - m(i) in i^th row 
+	// Location of function call - fle_name, line_num
+	//
+	// Array "A" can be accessed using A[i][j]                           
+	
+	int aTotal;
+
+	// aTotal - total number of elements in A
+	aTotal=0; 
+	for (int i=0;i<n;i++) aTotal += m[i];
+
+	*a = (int **)malloc(n*sizeof(int *));
+	**a = (int *)malloc(aTotal*sizeof(int));
+	if (*a==NULL||**a==NULL) return 1;
+	
+	// Assign a pointer to each row
+	for(int i=1;i<n;i++){
+		*(*a+i) = *(*a+i-1) + *(m+i-1);
+	}
+
+	return 0;
+}
+
+void free2dIntArray(int ***a) {
+	//free the allocated memory
+	free(**a);
+	free(*a);
+}
+
 int malloc2dY(double ***a, int n, int *m) {
 	// Allocate contiguous memory for 2d array "A" with variable row length (nxm(i))
 	//

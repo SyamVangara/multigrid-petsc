@@ -103,7 +103,7 @@ int CreateSolver(Grids *grids, Solver *solver);
 //void SetUpSolver(Indices *indices, Solver *solver, Cycle c);
 //void SetUpSolver(Indices *indices, Solver *solver, Cycle cyc, CustomBool moreInfo);
 void DestroySolver(Solver *solver);
-void Solve(Solver *solver);
+int Solve(Solver *solver);
 
 void SetUpPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);

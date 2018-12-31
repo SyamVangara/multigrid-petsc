@@ -66,7 +66,9 @@ void SetArray2d(ArrayInt2d *a, double v);
 extern int malloc2d(double ***a, int n, int m);
 extern int malloc3d(double ****a, int p, int q, int r);
 extern int malloc2dY(double ***a, int n, int *m);
+extern int malloc2dIntY(int ***a, int n, int *m);
 
+extern void free2dIntArray(int ***a);
 extern void free2dArray(double ***a);
 extern void free3dArray(double ****a);
 

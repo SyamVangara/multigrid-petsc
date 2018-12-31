@@ -99,6 +99,7 @@ void GetRanges(Grids *grids, Level *level) {
 	// This assumes lexicographical ordering of grid points
 	
 	int	dimension = grids->topo->dimension;
+	int	*p = grids->topo->blockID;
 	int	lngrids = level->ngrids;
 	int	*gridID = level->gridId;
 	long int	(*grange)[2] = level->ranges; // Global index ranges
@@ -110,20 +111,28 @@ void GetRanges(Grids *grids, Level *level) {
 	
 	long int	g0 = 0; // Lower global index for this level's first grid
 	long int	*deltag = malloc(lngrids*sizeof(long int)); // No. of unknown points for each grid in this level
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
 
 	for (int lg=0; lg<lngrids; lg++) {
 		Grid	*grid = grids->grid+gridID[lg];
 		int	*n = grid->n;
-
-		for (int dim=0; dim<dimension; dim++) {
-			for (int i=0; i<2; i++) {
-				crange[dim][i] = grid->range[dim][i];
-				if (crange[dim][i] == n[dim])
-					crange[dim][i] = n[dim]-nbc/2;
-				else if (crange[dim][i] == 0)
-					crange[dim][i] = nbc/2;
-			}
-		}
+		
+		for (int dim=0; dim<dimension; dim++)
+			for (int i=0; i<2; i++)
+				crange[dim][i] = grid->range[dim][p[dim]+i];
+//		for (int i=rank; i<rank+2; i++) {
+//			for (int dim=0; dim<dimension; dim++) {
+//				crange[i][dim] = grid->range[i][dim];
+//				if (crange[dim][i] == n[dim])
+//					crange[dim][i] = n[dim]-nbc/2;
+//				else if (crange[dim][i] == 0)
+//					crange[dim][i] = nbc/2;
+//			}
+//		}
 		
 		long int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
 			+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);

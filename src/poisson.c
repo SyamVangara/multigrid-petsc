@@ -67,6 +67,8 @@ int main(int argc, char *argv[]) {
 	ierr = CreateSolver(&grids, &solver); pCHKERR_RETURN("Solver creation failed");
 	ViewLevelsInfo(solver);
 	
+	ierr = Solve(&solver); pCHKERR_RETURN("Solver failed");
+
 	DestroySolver(&solver);
 	DestroyGrids(&grids);
 	PetscFinalize();
@@ -251,7 +253,9 @@ void ViewGridInfo(Grid grid, int verbose) {
 
 	int	dimension = grid.topo->dimension;
 	int	*blockID = grid.topo->blockID;
-	int	(*range)[2] = grid.range;
+	int	**range = grid.range;
+//	for (int i=0; i<dimension; i++)
+//		range[i] = grid.range[i];
 	double	*para = grid.para;
 	double	**coord = grid.coord;
 	int	procs, rank;
@@ -276,7 +280,7 @@ void ViewGridInfo(Grid grid, int verbose) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
 		for (int i=0; i<dimension; i++)
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][0], range[i][1]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][blockID[i]], range[i][blockID[i]+1]);
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
 		

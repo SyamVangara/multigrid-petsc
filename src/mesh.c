@@ -468,7 +468,6 @@ int split_domain(Grid *grid) {
 	int dimension = grid->topo->dimension;
 	int *l = grid->topo->dimProcs;
 	int *n = grid->n;
-	int (*range)[2] = grid->range;
 	int *blockID = grid->topo->blockID;
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 
@@ -476,20 +475,35 @@ int split_domain(Grid *grid) {
 	blockID[1] = (rank-blockID[2]*l[0]*l[1])/l[0];
 	blockID[0] = (rank-blockID[2]*l[0]*l[1]-blockID[1]*l[0]);
 	
+//	int *range[MAX_DIMENSION];
+//	for (int i=0; i<dimension; i++) {
+//		grid->range[i] = malloc((l[i]+1)*sizeof(int));
+//		range[i] = grid->range[i];
+//	}
+	
+	int ierr = 0;
+	ierr = malloc2dIntY(&(grid->range), dimension, l); pCHKERR_RETURN("Memory allocation failed");
+	int **range = grid->range;	
 	int rem[3], quo[3];
 	for (int i=0; i<dimension; i++) {
 		rem[i] = (n[i]-nbc)%l[i];
 		quo[i] = (n[i]-nbc)/l[i];
 	}
-
+	
 	for (int i=0; i<dimension; i++) {
-		for (int j=0; j<2; j++)
-			range[i][j] = 1 + quo[i]*(blockID[i]+j) + ((blockID[i]+j < rem[i]) ? blockID[i]+j : rem[i]) ;
+		range[i][0] = 1;
+		for (int p=1; p<l[i]+1; p++) {
+			range[i][p] = range[i][p-1] + quo[i] + (((p-1)<rem[i])? 1: 0);
+		}
 	}
-	for (int i=0; i<dimension; i++) {
-		if (blockID[i] == 0) range[i][0] = range[i][0] - 1;
-		if (blockID[i] == l[i]-1) range[i][1] = range[i][1] + 1;
-	}
+//	for (int i=0; i<dimension; i++) {
+//		for (int j=0; j<2; j++)
+//			range[i][j] = 1 + quo[i]*(blockID[i]+j) + ((blockID[i]+j < rem[i]) ? blockID[i]+j : rem[i]) ;
+//	}
+//	for (int i=0; i<dimension; i++) {
+//		if (blockID[i] == 0) range[i][0] = range[i][0] - 1;
+//		if (blockID[i] == l[i]-1) range[i][1] = range[i][1] + 1;
+//	}
 	
 	return 0;
 }
@@ -542,10 +556,12 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	int	ierr=0;
 
 	int	dimension = topgrid->topo->dimension;
+	int	*l = topgrid->topo->dimProcs;
 	char	dir[4] = "ijk";
 
 	botgrid->topo = topgrid->topo;
 
+	ierr = malloc2dIntY(&(botgrid->range), dimension, l); pCHKERR_RETURN("Memory allocation failed");
 	for (int i=0;i<dimension;i++) {
 		int temp;
 		temp = (topgrid->n[i]-1)/cfactor[i];
@@ -556,7 +572,7 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 		}
 		botgrid->n[i] = temp+1;
 
-		for (int j=0;j<2;j++)
+		for (int j=0;j<l[i]+1;j++)
 			botgrid->range[i][j] = (topgrid->range[i][j]+cfactor[i]-1)/cfactor[i];
 	}
 
@@ -629,6 +645,7 @@ int CreateGrids(Grids *grids) {
 	
 	int ierr = 0;
 	
+	PetscPrintf(PETSC_COMM_WORLD,"Creating grids... ");
 	grids->topo = malloc(sizeof(Topo));
 	Topo	*topo = grids->topo;
 	
@@ -656,6 +673,11 @@ int CreateGrids(Grids *grids) {
 		pERROR_MSG("Set '-npts n0,n1,n2' for no. of grid points in each of the three dimensions");
 		return 1;
 	}
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
 	ierr = malloc2dY(&(grid->coord), topo->dimension, grid->n);
 	if (ierr) {
 		pERROR_MSG("Mesh memory allocation failed");
@@ -673,15 +695,19 @@ int CreateGrids(Grids *grids) {
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
-
+	PetscPrintf(PETSC_COMM_WORLD,"Done\n");
 	return ierr;
 }
 
 void DestroyGrids(Grids *grids) {
 	// Deallocates memory
 	
-	for (int i=0;i<grids->ngrids;i++)
+	for (int i=0;i<grids->ngrids;i++){
+//		for (int j=0; j<grids->topo->dimension; j++)
+//			if (grids->grid[i].range[j]) free(grids->grid[i].range[j]);
+		free2dIntArray(&(grids->grid[i].range));
 		if (grids->grid[i].coord) free2dArray(&(grids->grid[i].coord));
+	}
 	if (grids->grid) free(grids->grid);
 	if (grids->topo) free(grids->topo);
 
