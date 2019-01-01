@@ -2,13 +2,13 @@
 
 #define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
-#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
-#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define CHKERR_PRNT(message) {if(ierr != 0) {ERROR_MSG(message);}}
+#define CHKERR_RETURN(message) {if(ierr != 0) {ERROR_RETURN(message);}}
 
 #define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
-#define pCHKERR_PRNT(message) {if(ierr==1) {pERROR_MSG(message);}}
-#define pCHKERR_RETURN(message) {if(ierr==1) {pERROR_RETURN(message);}}
+#define pCHKERR_PRNT(message) {if(ierr != 0) {pERROR_MSG(message);}}
+#define pCHKERR_RETURN(message) {if(ierr != 0) {pERROR_RETURN(message);}}
 
 #define PI 3.14159265358979323846
 #define MAX_DIMENSION 3
@@ -61,13 +61,26 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.out", "w", stdout);
 //	freopen("poisson.err", "w", stderr);
 	
-	ierr = CreateGrids(&grids); pCHKERR_RETURN("Grids creation failed");
+	ierr = CreateGrids(&grids); pCHKERR_PRNT("Grids creation failed");
+	if (ierr == 1) {
+		DestroyGrids(&grids);
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	ViewGridsInfo(grids, 1);
-
-	ierr = CreateSolver(&grids, &solver); pCHKERR_RETURN("Solver creation failed");
+	PetscBarrier(PETSC_NULL);
+	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
+	if (ierr == 1) {
+		DestroySolver(&solver);
+		DestroyGrids(&grids);
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	ViewLevelsInfo(solver);
 	
-	ierr = Solve(&solver); pCHKERR_RETURN("Solver failed");
+	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
 
 	DestroySolver(&solver);
 	DestroyGrids(&grids);

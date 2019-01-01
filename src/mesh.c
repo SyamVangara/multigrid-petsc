@@ -2,14 +2,14 @@
 
 #define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
-#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
-#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define CHKERR_PRNT(message) {if(ierr != 0) {ERROR_MSG(message);}}
+#define CHKERR_RETURN(message) {if(ierr != 0) {ERROR_RETURN(message);}}
 #define PI 3.14159265358979323846
 
 #define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
-#define pCHKERR_PRNT(message) {if(ierr==1) {pERROR_MSG(message);}}
-#define pCHKERR_RETURN(message) {if(ierr==1) {pERROR_RETURN(message);}}
+#define pCHKERR_PRNT(message) {if(ierr != 0) {pERROR_MSG(message);}}
+#define pCHKERR_RETURN(message) {if(ierr != 0) {pERROR_RETURN(message);}}
 
 #define METRICS(i,j,k) (metrics->data[metrics->nk*((i)*metrics->nj+(j))+(k)])
 #define isGRIDtoGLOBAL(l,i,j) (IsGridToGlobal[l].data[((i)*IsGridToGlobal[l].nj+(j))])
@@ -482,7 +482,9 @@ int split_domain(Grid *grid) {
 //	}
 	
 	int ierr = 0;
-	ierr = malloc2dIntY(&(grid->range), dimension, l); pCHKERR_RETURN("Memory allocation failed");
+	int temp[MAX_DIMENSION];
+       	for (int i=0; i<MAX_DIMENSION; i++) temp[i] = l[i]+1;
+	ierr = malloc2dIntY(&(grid->range), dimension, temp); pCHKERR_RETURN("Memory allocation failed");
 	int **range = grid->range;	
 	int rem[3], quo[3];
 	for (int i=0; i<dimension; i++) {
@@ -561,7 +563,9 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 
 	botgrid->topo = topgrid->topo;
 
-	ierr = malloc2dIntY(&(botgrid->range), dimension, l); pCHKERR_RETURN("Memory allocation failed");
+	int temp[MAX_DIMENSION];
+       	for (int i=0; i<MAX_DIMENSION; i++) temp[i] = l[i]+1;
+	ierr = malloc2dIntY(&(botgrid->range), dimension, temp); pCHKERR_RETURN("Memory allocation failed");
 	for (int i=0;i<dimension;i++) {
 		int temp;
 		temp = (topgrid->n[i]-1)/cfactor[i];
@@ -636,6 +640,19 @@ int create_coarse_grids(Grids *grids) {
 	return 0;	
 }
 
+void InitializeGrid(Grid *grid) {
+	// Initialize pointers in Grid
+	grid->topo	= NULL;
+	grid->range	= NULL;
+	grid->coord	= NULL;
+}
+
+void InitializeGrids(Grids *grids) {
+	// Initialize pointers in Grids
+	grids->topo = NULL;
+	grids->grid = NULL;
+}
+
 int CreateGrids(Grids *grids) {
 	// Creates all grids
 	// =================
@@ -645,20 +662,23 @@ int CreateGrids(Grids *grids) {
 	
 	int ierr = 0;
 	
-	PetscPrintf(PETSC_COMM_WORLD,"Creating grids... ");
+	InitializeGrids(grids);
+
 	grids->topo = malloc(sizeof(Topo));
 	Topo	*topo = grids->topo;
 	
 	ierr = ReadTopo(topo); if(ierr) return 1;
 
 	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-ngrids", &(grids->ngrids), &set);
-	if (!set) {
+	ierr = PetscOptionsGetInt(NULL, NULL, "-ngrids", &(grids->ngrids), &set);
+	if (!set || (ierr != 0)) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Number of grids for MG not set");
 		pERROR_MSG("Set '-ngrids n' for n grids");
 		return 1;
 	}
 	grids->grid = malloc(grids->ngrids*sizeof(Grid));
+	for (int i=0; i<grids->ngrids; i++) InitializeGrid(grids->grid+i);
 
 	int	nmax;
 	Grid	*grid = grids->grid;
@@ -667,19 +687,16 @@ int CreateGrids(Grids *grids) {
 	grid->id = 0;
 	nmax = topo->dimension;
 
-	PetscOptionsGetIntArray(NULL, NULL, "-npts", grid->n, &nmax, &set);
-	if (!set || nmax != topo->dimension) {
+	ierr = PetscOptionsGetIntArray(NULL, NULL, "-npts", grid->n, &nmax, &set);
+	if (!set || nmax != topo->dimension || (ierr != 0)) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("No. of grid points not set properly");
 		pERROR_MSG("Set '-npts n0,n1,n2' for no. of grid points in each of the three dimensions");
 		return 1;
 	}
-	int	procs, rank;
-	
-	MPI_Comm_size(MPI_COMM_WORLD, &procs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
 	ierr = malloc2dY(&(grid->coord), topo->dimension, grid->n);
-	if (ierr) {
+	if (ierr != 0) {
 		pERROR_MSG("Mesh memory allocation failed");
 		return 1;
 	}
@@ -695,20 +712,18 @@ int CreateGrids(Grids *grids) {
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
-	PetscPrintf(PETSC_COMM_WORLD,"Done\n");
-	return ierr;
+	return 0;
 }
 
 void DestroyGrids(Grids *grids) {
 	// Deallocates memory
-	
-	for (int i=0;i<grids->ngrids;i++){
-//		for (int j=0; j<grids->topo->dimension; j++)
-//			if (grids->grid[i].range[j]) free(grids->grid[i].range[j]);
-		free2dIntArray(&(grids->grid[i].range));
-		if (grids->grid[i].coord) free2dArray(&(grids->grid[i].coord));
+	if (!grids) return;
+	if (grids->grid) {
+		for (int i=0;i<grids->ngrids;i++){
+			if (grids->grid[i].range) free2dIntArray(&(grids->grid[i].range));
+			if (grids->grid[i].coord) free2dArray(&(grids->grid[i].coord));
+		}
+		free(grids->grid);
 	}
-	if (grids->grid) free(grids->grid);
 	if (grids->topo) free(grids->topo);
-
 }

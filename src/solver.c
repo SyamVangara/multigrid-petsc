@@ -2,14 +2,14 @@
 
 #define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
-#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
-#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define CHKERR_PRNT(message) {if(ierr != 0) {ERROR_MSG(message);}}
+#define CHKERR_RETURN(message) {if(ierr != 0) {ERROR_RETURN(message);}}
 #define PI 3.14159265358979323846
 
 #define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
-#define pCHKERR_PRNT(message) {if(ierr==1) {pERROR_MSG(message);}}
-#define pCHKERR_RETURN(message) {if(ierr==1) {pERROR_RETURN(message);}}
+#define pCHKERR_PRNT(message) {if(ierr != 0) {pERROR_MSG(message);}}
+#define pCHKERR_RETURN(message) {if(ierr != 0) {pERROR_RETURN(message);}}
 
 #define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
 #define F(i,j) (f.data[((i)*f.nj+(j))])
@@ -110,32 +110,47 @@ void DestroyAssembly(Assembly *assem, int cycle)
 //	}
 }
 
+void InitializeSolver(Solver *solver) {
+	solver->rnorm	= NULL;
+	solver->levels	= NULL;
+}
+
 int CreateSolver(Grids *grids, Solver *solver) {
 	// Allocates memory to Solver struct
 	
 	int	ierr = 0;
+	
+	if (!grids || !solver) {
+		pERROR_MSG("NULL pointers encountered");
+		return 1;
+	}
+	InitializeSolver(solver);
 
 	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-cycle", &(solver->cycle), &set);
-	if (!set) {
+	ierr = PetscOptionsGetInt(NULL, NULL, "-cycle", &(solver->cycle), &set);
+	if (!set || ierr) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Type of MG cycle for solver not set");
 		pERROR_MSG("Set '-cycle n' for n-th type cycle");
 		return 1;
 	} else if (solver->cycle > 4) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Selected MG cycle doesn't exist");
 		return 1;
 	}
 	solver->moreInfo = 0;
 //	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver->moreInfo), NULL);
-	PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
-	if (!set) {
+	ierr = PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
+	if (!set || ierr) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Number of iterations not set");
 		pERROR_MSG("Set '-iter n' for n iterations");
 		return 1;
 	}
 	int	vmax = 2;
-	PetscOptionsGetIntArray(NULL, NULL, "-v", solver->v, &vmax, &set);
-	if (!set || vmax < 2) {
+	ierr = PetscOptionsGetIntArray(NULL, NULL, "-v", solver->v, &vmax, &set);
+	if (!set || vmax < 2 || ierr) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("No. of smoothing steps and coarse solver iterations not set properly");
 		pERROR_MSG("Set '-v v1,v2' for v1 smoothing steps and v2 coarse solve iterations");
 		return 1;
@@ -172,11 +187,12 @@ int CreateSolver(Grids *grids, Solver *solver) {
 void DestroySolver(Solver *solver) {
 	// Free the memory in Solver struct
 	
+	if (!solver) return;	
 //	DestroyAssembly(solver->assem, solver->cycle);
 //	free(solver->assem);
 	DestroyLevels(solver->levels);
-	free(solver->levels);
-	free(solver->rnorm);
+	if (solver->levels) free(solver->levels);
+	if (solver->rnorm) free(solver->rnorm);
 //	if (solver->moreInfo == 0) return;
 //	for (int i=0; i<solver->grids; i++) {
 //		free(solver->rNormGrid[i]);

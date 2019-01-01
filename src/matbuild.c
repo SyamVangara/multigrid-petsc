@@ -3,14 +3,14 @@
 
 #define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
-#define CHKERR_PRNT(message) {if(ierr==1) {ERROR_MSG(message);}}
-#define CHKERR_RETURN(message) {if(ierr==1) {ERROR_RETURN(message);}}
+#define CHKERR_PRNT(message) {if(ierr != 0) {ERROR_MSG(message);}}
+#define CHKERR_RETURN(message) {if(ierr != 0) {ERROR_RETURN(message);}}
 #define PI 3.14159265358979323846
 
 #define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
-#define pCHKERR_PRNT(message) {if(ierr==1) {pERROR_MSG(message);}}
-#define pCHKERR_RETURN(message) {if(ierr==1) {pERROR_RETURN(message);}}
+#define pCHKERR_PRNT(message) {if(ierr != 0) {pERROR_MSG(message);}}
+#define pCHKERR_RETURN(message) {if(ierr != 0) {pERROR_RETURN(message);}}
 
 #define METRICS(i,j) (metrics.data[(i)*metrics.nj+(j)])
 //#define METRICS(i,j,k) (metrics.data[metrics.nk*((i)*metrics.nj+(j))+(k)])
@@ -154,28 +154,44 @@ void GetRanges(Grids *grids, Level *level) {
 	free(deltag);
 }
 
+void InitializeLevel(Level *level) {
+	level->gridId	= NULL;
+	level->ranges	= NULL;
+}
+
+void InitializeLevels(Levels *levels) {
+	levels->level = NULL;
+}
+
 int CreateLevels(Grids *grids, Levels *levels) {
 	// Get the GridId range, then allocate memory
 	
 	int	procs;
 	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
 	
-	if (!grids) {
+	if (!grids || !levels) {
 		pERROR_MSG("NULL pointer encountered");
 		return 1;
 	}
+	InitializeLevels(levels);
+	
+	int		ierr = 0;
 	PetscBool	set;	
-	PetscOptionsGetInt(NULL, NULL, "-levels", &(levels->nlevels), &set);
-	if (!set) {
+	ierr = PetscOptionsGetInt(NULL, NULL, "-nlevels", &(levels->nlevels), &set);
+	if (!set || ierr) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Number of levels for MG solver not set");
 		pERROR_MSG("Set '-nlevels n' for n levels");
 		return 1;
 	} else if (grids->ngrids < levels->nlevels) {
+		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Number of grids cannot be less than no. of levels");
 		return 1;
 	}
 	
 	levels->level = malloc(levels->nlevels*sizeof(Level));
+	for (int i=0; i<levels->nlevels; i++) InitializeLevel(levels->level+i);
+
 	AssignGridID(levels, grids->ngrids);
 	for (int i=0;i<levels->nlevels;i++) {
 		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(long int[2]));
@@ -209,11 +225,14 @@ int CreateLevels(Grids *grids, Levels *levels) {
 void DestroyLevels(Levels *levels) {
 	// Free the memory allocated to indices
 	
-	for (int l=0;l<levels->nlevels;l++) {
-		free(levels->level[l].gridId);
-		free(levels->level[l].ranges);
+	if (!levels) return;
+	if (levels->level) {
+		for (int l=0;l<levels->nlevels;l++) {
+			if (levels->level[l].gridId) free(levels->level[l].gridId);
+			if (levels->level[l].ranges) free(levels->level[l].ranges);
+		}
+		free(levels->level);
 	}
-	free(levels->level);
 }
 
 //void DestroyIndices(Indices *indices) {
