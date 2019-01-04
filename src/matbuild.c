@@ -154,9 +154,28 @@ void GetRanges(Grids *grids, Level *level) {
 	free(deltag);
 }
 
+void GetIncrements(Grids *grids, Level *level) {
+	
+	long int (*inc)[MAX_DIMENSION] = level->inc;
+	int *gridId = level->gridId;
+	int *blockID = grids->topo->blockID;
+	int dimension = grids->topo->dimension;	
+
+	for (int lg=0; lg<level->ngrids; lg++) {
+		int g = gridId[lg]; // local to global grid index
+		int **range = grids->grid[g].range;
+
+		inc[lg][0] = 1;
+		for (int i=1; i<dimension; i++) {
+			inc[lg][i] = inc[lg][i-1]*(range[i-1][blockID[i-1]+1]-range[i-1][blockID[i-1]]);
+		}
+	}
+}
+
 void InitializeLevel(Level *level) {
 	level->gridId	= NULL;
 	level->ranges	= NULL;
+	level->inc	= NULL;
 }
 
 void InitializeLevels(Levels *levels) {
@@ -196,6 +215,8 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	for (int i=0;i<levels->nlevels;i++) {
 		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(long int[2]));
 		GetRanges(grids, levels->level+i);
+		levels->level[i].inc = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION]));
+		GetIncrements(grids, levels->level+i);
 	}
 	return 0;
 }
@@ -230,6 +251,7 @@ void DestroyLevels(Levels *levels) {
 		for (int l=0;l<levels->nlevels;l++) {
 			if (levels->level[l].gridId) free(levels->level[l].gridId);
 			if (levels->level[l].ranges) free(levels->level[l].ranges);
+			if (levels->level[l].inc) free(levels->level[l].inc);
 		}
 		free(levels->level);
 	}

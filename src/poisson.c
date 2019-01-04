@@ -267,6 +267,7 @@ void ViewGridInfo(Grid grid, int verbose) {
 	int	dimension = grid.topo->dimension;
 	int	*blockID = grid.topo->blockID;
 	int	**range = grid.range;
+//	int	*inc = grid.inc;
 //	for (int i=0; i<dimension; i++)
 //		range[i] = grid.range[i];
 	double	*para = grid.para;
@@ -291,9 +292,12 @@ void ViewGridInfo(Grid grid, int verbose) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
 		for (int i=0; i<dimension; i++)
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
-		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range = ");
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "), range =");
 		for (int i=0; i<dimension; i++)
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d-%d) ", range[i][blockID[i]], range[i][blockID[i]+1]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD," (%d-%d)", range[i][blockID[i]], range[i][blockID[i]+1]);
+//		PetscSynchronizedPrintf(PETSC_COMM_WORLD, ", inc =");
+//		for (int i=0; i<dimension; i++)
+//			PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d", inc[i]);
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
 		
@@ -349,7 +353,7 @@ void ViewLevelInfo(Level level, int verbose) {
 		PetscPrintf(PETSC_COMM_WORLD, "Global index ranges = \n");
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ",rank);
 		for (int lg=0;lg<level.ngrids;lg++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld,%ld) ",level.ranges[lg][0],level.ranges[lg][1]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld-%ld: %d %d %d) ",level.ranges[lg][0], level.ranges[lg][1], level.inc[lg][0], level.inc[lg][1], level.inc[lg][2]);
 		}
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);

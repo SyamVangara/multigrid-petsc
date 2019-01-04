@@ -498,6 +498,12 @@ int split_domain(Grid *grid) {
 			range[i][p] = range[i][p-1] + quo[i] + (((p-1)<rem[i])? 1: 0);
 		}
 	}
+	
+//	int *inc = grid->inc;
+//	inc[0] = 1;
+//	for (int i=1; i<dimension; i++) {
+//		inc[i] = inc[i-1]*(range[i-1][blockID[i-1]+1]-range[i-1][blockID[i-1]]);
+//	}
 //	for (int i=0; i<dimension; i++) {
 //		for (int j=0; j<2; j++)
 //			range[i][j] = 1 + quo[i]*(blockID[i]+j) + ((blockID[i]+j < rem[i]) ? blockID[i]+j : rem[i]) ;
@@ -556,9 +562,10 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	// Creates botgrid by coarsening topgrid using coarsening factors (cfactor)
 
 	int	ierr=0;
-
+	
 	int	dimension = topgrid->topo->dimension;
 	int	*l = topgrid->topo->dimProcs;
+//	int	*blockID = topgrid->topo->blockID;
 	char	dir[4] = "ijk";
 
 	botgrid->topo = topgrid->topo;
@@ -579,6 +586,12 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 		for (int j=0;j<l[i]+1;j++)
 			botgrid->range[i][j] = (topgrid->range[i][j]+cfactor[i]-1)/cfactor[i];
 	}
+	
+//	botgrid->inc[0] = 1;	
+//	for (int i=1; i<dimension; i++) {
+//		botgrid->inc[i] = botgrid->inc[i-1]*(botgrid->range[i-1][blockID[i-1]+1]-
+//				botgrid->range[i-1][blockID[i-1]]);
+//	}
 
 	ierr = malloc2dY(&(botgrid->coord), dimension, botgrid->n);
 	if (ierr) {

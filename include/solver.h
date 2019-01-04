@@ -20,6 +20,8 @@ typedef struct {
 	int		*gridId; // Grid Id of each grid in a given level
 	double		(*h)[2]; // Delta h in reference domain // ! Remove
 	long int	(*ranges)[2]; // ranges of global indices for each grid
+	long int	(*inc)[MAX_DIMENSION]; // increments of global index 
+						// in each direction for each grid
 	ArrayInt2d	global;  // global to grid map// ! Remove
 	ArrayInt2d	*grid;   // grid to global map// ! Remove
 } Level;
