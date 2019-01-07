@@ -94,6 +94,42 @@ void AssignGridID(Levels *levels, int ngrids) {
 //	}
 //}
 
+void GetBlockRanges(Grids *grids, int ngrids, int *gridID, int dimension, int *blockid, long int *ranges) {
+	// Get global index range in a block for each grid in the list of gridID
+	
+	int	crange[MAX_DIMENSION][2]; // Coordinate ranges
+	for (int i=0; i<MAX_DIMENSION; i++)
+		for (int j=0; j<2; j++)
+			crange[i][j] = 0;
+	const	int	nbc = 2; // Assuming 2 BC points per direction
+	
+	long int	g0 = 0; // Lower global index for this level's first grid
+	long int	*deltag = malloc(ngrids*sizeof(long int)); // No. of unknown points for each grid in this level
+
+	for (int lg=0; lg<ngrids; lg++) {
+		Grid	*grid = grids->grid+gridID[lg];
+		int	*n = grid->n;
+		
+		for (int dim=0; dim<dimension; dim++)
+			for (int i=0; i<2; i++)
+				crange[dim][i] = grid->range[dim][blockid[dim]+i];
+		
+		long int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
+			+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);
+		deltag[lg] = (crange[0][1]-crange[0][0])*(crange[1][1]-crange[1][0]);
+		if (dimension == 3) {
+			lg0 = lg0*(crange[2][1]-crange[2][0]) 
+				+ (crange[2][0]-1)*(n[1]-nbc)*(n[0]-nbc);
+			deltag[lg] *= (crange[2][1]-crange[2][0]);
+		}
+		g0 += lg0;
+	}
+
+	ranges[0] = g0;
+	for (int lg=1; lg<ngrids; lg++)	ranges[lg] = ranges[lg-1] + deltag[lg-1];
+	free(deltag);
+}
+
 void GetRanges(Grids *grids, Level *level) {
 	// Get range of global indices for each grid in a given level
 	// This assumes lexicographical ordering of grid points
@@ -111,11 +147,6 @@ void GetRanges(Grids *grids, Level *level) {
 	
 	long int	g0 = 0; // Lower global index for this level's first grid
 	long int	*deltag = malloc(lngrids*sizeof(long int)); // No. of unknown points for each grid in this level
-	int	procs, rank;
-	
-	MPI_Comm_size(MPI_COMM_WORLD, &procs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	
 
 	for (int lg=0; lg<lngrids; lg++) {
 		Grid	*grid = grids->grid+gridID[lg];
@@ -124,15 +155,6 @@ void GetRanges(Grids *grids, Level *level) {
 		for (int dim=0; dim<dimension; dim++)
 			for (int i=0; i<2; i++)
 				crange[dim][i] = grid->range[dim][p[dim]+i];
-//		for (int i=rank; i<rank+2; i++) {
-//			for (int dim=0; dim<dimension; dim++) {
-//				crange[i][dim] = grid->range[i][dim];
-//				if (crange[dim][i] == n[dim])
-//					crange[dim][i] = n[dim]-nbc/2;
-//				else if (crange[dim][i] == 0)
-//					crange[dim][i] = nbc/2;
-//			}
-//		}
 		
 		long int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
 			+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);
@@ -154,28 +176,84 @@ void GetRanges(Grids *grids, Level *level) {
 	free(deltag);
 }
 
+void GetGridIncrements(int dimension, int *ln, long int *inc) {
+	// Computes increments in each direction 
+	inc[0] = 1;
+	for (int i=1; i<dimension; i++)
+		inc[i] = inc[i-1]*ln[i-1];
+}
+
+int GetRankFromBlock(int dimension, int *blockID, int *dimProcs) {
+	
+	int rank = blockID[1]*dimProcs[0] + blockID[0];
+	if (dimension == 3) rank = rank + blockID[2]*dimProcs[0]*dimProcs[1];
+	return rank;
+}
+
+void GetLocalNPoints(int dimension, int **range, int *blockID, int *ln) {
+	
+	for (int i=0; i<dimension; i++){
+		ln[i] = range[i][blockID[i]+1] - range[i][blockID[i]];
+	}
+}
+
 void GetIncrements(Grids *grids, Level *level) {
 	
 	long int (*inc)[MAX_DIMENSION] = level->inc;
 	int *gridId = level->gridId;
 	int *blockID = grids->topo->blockID;
+	int *l = grids->topo->dimProcs;
 	int dimension = grids->topo->dimension;	
+	int ngrids = level->ngrids;
 
-	for (int lg=0; lg<level->ngrids; lg++) {
+	for (int lg=0; lg<ngrids; lg++) {
 		int g = gridId[lg]; // local to global grid index
-		int **range = grids->grid[g].range;
+//		int **range = grids->grid[g].range;
+		int *ln = grids->grid[g].ln;
 
-		inc[lg][0] = 1;
-		for (int i=1; i<dimension; i++) {
-			inc[lg][i] = inc[lg][i-1]*(range[i-1][blockID[i-1]+1]-range[i-1][blockID[i-1]]);
+		GetGridIncrements(dimension, ln, inc[lg]);
+//		inc[lg][0] = 1;
+//		for (int i=1; i<dimension; i++) {
+//			inc[lg][i] = inc[lg][i-1]*(range[i-1][blockID[i-1]+1]-range[i-1][blockID[i-1]]);
+//		}
+	}
+	
+	long int *bcStartIndex = level->bcStartIndex;
+	long int *bcStart;
+	bcStart = malloc(ngrids*sizeof(long int));
+	
+	int tblockID[MAX_DIMENSION];
+	for (int i=0; i<MAX_DIMENSION; i++) tblockID[i] = blockID[i];
+
+	for (int i=0; i<dimension; i++)	{
+		for (int j=-1; j<2; j=j+2) {
+			tblockID[i] = tblockID[i] + j;
+			if (tblockID[i] >= 0 && tblockID[i] < l[i]) {
+				GetBlockRanges(grids, ngrids, gridId, dimension, tblockID, bcStart);
+			} else {
+				for (int lg=0; lg<ngrids; lg++) bcStart[lg] = -1;
+			}
+			long int bcinc[MAX_DIMENSION];
+			for (int lg=0; lg<ngrids; lg++) {
+				int g = gridId[lg];
+				
+				GetGridIncrements(dimension, tblockID, range, bcinc);
+				bcIncIndex[lg][i][(j+1)/2][]
+			}
+			tblockID[i] = tblockID[i] - j;
+			
+			for (int lg=0; lg<ngrids; lg++) 
+				bcStartIndex[lg][i][(j+1)/2] = bcStart[lg];
 		}
 	}
+	free(bcStart);
 }
 
 void InitializeLevel(Level *level) {
 	level->gridId	= NULL;
 	level->ranges	= NULL;
 	level->inc	= NULL;
+	level->bcIndex	= NULL;
 }
 
 void InitializeLevels(Levels *levels) {
@@ -216,6 +294,7 @@ int CreateLevels(Grids *grids, Levels *levels) {
 		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(long int[2]));
 		GetRanges(grids, levels->level+i);
 		levels->level[i].inc = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION]));
+		levels->level[i].bcIndex = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION][2][3]));
 		GetIncrements(grids, levels->level+i);
 	}
 	return 0;
@@ -252,6 +331,7 @@ void DestroyLevels(Levels *levels) {
 			if (levels->level[l].gridId) free(levels->level[l].gridId);
 			if (levels->level[l].ranges) free(levels->level[l].ranges);
 			if (levels->level[l].inc) free(levels->level[l].inc);
+			if (levels->level[l].bcIndex) free(levels->level[l].bcIndex);
 		}
 		free(levels->level);
 	}

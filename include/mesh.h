@@ -47,6 +47,7 @@ typedef struct {
 	Topo	*topo; //Topology info
 	int	id; // grid id; 0:finest, ngrids-1:coarsest
 	int	n[MAX_DIMENSION]; // No. of grid points in each direction
+	int	ln[MAX_DIMENSION]; // No. of local points in each direction
 	int	**range; // Range of grid points in rank and direction wise
 	double	**coord; // Coordinates in each direction
 	double	h; // Grid characteristic length

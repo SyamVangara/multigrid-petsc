@@ -16,12 +16,23 @@
 #include "mesh.h"
 
 typedef struct {
+	long int	*start; // Start index of bc cell in neighbouring block
+	long int	(*inc)[MAX_DIMENSION-1]; // Increments in in-plane directions
+						// in that neighbouring block
+} bcIndex;
+
+typedef struct {
 	int		ngrids;   // num of grids in this level
 	int		*gridId; // Grid Id of each grid in a given level
 	double		(*h)[2]; // Delta h in reference domain // ! Remove
 	long int	(*ranges)[2]; // ranges of global indices for each grid
 	long int	(*inc)[MAX_DIMENSION]; // increments of global index 
 						// in each direction for each grid
+	long int	(*bcIndex)[MAX_DIMENSION][2][3]; // Global range start and increments
+						    // for left and right block boundaries
+						    // in each direction for all grids
+	long int	(*bcStartIndex)[MAX_DIMENSION][2];
+	long int	(*bcIncIndex)[MAX_DIMENSION][2][2];
 	ArrayInt2d	global;  // global to grid map// ! Remove
 	ArrayInt2d	*grid;   // grid to global map// ! Remove
 } Level;
