@@ -44,14 +44,21 @@ typedef struct {
 } Mesh;
 
 typedef struct {
+	int	rank;
+	int	blockID[MAX_DIMENSION];
+	int	ln[MAX_DIMENSION];
+} Nblock;
+
+typedef struct {
 	Topo	*topo; //Topology info
 	int	id; // grid id; 0:finest, ngrids-1:coarsest
 	int	n[MAX_DIMENSION]; // No. of grid points in each direction
 	int	ln[MAX_DIMENSION]; // No. of local points in each direction
-	int	**range; // Range of grid points in rank and direction wise
+	int	**range; // Range of grid points as range[dimension][dirRank]
 	double	**coord; // Coordinates in each direction
 	double	h; // Grid characteristic length
 	double	para[4]; // Domain splitting quality measures
+	Nblock	nblock[MAX_DIMENSION][2]; // Neighboring blocks with non-zero unknowns
 	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
 } Grid;
 

@@ -183,20 +183,6 @@ void GetGridIncrements(int dimension, int *ln, long int *inc) {
 		inc[i] = inc[i-1]*ln[i-1];
 }
 
-int GetRankFromBlock(int dimension, int *blockID, int *dimProcs) {
-	
-	int rank = blockID[1]*dimProcs[0] + blockID[0];
-	if (dimension == 3) rank = rank + blockID[2]*dimProcs[0]*dimProcs[1];
-	return rank;
-}
-
-void GetLocalNPoints(int dimension, int **range, int *blockID, int *ln) {
-	
-	for (int i=0; i<dimension; i++){
-		ln[i] = range[i][blockID[i]+1] - range[i][blockID[i]];
-	}
-}
-
 void GetIncrements(Grids *grids, Level *level) {
 	
 	long int (*inc)[MAX_DIMENSION] = level->inc;

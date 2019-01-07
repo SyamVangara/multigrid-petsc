@@ -468,6 +468,7 @@ int split_domain(Grid *grid) {
 	int dimension = grid->topo->dimension;
 	int *l = grid->topo->dimProcs;
 	int *n = grid->n;
+	int *ln = grid->ln;
 	int *blockID = grid->topo->blockID;
 	int nbc = 2; // Assuming 2 boundary points; 1 on each side
 
@@ -499,6 +500,7 @@ int split_domain(Grid *grid) {
 		}
 	}
 	
+	GetLocalNPoints(dimension, range, blockID, ln);
 //	int *inc = grid->inc;
 //	inc[0] = 1;
 //	for (int i=1; i<dimension; i++) {
@@ -556,6 +558,71 @@ int ReadTopo(Topo *topo) {
 	}
 
 	return ierr;
+}
+
+int GetRankFromBlockID(int dimension, int *blockID, int *dimProcs) {
+	
+	int rank = blockID[1]*dimProcs[0] + blockID[0];
+	if (dimension == 3) rank = rank + blockID[2]*dimProcs[0]*dimProcs[1];
+	return rank;
+}
+
+void GetLocalNPoints(int dimension, int **range, int *blockID, int *ln) {
+	
+	for (int i=0; i<dimension; i++){
+		ln[i] = range[i][blockID[i]+1] - range[i][blockID[i]];
+	}
+}
+
+int identify_neighbor_blocks(Grid *grid) {
+	// Identify neighboring blocks with non-zero unknowns
+	
+	Nblock	(*nblock)[2] = grid->nblock;
+	int	**range = grid->range;
+	int	*blockID = grid->topo->blockID;
+	int	dimension = grid->topo->dimension;
+	int	*l = grid->topo->dimProcs;
+	
+	// Initialize blockID's for neighbor blocks
+	for (int i=0; i<dimension; i++) {
+		for (int j=0; j<2; j++) {
+			int *nblockID = nblock[i][j].blockID;
+			for (int dim=0; dim<MAX_DIMENSION; dim++) nblockID[dim] = blockID[dim];
+		}	
+	}
+
+	// Compute the ID's of neighboring blocks with non-zero unknowns
+	for (int i=0; i<dimension; i++) {
+		for (int j=-1; j<2; j=j+2) {
+			// Identify the non-zero unknowns neighbor block in j^th direction
+			int temp = -1;
+			for (int id=blockID[i]+j; (id<l[i] && id>=0); id=id+j) {
+				if (range[i][id+1]-range[i][id] != 0) {
+					temp = id;
+					break;
+				}
+			}
+			nblock[i][(j+1)/2].blockID[i] = temp;
+		}
+	}
+	
+	// Compute the rank and number of local number of points
+	for (int i=0; i<dimension; i++) {
+		for (int j=0; j<2; j++) {
+			int *nblockID = nblock[i][j].blockID;
+			int *ln = nblock[i][j].ln;
+
+			if (nblockID[i]>=0) {
+				nblock[i][j].rank = GetRankFromBlockID(dimension, nblockID, l);
+				GetLocalNPoints(dimension, range, nblockID, ln);
+			} else {
+				nblock[i][j].rank = -1;
+				for (int dim=0; dim<dimension; dim++) ln[dim] = 0;
+			}
+		}
+	}
+
+	return 0;
 }
 
 int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
@@ -721,6 +788,7 @@ int CreateGrids(Grids *grids) {
 	ierr = Compute_coord(grid); pCHKERR_RETURN("Coordinate computation failed");
 	ierr = factorize(grid); pCHKERR_RETURN("Factorization of total no. of procs failed");
 	ierr = split_domain(grid); pCHKERR_RETURN("Domain splitting failed");
+	ierr = identify_neighbor_blocks(grid); pCHKERR_RETURN("Identification of neighboring blocks failed"); 
 	ierr = create_coarse_grids(grids); pCHKERR_RETURN("Coarse grids creation failed");
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;

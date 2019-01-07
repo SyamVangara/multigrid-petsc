@@ -261,6 +261,14 @@ void ViewTopoInfo(Topo *topo) {
 	PetscPrintf(PETSC_COMM_WORLD,"\n\n");
 }
 
+void ViewNblockInfo(Nblock nblock) {
+	// Prints the info in Nblock
+	
+	PetscPrintf(PETSC_COMM_WORLD,"rank = %d\n", nblock.rank);
+	PetscPrintf(PETSC_COMM_WORLD,"blockID = (%d,%d,%d)\n", nblock.blockID[0], nblock.blockID[1], nblock.blockID[2]);
+	PetscPrintf(PETSC_COMM_WORLD,"ln = (%d,%d,%d)\n", nblock.ln[0], nblock.ln[1], nblock.ln[2]);
+}
+
 void ViewGridInfo(Grid grid, int verbose) {
 	// Prints the info in Grid data structure
 
@@ -278,8 +286,13 @@ void ViewGridInfo(Grid grid, int verbose) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
 	PetscPrintf(PETSC_COMM_WORLD,"Grid-%d: \n", grid.id+1);
+	PetscPrintf(PETSC_COMM_WORLD,"n =");
 	for (int dim = 0; dim<dimension; dim++) {
-		PetscPrintf(PETSC_COMM_WORLD,"n[%d] = %d  ", dim, grid.n[dim]);
+		PetscPrintf(PETSC_COMM_WORLD," %d", grid.n[dim]);
+	}
+	PetscPrintf(PETSC_COMM_WORLD,"; ln =");
+	for (int dim = 0; dim<dimension; dim++) {
+		PetscPrintf(PETSC_COMM_WORLD," %d", grid.ln[dim]);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
@@ -288,6 +301,12 @@ void ViewGridInfo(Grid grid, int verbose) {
 	
 	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grid.h);
       	
+	for (int i=0; i<dimension; i++) {
+		for (int j=0; j<2; j++) {
+			PetscPrintf(PETSC_COMM_WORLD,"Neighbor-block[%d][%d]: \n", i, j);
+			ViewNblockInfo(grid.nblock[i][j]);
+		}
+	}
 	if (verbose) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: blockID = ( ", rank);
 		for (int i=0; i<dimension; i++)
