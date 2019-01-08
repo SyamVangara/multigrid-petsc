@@ -240,6 +240,7 @@ void InitializeLevel(Level *level) {
 	level->ranges	= NULL;
 	level->inc	= NULL;
 	level->bcIndex	= NULL;
+	level->bcindices= NULL;
 }
 
 void InitializeLevels(Levels *levels) {
@@ -281,6 +282,7 @@ int CreateLevels(Grids *grids, Levels *levels) {
 		GetRanges(grids, levels->level+i);
 		levels->level[i].inc = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION]));
 		levels->level[i].bcIndex = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION][2][3]));
+		levels->level[i].bcindices = malloc((levels->level[i].ngrids)*sizeof(BCindices));
 		GetIncrements(grids, levels->level+i);
 	}
 	return 0;
@@ -318,6 +320,7 @@ void DestroyLevels(Levels *levels) {
 			if (levels->level[l].ranges) free(levels->level[l].ranges);
 			if (levels->level[l].inc) free(levels->level[l].inc);
 			if (levels->level[l].bcIndex) free(levels->level[l].bcIndex);
+			if (levels->level[l].bcindices) free(levels->level[l].bcindices);
 		}
 		free(levels->level);
 	}
