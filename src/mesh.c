@@ -699,7 +699,22 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	botgrid->para[2] = load[2];
 	botgrid->para[3] = topgrid->para[3];
 	
-	ierr = identify_neighbor_blocks(botgrid);
+//	int	tln = 1;
+//	for (int i=0; i<dimension; i++) tln = tln*botgrid->ln[i];
+//	if (tln > 0) {
+		ierr = identify_neighbor_blocks(botgrid);
+//	} else {
+//		Nblock	*nblock = botgrid->nblock;
+//		for (int i=0; i<MAX_DIMENSION; i++) {
+//			for (int j=0; j<2; j++) {
+//				nblock[i][j].rank = -1;
+//				for (int dim=0; dim<MAX_DIMENSION; dim++) {
+//					nblock[i][j].blockID[dim] = -1;
+//					nblock[i][j].ln[dim] = -1;
+//				}
+//			}
+//		}
+//	}
 
 	return 0;
 }
