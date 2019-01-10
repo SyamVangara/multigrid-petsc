@@ -637,9 +637,9 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 
 	botgrid->topo = topgrid->topo;
 
-	int temp[MAX_DIMENSION];
-       	for (int i=0; i<MAX_DIMENSION; i++) temp[i] = l[i]+1;
-	ierr = malloc2dIntY(&(botgrid->range), dimension, temp); pCHKERR_RETURN("Memory allocation failed");
+	int temp1[MAX_DIMENSION];
+       	for (int i=0; i<MAX_DIMENSION; i++) temp1[i] = l[i]+1;
+	ierr = malloc2dIntY(&(botgrid->range), dimension, temp1); pCHKERR_RETURN("Memory allocation failed");
 	for (int i=0;i<dimension;i++) {
 		int temp;
 		temp = (topgrid->n[i]-1)/cfactor[i];
@@ -660,6 +660,7 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 //				botgrid->range[i-1][blockID[i-1]]);
 //	}
 
+	GetLocalNPoints(dimension, botgrid->range, botgrid->topo->blockID, botgrid->ln);
 	ierr = malloc2dY(&(botgrid->coord), dimension, botgrid->n);
 	if (ierr) {
 		pERROR_MSG("Mesh memory allocation failed");
@@ -697,6 +698,9 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	botgrid->para[1] = load[0];
 	botgrid->para[2] = load[2];
 	botgrid->para[3] = topgrid->para[3];
+	
+	ierr = identify_neighbor_blocks(botgrid);
+
 	return 0;
 }
 
