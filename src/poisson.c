@@ -372,7 +372,7 @@ void ViewLevelInfo(Level level, int verbose) {
 		PetscPrintf(PETSC_COMM_WORLD, "Global index ranges = \n");
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ",rank);
 		for (int lg=0;lg<level.ngrids;lg++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld-%ld: %d %d %d) ",level.ranges[lg][0], level.ranges[lg][1], level.inc[lg][0], level.inc[lg][1], level.inc[lg][2]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld-%ld: %d %d %d) ",level.ranges[lg], level.ranges[lg+1], level.inc[lg][0], level.inc[lg][1], level.inc[lg][2]);
 		}
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
