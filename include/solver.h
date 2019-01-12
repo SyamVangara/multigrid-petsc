@@ -19,7 +19,7 @@ typedef struct {
 	int		rank; // -ve if BC block 
 	int		blockID[MAX_DIMENSION]; // -ve in a dir => it is BC block in that dir
 	long int	bcStartIndex; // Global start index on BC cells on neighboring block
-	long int	bcInc[MAX_DIMENSION-1]; // Increments on BC cells on neigbhoring block
+	long int	bcInc[MAX_DIMENSION]; // Increments on BC cells on neigbhoring block
 } BCindices;
 
 typedef struct {
@@ -35,6 +35,7 @@ typedef struct {
 } Level;
 
 typedef struct {
+	int	dimension;
 	int	nlevels;
 	int	totalGrids; // ! Remove
 	int	coarseningFactor; // ! Remove

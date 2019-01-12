@@ -256,12 +256,6 @@ void GetGridIncrements(int dimension, int *ln, long int *inc) {
 		inc[i] = inc[i-1]*ln[i-1];
 }
 
-void GetBCindicesFromNblock(BCindices *bcindices, Nblock *nblock) {
-	// Get global indices of neighboring block from the block's grid details
-	
-
-}
-
 //void GetIncrements(Grids *grids, Level *level) {
 //	
 //	long int (*inc)[MAX_DIMENSION] = level->inc;
@@ -333,22 +327,17 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 	level->bcindices[targetlg][dim][dir].rank = grid[g].nblock[dim][dir].rank;
 	int *iblockID = level->bcindices[targetlg][dim][dir].blockID;
 	int *gblockID = grid[g].nblock[dim][dir].blockID;
+	long int *startindex = &(level->bcindices[targetlg][dim][dir].bcStartIndex);
 
 	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
-	level->bcindices[targetlg][dim][dir].bcStartIndex = GetBlockGridStart(grids, level, iblockID, targetlg);
-	int tinc[MAX_DIMENSION];
+	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
+
 	int dimension = grids->topo->dimension;
-	GetGridIncrements(dimension, grid[g].nblock[dim][dir].ln, tinc);
+	long int *inc = level->bcindices[targetlg][dim][dir].bcInc;
+	GetGridIncrements(dimension, grid[g].nblock[dim][dir].ln, inc);
 	
-	int count = 0;
-	for (int i=0; i<dimension; i++) {
-		if (i != dim) {
-			level->bcindices[targetlg][dim][dir].bcInc[count] = tinc[i];
-			count++;
-		} else {
-			level->bcindices[targetlg][dim][dir].bcStartIndex += ((1-dir)*inc[i]);
-		}
-	}
+	*startindex += ((1-dir)*inc[dim]);
+	inc[dim] = 0;
 }
 
 void fillLevel(Grids *grids, Level *level) {
@@ -391,7 +380,8 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	InitializeLevels(levels);
 	
 	int		ierr = 0;
-	PetscBool	set;	
+	PetscBool	set;
+	levels->dimension = grids->topo->dimension;	
 	ierr = PetscOptionsGetInt(NULL, NULL, "-nlevels", &(levels->nlevels), &set);
 	if (!set || ierr) {
 		PetscBarrier(PETSC_NULL);
