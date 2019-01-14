@@ -98,9 +98,8 @@ long int GetBlockStart(Grids *grids, Level *level, int *blockID) {
 	// Compute the starting global index for given block
 	
 	int	dimension = grids->topo->dimension;
-	Grid	*grid = grids->grid;
 	int	ngrids = level->ngrids;
-	int	*gridID = level->gridID;
+	int	*gridID = level->gridId;
 
 	long int start = 0;
 	for (int i=0; i<dimension; i++)	start = (blockID[i]<0 ? -1: 0);
@@ -113,7 +112,7 @@ long int GetBlockStart(Grids *grids, Level *level, int *blockID) {
 			crange[i][j] = 0;
 	
 	for (int lg=0; lg<ngrids; lg++) {
-		Grid	*grid = grid+gridID[lg];
+		Grid	*grid = grids->grid+gridID[lg];
 		int	**range = grid->range;
 		int	*un = grid->un;
 		
@@ -136,7 +135,6 @@ long int GetBlockGridStart(Grids *grids, Level *level, int *blockID, int targetl
 	// Compute the starting global index for given block and grid (targetlg: local grid ID)
 	
 	Grid	*grid = grids->grid;
-	int	ngrids = level->ngrids;
 	int	*gridID = level->gridId;
 	int	dimension = grids->topo->dimension;
 
@@ -162,7 +160,7 @@ void GetRanges(Grids *grids, Level *level) {
 	int	*blockid = grids->topo->blockID;
 	int	ngrids = level->ngrids;
 	int	*gridID = level->gridId;
-	int	dimension = grids->topo->dimension;
+//	int	dimension = grids->topo->dimension;
 	
 	long int *ranges = level->ranges;
 
@@ -322,7 +320,7 @@ void InitializeLevels(Levels *levels) {
 void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg) {
 	
 	Grid	*grid = grids->grid;
-	int	g = level->gridID[targetlg];
+	int	g = level->gridId[targetlg];
 	
 	level->bcindices[targetlg][dim][dir].rank = grid[g].nblock[dim][dir].rank;
 	int *iblockID = level->bcindices[targetlg][dim][dir].blockID;
@@ -357,7 +355,7 @@ void fillLevel(Grids *grids, Level *level) {
 	}
 //	GetIncrements(grids, level);
 	
-	level->bcindices = malloc((levels->level[i].ngrids)*sizeof(BCindices[MAX_DIMENSION][2]));
+	level->bcindices = malloc(ngrids*sizeof(BCindices[MAX_DIMENSION][2]));
 	for (int lg=0; lg<ngrids; lg++) {
 		for (int i=0; i<dimension; i++) {
 			for (int j=0; j<2; j++) {

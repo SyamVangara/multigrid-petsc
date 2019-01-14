@@ -357,7 +357,7 @@ void ViewBCindicesInfo(BCindices bcindices) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d; %d,%d,%d): (%ld; %ld,%ld,%ld)", bcindices.rank, bcindices.blockID[0], bcindices.blockID[1], bcindices.blockID[2], bcindices.bcStartIndex, bcindices.bcInc[0], bcindices.bcInc[1], bcindices.bcInc[2]);
 }
 
-void ViewLevelInfo(Level level, int verbose) {
+void ViewLevelInfo(Level level, int dimension, int verbose) {
 	// Prints the info of Level data structure
 	
 	int	procs, rank;
@@ -365,7 +365,6 @@ void ViewLevelInfo(Level level, int verbose) {
 	MPI_Comm_size(MPI_COMM_WORLD, &procs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
-	int dimension = level->dimension; 
 	PetscPrintf(PETSC_COMM_WORLD,"No. of grids = %d\n", level.ngrids);
 	
 	PetscPrintf(PETSC_COMM_WORLD,"gridIDs = ");
@@ -402,12 +401,13 @@ void ViewLevelsInfo(Solver solver) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	Levels *levels = solver.levels;
-
+	
+	int dimension = levels->dimension;
 	PetscPrintf(PETSC_COMM_WORLD,"Levels: \n");
 	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", levels->nlevels);
 	for (int l=0;l<levels->nlevels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"Level-%d:\n", l);
-		ViewLevelInfo(levels->level[l], 1);
+		ViewLevelInfo(levels->level[l], dimension, 1);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }

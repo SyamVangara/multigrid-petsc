@@ -645,7 +645,7 @@ void levelMatrixA1(Problem *prob, Grids *grids, Solver *solver) {
 
 	for (int l=0; l<nlevels; l++) {
 		int	ngrids = level[l].ngrids;
-		int	size = (int) (level[l].ranges[ngrids-1][1] - level[l].ranges[0][0]);
+		int	size = (int) (level[l].ranges[ngrids] - level[l].ranges[0]);
 		MatCreateAIJ(PETSC_COMM_WORLD, size, size, PETSC_DETERMINE, PETSC_DETERMINE, nnz, PETSC_NULL, nnz, PETSC_NULL, A+l);
 
 //		fillJacobians(prob, grids, level+l, A+l);

@@ -456,6 +456,13 @@ int factorize(Grid *grid) {
 	return ierr;
 }
 
+void GetLocalNPoints(int dimension, int **range, int *blockID, int *ln) {
+	
+	for (int i=0; i<dimension; i++){
+		ln[i] = range[i][blockID[i]+1] - range[i][blockID[i]];
+	}
+}
+
 int split_domain(Grid *grid) {
 	// Split the domain for given factorization of total
 	// no. of procs.
@@ -501,6 +508,8 @@ int split_domain(Grid *grid) {
 	}
 	
 	GetLocalNPoints(dimension, range, blockID, ln);
+	grid->tln = ln[0];
+	for (int i=1; i<dimension; i++) grid->tln *= ln[i];
 //	int *inc = grid->inc;
 //	inc[0] = 1;
 //	for (int i=1; i<dimension; i++) {
@@ -565,13 +574,6 @@ int GetRankFromBlockID(int dimension, int *blockID, int *dimProcs) {
 	int rank = blockID[1]*dimProcs[0] + blockID[0];
 	if (dimension == 3) rank = rank + blockID[2]*dimProcs[0]*dimProcs[1];
 	return rank;
-}
-
-void GetLocalNPoints(int dimension, int **range, int *blockID, int *ln) {
-	
-	for (int i=0; i<dimension; i++){
-		ln[i] = range[i][blockID[i]+1] - range[i][blockID[i]];
-	}
 }
 
 int identify_neighbor_blocks(Grid *grid) {
@@ -661,6 +663,17 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 //	}
 
 	GetLocalNPoints(dimension, botgrid->range, botgrid->topo->blockID, botgrid->ln);
+	int nbc = 2; // No. of BC points in each dimension
+	botgrid->un[0] = botgrid->n[0]-nbc;
+	botgrid->tn = botgrid->n[0];
+	botgrid->tun = botgrid->un[0];
+	botgrid->tln = botgrid->ln[0];
+	for (int i=1; i<dimension; i++) {
+		botgrid->un[i] = botgrid->n[i]-nbc;
+		botgrid->tn *= botgrid->n[i];
+		botgrid->tun *= botgrid->un[i];
+		botgrid->tln *= botgrid->ln[i];
+	}
 	ierr = malloc2dY(&(botgrid->coord), dimension, botgrid->n);
 	if (ierr) {
 		pERROR_MSG("Mesh memory allocation failed");
@@ -688,7 +701,7 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	botgrid->h = sqrt(botgrid->h);
 	
 	double	load[3];
-	int	nreduced[3], nbc = 2; // Default no. of BC points in a direction
+	int	nreduced[3];
 
 	if (dimension == 2) botgrid->n[2] = 1 + nbc;
 	for (int i=0;i<3;i++) nreduced[i] = botgrid->n[i]-nbc;
@@ -794,6 +807,17 @@ int CreateGrids(Grids *grids) {
 		return 1;
 	}
 	
+	int nbc = 2; // No. of BC points in each dimension
+	int dimension = topo->dimension;
+	grid->un[0] = grid->n[0]-nbc;
+	grid->tn = grid->n[0];
+	grid->tun = grid->un[0];
+	for (int i=1; i<dimension; i++) {
+		grid->un[i] = grid->n[i]-nbc;
+		grid->tn *= grid->n[i];
+		grid->tun *= grid->un[i];
+	}
+
 	ierr = malloc2dY(&(grid->coord), topo->dimension, grid->n);
 	if (ierr != 0) {
 		pERROR_MSG("Mesh memory allocation failed");
