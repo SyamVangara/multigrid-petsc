@@ -102,7 +102,12 @@ long int GetBlockStart(Grids *grids, Level *level, int *blockID) {
 	int	*gridID = level->gridId;
 
 	long int start = 0;
-	for (int i=0; i<dimension; i++)	start = (blockID[i]<0 ? -1: 0);
+	for (int i=0; i<dimension; i++)	{
+		if (blockID[i] < 0) {
+			start = -1;
+			break;
+		}
+	}
 	
 	if (start<0) return start;
 
@@ -332,10 +337,15 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 
 	int dimension = grids->topo->dimension;
 	long int *inc = level->bcindices[targetlg][dim][dir].bcInc;
-	GetGridIncrements(dimension, grid[g].nblock[dim][dir].ln, inc);
+	int *ln = grid[g].nblock[dim][dir].ln;
+	GetGridIncrements(dimension, ln, inc);
 	
-	*startindex += ((1-dir)*inc[dim]);
-	inc[dim] = 0;
+	if (*startindex >= 0) {
+		*startindex += ((1-dir)*inc[dim]*(ln[dim]-1));
+		inc[dim] = 0;
+	} else {
+		for(int i=0; i<dimension; i++) inc[i] = 0;
+	}
 }
 
 void fillLevel(Grids *grids, Level *level) {

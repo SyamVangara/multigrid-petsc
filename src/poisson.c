@@ -365,9 +365,42 @@ void ViewGridsInfo(Grids grids, int verbose) {
 	}
 }
 
-void ViewBCindicesInfo(BCindices bcindices) {
+//void ViewBCindicesInfo(BCindices bcindices) {
+//	
+//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d; %d,%d,%d): (%ld; %ld,%ld,%ld)", bcindices.rank, bcindices.blockID[0], bcindices.blockID[1], bcindices.blockID[2], bcindices.bcStartIndex, bcindices.bcInc[0], bcindices.bcInc[1], bcindices.bcInc[2]);
+//}
+
+void ViewBCindicesInfo(BCindices (*bcindices)[2], int dimension) {
+	// Prints the info in Nblock
 	
-	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%d; %d,%d,%d): (%ld; %ld,%ld,%ld)", bcindices.rank, bcindices.blockID[0], bcindices.blockID[1], bcindices.blockID[2], bcindices.bcStartIndex, bcindices.bcInc[0], bcindices.bcInc[1], bcindices.bcInc[2]);
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: \n", rank);
+	for (int i=0; i<dimension; i++) {
+		for (int j=0; j<2; j++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Direction(%d, %d):	rank = %d", i, 2*j-1, bcindices[i][j].rank);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ";	blockID = ( ");
+			for (int k=0; k<dimension; k++)
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", bcindices[i][j].blockID[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	start = %ld", bcindices[i][j].bcStartIndex);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = ( ");
+			for (int k=0; k<dimension; k++)
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j].bcInc[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")\n");
+		}
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+
+//		for (int lg=0; lg<level.ngrids;lg++) {
+//		for (int i=0; i<dimension; i++) {
+//			for (int j=0; j<2; j++) {
+//				ViewBCindicesInfo(level.bcindices[lg][i][j]);
+//			}
+//		}
+//		}
 }
 
 void ViewLevelInfo(Level level, int dimension, int verbose) {
@@ -394,6 +427,11 @@ void ViewLevelInfo(Level level, int dimension, int verbose) {
 		}
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+		PetscPrintf(PETSC_COMM_WORLD,"Neighbor block indices: \n");
+		for (int lg=0; lg<level.ngrids; lg++) {
+			PetscPrintf(PETSC_COMM_WORLD,"Grid-%d: \n", level.gridId[lg]);
+			ViewBCindicesInfo(level.bcindices[lg], dimension);
+		}
 //		for (int lg=0; lg<level.ngrids;lg++) {
 //		for (int i=0; i<dimension; i++) {
 //			for (int j=0; j<2; j++) {
