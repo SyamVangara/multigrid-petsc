@@ -314,7 +314,12 @@ void ViewGridInfo(Grid grid, int verbose) {
 	PetscPrintf(PETSC_COMM_WORLD,";	TotalN = %d (%d)", grid.tn, grid.tun);
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
-	double	commTocomp = para[0]/(grid.un[0]*grid.un[1]*grid.un[2]);
+//	double	commTocomp = para[0]/(grid.un[0]*grid.un[1]*grid.un[2]);
+	double	commTocomp = 1.0;
+	for (int i=0; i<dimension; i++) {
+		commTocomp *= grid.un[i];
+	}
+	commTocomp = para[0]/commTocomp;
 	PetscPrintf(PETSC_COMM_WORLD,"TotalCommCost = %d, MaxLoad = %d, Comm-to-Comp = %lf, LoadFactor = %lf, nInterfaces = %d\n", (int)para[0], (int)para[1], commTocomp, para[2], (int)para[3]);
 	
 	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grid.h);
