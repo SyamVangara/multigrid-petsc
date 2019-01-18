@@ -19,11 +19,11 @@ static int CommCost3D(int *l, int *n) {
 	// Computes communicstion cost based on number of points in each direction
 	// and number of directionwise ranks/blocks
 	
-	return (l[0]-1)*n[1]*n[2] + n[0]*(l[1]-1)*n[2] + n[0]*n[1]*(l[2]-1); 
+	return 2*((l[0]-1)*n[1]*n[2] + n[0]*(l[1]-1)*n[2] + n[0]*n[1]*(l[2]-1)); 
 }
 
 static int ComputeNInterfaces3D(int *l) {
-	// Compute number of interfaces to communicate data
+	 // Compute number of interfaces to communicate data
 		
 	return (l[0]-1)*l[1]*l[2] + l[0]*(l[1]-1)*l[2] + l[0]*l[1]*(l[2]-1); 
 }
@@ -41,9 +41,49 @@ static void ComputeLoad(int *n, int *l, double *load) {
 			ones[i] = 1;
 	}
 
-	load[0] = (q[0]+ones[0])*(q[1]+ones[1])*(q[2]+ones[2]);
-	load[1] = q[0]*q[1]*q[2];
-	load[2] = (double)load[0]/(double)load[1];
+	load[0] = (double) (q[0]+ones[0])*(q[1]+ones[1])*(q[2]+ones[2]);
+	load[1] = (double) q[0]*q[1]*q[2];
+	load[2] = load[0]/load[1];
+}
+
+static void ComputeCoarseGridPara(Grid *grid) {
+	// Computes grid parameters on coarse grid using "range" and "dimProcs"
+	
+	int dimension = grid->topo->dimension;
+	int *l = grid->topo->dimProcs;
+	int lt[MAX_DIMENSION];
+
+	int **range = grid->range;
+	int rmax = 1;
+	int rmin = 1;
+
+	for (int i=0; i<dimension; i++) {
+		int count = 0;
+		int tmax = 0;
+		int tmin = range[i][l[i]]+1;
+		for (int j=0; j<l[i]; j++) {
+			int ln = range[i][j+1]-range[i][j];
+			if (ln == 0) continue;
+			tmax = fmax(tmax, ln);
+			tmin = fmin(tmin, ln);
+			count++;
+		}
+		rmax *= tmax;
+		rmin *= tmin;
+		lt[i] = count;
+	}
+	PetscPrintf(PETSC_COMM_WORLD, "rmax = %d, rmin = %d\n", rmax, rmin);
+	int nbc = 2;
+	if (dimension == 2) {
+		grid->n[2] = 1 + nbc;
+		grid->un[2] = 1;
+		lt[2] = 1;
+	}
+
+	grid->para[0] = (double) CommCost3D(lt, grid->un);
+	grid->para[1] = (double) rmax;
+	grid->para[2] = ((double) rmax)/((double) rmin);
+	grid->para[3] = (double) ComputeNInterfaces3D(lt);
 }
 
 static void sort3Index(int *n, int *nsorted, int *index) {
@@ -433,7 +473,8 @@ int factorize(Grid *grid) {
 	if (dimension == 2) {
 		l[0] = 1;
 		for (int i=1; i<3; i++)	l[i] = procs;
-		para[0] = (double) CommCost3D(l, nsorted); // intialize with maximum cost
+		// intialize grid parameters
+		para[0] = (double) CommCost3D(l, nsorted); 
 		para[1] = (double) nsorted[0]*nsorted[1]*nsorted[2];
 		para[2] = (double) para[1];
 		para[3] = (double) ComputeNInterfaces3D(l);
@@ -700,35 +741,19 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 	}
 	botgrid->h = sqrt(botgrid->h);
 	
-	double	load[3];
-	int	nreduced[3];
-
-	if (dimension == 2) botgrid->n[2] = 1 + nbc;
-	for (int i=0;i<3;i++) nreduced[i] = botgrid->n[i]-nbc;
-	ComputeLoad(nreduced, botgrid->topo->dimProcs, load);
-
-	botgrid->para[0] = (double) CommCost3D(botgrid->topo->dimProcs, nreduced);
-	botgrid->para[1] = load[0];
-	botgrid->para[2] = load[2];
-	botgrid->para[3] = topgrid->para[3];
-	
-//	int	tln = 1;
-//	for (int i=0; i<dimension; i++) tln = tln*botgrid->ln[i];
-//	if (tln > 0) {
-		ierr = identify_neighbor_blocks(botgrid);
-//	} else {
-//		Nblock	*nblock = botgrid->nblock;
-//		for (int i=0; i<MAX_DIMENSION; i++) {
-//			for (int j=0; j<2; j++) {
-//				nblock[i][j].rank = -1;
-//				for (int dim=0; dim<MAX_DIMENSION; dim++) {
-//					nblock[i][j].blockID[dim] = -1;
-//					nblock[i][j].ln[dim] = -1;
-//				}
-//			}
-//		}
-//	}
-
+	ComputeCoarseGridPara(botgrid);
+//	double	load[3];
+//	int	nreduced[3];
+//
+//	if (dimension == 2) botgrid->n[2] = 1 + nbc;
+//	for (int i=0;i<3;i++) nreduced[i] = botgrid->n[i]-nbc;
+//	ComputeLoad(nreduced, botgrid->topo->dimProcs, load);
+//
+//	botgrid->para[0] = (double) CommCost3D(botgrid->topo->dimProcs, nreduced);
+//	botgrid->para[1] = load[0];
+//	botgrid->para[2] = load[2];
+//	botgrid->para[3] = topgrid->para[3];
+	ierr = identify_neighbor_blocks(botgrid);
 	return 0;
 }
 
