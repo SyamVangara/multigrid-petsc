@@ -259,16 +259,14 @@ int Compute_coord(Grid *grid) {
 	// computes coords in each direction of the structured grid
 	
 	int	ierr = 0;
-	double	length, d[MAX_DIMENSION];
+	double	length;//, d[MAX_DIMENSION];
 
-	int	*n;
-	double	**coord;
-	int	*type;
-	int	dimension = grid->topo->dimension;
 	Topo	*topo = grid->topo;
-	n 	= grid->n;
-	coord	= grid->coord;
-	type	= grid->topo->gridtype;
+	int	dimension = topo->dimension;
+	int	*type	= topo->gridtype;
+	int	*n	= grid->n;
+	double	**coord	= grid->coord;
+	double	**dx	= grid->dx;
 	
 	for(int i=0;i<dimension;i++){
 		if (n[i]<MIN_POINTS) {
@@ -282,20 +280,28 @@ int Compute_coord(Grid *grid) {
 		
 		length = (coord[i][n[i]-1]-coord[i][0]);
 		double tmp_d = (length/(double)(n[i]-1));
-		double tmp_eta;
-		d[i] = 0.0;
+//		d[i] = 0.0;
 		for(int j=1;j<n[i]-1;j++){
 			if (type[i] == 0) coord[i][j] = coord[i][j-1] + tmp_d;
-			if (type[i] == 1) coord[i][j] = grid->topo->bounds[i][1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
+			if (type[i] == 1) coord[i][j] = topo->bounds[i][1]-length*(cos(PI*0.5*(j/(double)(n[i]-1))));
 			if (type[i] == 2) {
-				tmp_eta = (j/(double)(n[i]-1));
-				coord[i][j] = grid->topo->bounds[i][0]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
+				double tmp_eta = (j/(double)(n[i]-1));
+				coord[i][j] = topo->bounds[i][0]+length*((exp(2*tmp_eta)-1)/(exp(2)-1));
 			}
-			d[i] = fmax(d[i],fabs(coord[i][j]-coord[i][j-1])); 
+//			d[i] = fmax(d[i],fabs(coord[i][j]-coord[i][j-1])); 
 		}
-		d[i] = fmax(d[i],fabs(coord[i][n[i]-2]-coord[i][n[i]-1])); 
+//		d[i] = fmax(d[i],fabs(coord[i][n[i]-2]-coord[i][n[i]-1])); 
 	}
-
+	
+	for (int i=0;i<dimension;i++) {
+		for (int j=0; j<n[i]-1; j++) dx[i][j] = coord[i][j+1]-coord[i][j];
+	}
+	
+	double	d[MAX_DIMENSION];
+	for (int i=0;i<dimension;i++) {
+		d[i] = 0.0;
+		for (int j=0; j<n[i]-1; j++) d[i] = fmax(d[i], fabs(dx[i][j]));
+	}
 	grid->h = 0.0;
 	for (int i=0;i<dimension;i++){
 		grid->h += d[i]*d[i];
@@ -720,6 +726,13 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 		pERROR_MSG("Mesh memory allocation failed");
 		return 1;
 	}
+	int temp[MAX_DIMENSION];
+	for (int i=0; i<dimension; i++) temp[i] = botgrid->n[i]-1;
+	ierr = malloc2dY(&(botgrid->dx), dimension, temp);
+	if (ierr != 0) {
+		pERROR_MSG("Mesh memory allocation failed");
+		return 1;
+	}
 	
 	for (int i=0;i<dimension;i++) {
 		for (int j=0;j<botgrid->n[i];j++) {
@@ -727,12 +740,16 @@ int create_coarse_grid(Grid *topgrid, Grid *botgrid, int *cfactor) {
 		}
 	}
 	
+	double **coord = botgrid->coord;
+	double **dx = botgrid->dx;
+	for (int i=0;i<dimension;i++) {
+		for (int j=0; j<botgrid->n[i]-1; j++) dx[i][j] = coord[i][j+1]-coord[i][j];
+	}
+	
 	double	d[MAX_DIMENSION];
 	for (int i=0;i<dimension;i++) {
 		d[i] = 0.0;
-		for (int j=1;j<botgrid->n[i];j++) {
-			d[i] = fmax(d[i],fabs(botgrid->coord[i][j]-botgrid->coord[i][j-1])); 
-		}
+		for (int j=0;j<botgrid->n[i]-1;j++) d[i] = fmax(d[i],fabs(dx[i][j])); 
 	}
 
 	botgrid->h = 0.0;
@@ -782,6 +799,7 @@ void InitializeGrid(Grid *grid) {
 	grid->topo	= NULL;
 	grid->range	= NULL;
 	grid->coord	= NULL;
+	grid->dx	= NULL;
 }
 
 void InitializeGrids(Grids *grids) {
@@ -848,6 +866,13 @@ int CreateGrids(Grids *grids) {
 		pERROR_MSG("Mesh memory allocation failed");
 		return 1;
 	}
+	int temp[MAX_DIMENSION];
+	for (int i=0; i<dimension; i++) temp[i] = grid->n[i]-1;
+	ierr = malloc2dY(&(grid->dx), topo->dimension, temp);
+	if (ierr != 0) {
+		pERROR_MSG("Mesh memory allocation failed");
+		return 1;
+	}
 
 	for (int i=0;i<MAX_GRIDS;i++)
 		for (int j=0;j<MAX_DIMENSION;j++)
@@ -871,6 +896,7 @@ void DestroyGrids(Grids *grids) {
 		for (int i=0;i<grids->ngrids;i++){
 			if (grids->grid[i].range) free2dIntArray(&(grids->grid[i].range));
 			if (grids->grid[i].coord) free2dArray(&(grids->grid[i].coord));
+			if (grids->grid[i].dx) free2dArray(&(grids->grid[i].dx));
 		}
 		free(grids->grid);
 	}

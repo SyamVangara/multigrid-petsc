@@ -61,6 +61,7 @@ typedef struct {
 	int	tln; // Total no. of local unknown points
 	int	**range; // Range of unknown grid points as range[dimension][dirRank]
 	double	**coord; // Coordinates in each direction
+	double	**dx; // Spacing in coordinates in each direction
 	double	h; // Grid characteristic length
 	double	para[4]; // Domain splitting quality measures
 	Nblock	nblock[MAX_DIMENSION][2]; // Neighboring blocks with non-zero unknowns

@@ -297,6 +297,7 @@ void ViewGridInfo(Grid grid, int verbose) {
 //		range[i] = grid.range[i];
 	double	*para = grid.para;
 	double	**coord = grid.coord;
+	double	**dx = grid.dx;
 	int	procs, rank;
 	
 	MPI_Comm_size(MPI_COMM_WORLD, &procs);
@@ -342,6 +343,13 @@ void ViewGridInfo(Grid grid, int verbose) {
 			PetscPrintf(PETSC_COMM_WORLD,"coord[%d]:",i);
 			for (int j=0;j<grid.n[i];j++) {
 				PetscPrintf(PETSC_COMM_WORLD," %f ",coord[i][j]);
+			}
+			PetscPrintf(PETSC_COMM_WORLD,"\n");
+		}
+		for (int i=0;i<dimension;i++) {
+			PetscPrintf(PETSC_COMM_WORLD,"dx[%d]:",i);
+			for (int j=0;j<grid.n[i]-1;j++) {
+				PetscPrintf(PETSC_COMM_WORLD," %f ",dx[i][j]);
 			}
 			PetscPrintf(PETSC_COMM_WORLD,"\n");
 		}

@@ -79,7 +79,6 @@ typedef struct {
 	int		numIter;
 	int		v[2];
 	// For more info; move them to a different struct?
-	int		grids;
 	double		**rNormGrid; // !Remove
 	double		*rNormGlobal; // !Remove
 	// more info ends

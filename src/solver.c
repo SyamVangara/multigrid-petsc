@@ -638,7 +638,7 @@ void levelMatrixA1(Problem *prob, Grids *grids, Solver *solver) {
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	int	nnz	= 3*(grids->topo->dimension); // Number of non-zeros per row
+	int	nnz	= 2*(grids->topo->dimension)+1; // Number of non-zeros per row
 	int	nlevels	= solver->levels->nlevels;
 	Level	*level	= solver->levels->level;
 	Mat	*A	= solver->levels->A;
