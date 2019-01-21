@@ -305,76 +305,76 @@ void DestroyPostProcess(PostProcess *pp) {
 //	}
 //}
 
-//void fillJacobians(Problem *prob, Mesh *mesh, Level *level, int factor, Mat *A) {
-//	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids this level possesses
-//
-//	int		*a, *b;
-//	int		ai, aj, bi, bj;
-//	int		lg;
-//	
-//	int		grids, *gridId;
-//	int		*ranges;
-//	double		As[5];
-//
-//	int		i0, j0, g0;
-//	int		ifine, jfine;
-//
-//	double		metrics[5], **coord;
-//	
-//	int	procs, rank;
-//	
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	coord = mesh->coord;
-//
-//	ai = level->global.ni;
-//	aj = level->global.nj;
-//	a  = level->global.data;
-//
-//	grids = level->ngrids;
-//	gridId = level->gridId;
-//
-//	ranges = level->ranges;	
-//	
-//	// Row-based fill:
-//	for (int row=ranges[rank];row<ranges[rank+1];row++) {
-//		//i0 - row    - y coord
-//		//j0 - column - x coord
-//		//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
-//		i0 = a[row*aj];
-//		j0 = a[row*aj+1];
-//		g0 = a[row*aj+2]; 
-//		for (lg=0;lg<grids;lg++) {if (g0 == gridId[lg]) break;} 
-//		
-//		bi = level->grid[lg].ni;
-//		bj = level->grid[lg].nj;
-//		b  = level->grid[lg].data;
-//		// fine grid point corresponding to (i0, j0)
-//		ifine = ipow(factor,g0)*(i0+1)-1;
-//		jfine = ipow(factor,g0)*(j0+1)-1;
-//		
-//		// Compute metrics (analytically) at physical point corresponding to fine grid point
-//		mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//		prob->OpA(As, metrics, level->h[lg]); // Get coefficients
-//
-//		// Fill the matrix
-//		if (i0-1>=0) {
-//			MatSetValue(*A, row, b[(i0-1)*bj+j0], As[0], ADD_VALUES);
-//		}
-//		if (j0-1>=0) {
-//			MatSetValue(*A, row, b[i0*bj+j0-1], As[1], ADD_VALUES);
-//		}
-//		MatSetValue(*A, row, row, As[2], ADD_VALUES);
-//		if (j0+1<bj) {
-//			MatSetValue(*A, row, b[i0*bj+j0+1], As[3], ADD_VALUES);
-//		}
-//		if (i0+1<bi) {
-//			MatSetValue(*A, row, b[(i0+1)*bj+j0], As[4], ADD_VALUES);
-//		}
-//	}
-//}
-//
+void FD2ndDerivative2ndOrder(double *dx, double del, double *val) {
+	// Gives FD coeffcients in 1D for 2nd derivative with unequal spacings
+	
+	val[0] = -2/(dx[0]*dx[1]);
+	val[1] = 2/(dx[0]*del);
+	val[2] = 2/(dx[1]*del);
+}
+
+void FillGridInteriorMatA2D(int lg, Grid *grid, Level *level, Mat *A) {
+	
+	int igstart = level->ranges[lg];
+	long int *inc = level->inc[lg];
+	
+	int istart = grid->range[0][l[0]];
+	int jstart = grid->range[1][l[1]];
+	int *ln = grid->ln;
+	int *l = grid->topo->blockID;
+	double **coord = grid->coord;
+	double **dx = grid->dx;
+
+	double val[3], del;
+	long int col[3];
+	long int row;
+	
+	// Fill along i^th direction for all points
+	for (int i=1; i<ln[0]-1; i++) {
+		int ic = istart + i;
+		del = coord[0][ic+1]-coord[0][ic-1];
+		FD2ndDerivative2ndOrder(dx[0]+(ic-1), del, val);
+		for (int j=0; j<ln[1]; j++) {
+			int jc = jstart + j;
+			row = igstart + i*inc[0] + j*inc[1];
+			col[0] = row;
+			col[1] = col[0]-inc[0];
+			col[2] = col[0]+inc[0];
+			MatSetValues(A, 1, &row, 3, col, val, ADD_VALUES);
+		}
+	}
+	// Fill along j^th direction for all points
+	for (int j=1; j<ln[1]-1; j++) {
+		int jc = jstart + j;
+		del = coord[1][jc+1] - coord[1][jc-1];
+		FD2ndDerivative2ndOrder(dx[1]+(jc-1), del, val);
+		for (int i=0; i<ln[0]; i++) {
+			int ic = istart + i;
+			row = igstart + i*inc[0] + j*inc[1];
+			col[0] = row;
+			col[1] = col[0]-inc[1];
+			col[2] = col[0]+inc[1];
+			MatSetValues(A, 1, &row, 3, col, val, ADD_VALUES);
+		}
+	}
+}
+
+void FillMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
+	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids this level possesses
+
+	long int *ranges = level->ranges;
+	
+	if (dimension == 2) {
+		for (int lg=0; lg<ngrids; lg++) {
+			FillGridInteriorMatA2D();
+		}
+	else if (dimension == 3) {
+		for (int lg=0; lg<ngrids; lg++) {
+			FillGridInteriorMatA3D();
+		}
+	}
+}
+
 //void fillRestrictionPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
 //	// Fills restriction portions (such as I_h^H A_h) of level Mat A
 //	
@@ -632,7 +632,26 @@ void DestroyPostProcess(PostProcess *pp) {
 //	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
 //}
 
-void levelMatrixA1(Problem *prob, Grids *grids, Solver *solver) {
+void AssembleLevelMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
+	// Build matrix "A" for a given level
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	int	nnz	= 2*(grids->topo->dimension)+1; // Number of non-zeros per row
+	int	ngrids = level->ngrids;
+	int	size = (int) (level->ranges[ngrids] - level->ranges[0]);
+	MatCreateAIJ(PETSC_COMM_WORLD, size, size, PETSC_DETERMINE, PETSC_DETERMINE, nnz, PETSC_NULL, nnz, PETSC_NULL, A);
+
+	FillMatA(prob, grids, level, A);
+//	fillRestrictionPortion(prob, mesh, op, level, factor, A);
+//	fillProlongationPortion(prob, mesh, op, level, factor, A);
+	
+	MatAssemblyBegin(*A, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY);
+}
+
+void AssembleLevels(Problem *prob, Grids *grids, Solver *solver) {
 	// Build matrix "A" for a given level
 	
 	int	rank;
@@ -644,18 +663,10 @@ void levelMatrixA1(Problem *prob, Grids *grids, Solver *solver) {
 	Mat	*A	= solver->levels->A;
 
 	for (int l=0; l<nlevels; l++) {
-		int	ngrids = level[l].ngrids;
-		int	size = (int) (level[l].ranges[ngrids] - level[l].ranges[0]);
-		MatCreateAIJ(PETSC_COMM_WORLD, size, size, PETSC_DETERMINE, PETSC_DETERMINE, nnz, PETSC_NULL, nnz, PETSC_NULL, A+l);
-
-//		fillJacobians(prob, grids, level+l, A+l);
-//		fillRestrictionPortion(prob, mesh, op, level, factor, A);
-//		fillProlongationPortion(prob, mesh, op, level, factor, A);
-		
-		MatAssemblyBegin(A[l], MAT_FINAL_ASSEMBLY);
-		MatAssemblyEnd(A[l], MAT_FINAL_ASSEMBLY);
+		AssembleLevelMatA(prob, grids, level+l, A+l);
 	}
 }
+
 //
 //void levelMatrixA1(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
 //	// Build matrix "A" for a given level
