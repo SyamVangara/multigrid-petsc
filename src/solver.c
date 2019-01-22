@@ -305,12 +305,58 @@ void DestroyPostProcess(PostProcess *pp) {
 //	}
 //}
 
-void FD2ndDerivative2ndOrder(double *dx, double del, double *val) {
-	// Gives FD coeffcients in 1D for 2nd derivative with unequal spacings
+inline double FD2Der2OrderSide(double dx, double del) {
+	// Gives 2nd order FD right point coefficient for 2nd derivative
 	
-	val[0] = -2/(dx[0]*dx[1]);
-	val[1] = 2/(dx[0]*del);
-	val[2] = 2/(dx[1]*del);
+	return 2.0/(dx*del);
+}
+
+inline double FD2Der2OrderMid(double *dx) {
+	// Gives 2nd order FD mid point coefficient for 2nd derivative
+	
+	return -2.0/(dx[0]*dx[1]);
+}
+
+inline void FillDirMatA2D(int igstart, int istart,
+			long int inc0, long int inc1,
+			int ln0, int ln1,
+			double *xcoord, double *dx) {
+	// Fill left, mid and right along a direction
+	
+	double *del = malloc(ln0*sizeof(double));
+	
+	for (int i=0; i<ln0; i++) {
+		int ic = istart + i;
+		del[i] = xcoord[ic+1]-xcoord[ic-1];
+	}
+
+	// Fill "i-center" for all points
+	for (int i=0; i<ln0; i++) {
+		double val = FD2Der2OrderMid(dx+i);
+		for (int j=0; j<ln1; j++) {
+			long int row = igstart + i*inc0 + j*inc1;
+			MatSetValues(A, 1, &row, 1, &row, &val, ADD_VALUES);
+		}
+	}
+	// Fill "i-right" for all points
+	for (int i=0; i<ln0-1; i++) {
+		double val = FD2Der2OrderSide(dx[i+1], del[i]);
+		for (int j=0; j<ln1; j++) {
+			long int row = igstart + i*inc0 + j*inc1;
+			long int col = row+inc0;
+			MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+		}
+	}
+	// Fill "i-left" for all points
+	for (int i=1; i<ln0; i++) {
+		double val = FD2Der2OrderSide(dx[i-1], del[i]);
+		for (int j=0; j<ln1; j++) {
+			long int row = igstart + i*inc0 + j*inc1;
+			long int col = row-inc0;
+			MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+		}
+	}
+	free(del);
 }
 
 void FillGridInteriorMatA2D(int lg, Grid *grid, Level *level, Mat *A) {
@@ -318,45 +364,16 @@ void FillGridInteriorMatA2D(int lg, Grid *grid, Level *level, Mat *A) {
 	int igstart = level->ranges[lg];
 	long int *inc = level->inc[lg];
 	
-	int istart = grid->range[0][l[0]];
-	int jstart = grid->range[1][l[1]];
 	int *ln = grid->ln;
 	int *l = grid->topo->blockID;
-	double **coord = grid->coord;
-	double **dx = grid->dx;
 
-	double val[3], del;
-	long int col[3];
-	long int row;
+	int istart = grid->range[0][l[0]];
+	FillDirMatA2D(igstart, istart, inc[0], inc[1], ln[0], ln[1], 
+			grid->coord[0], grid->dx[0]+(istart-1)); // Fill along i^th direction
 	
-	// Fill along i^th direction for all points
-	for (int i=1; i<ln[0]-1; i++) {
-		int ic = istart + i;
-		del = coord[0][ic+1]-coord[0][ic-1];
-		FD2ndDerivative2ndOrder(dx[0]+(ic-1), del, val);
-		for (int j=0; j<ln[1]; j++) {
-			int jc = jstart + j;
-			row = igstart + i*inc[0] + j*inc[1];
-			col[0] = row;
-			col[1] = col[0]-inc[0];
-			col[2] = col[0]+inc[0];
-			MatSetValues(A, 1, &row, 3, col, val, ADD_VALUES);
-		}
-	}
-	// Fill along j^th direction for all points
-	for (int j=1; j<ln[1]-1; j++) {
-		int jc = jstart + j;
-		del = coord[1][jc+1] - coord[1][jc-1];
-		FD2ndDerivative2ndOrder(dx[1]+(jc-1), del, val);
-		for (int i=0; i<ln[0]; i++) {
-			int ic = istart + i;
-			row = igstart + i*inc[0] + j*inc[1];
-			col[0] = row;
-			col[1] = col[0]-inc[1];
-			col[2] = col[0]+inc[1];
-			MatSetValues(A, 1, &row, 3, col, val, ADD_VALUES);
-		}
-	}
+	int jstart = grid->range[1][l[1]];
+	FillDirMatA2D(igstart, jstart, inc[1], inc[0], ln[1], ln[0], 
+			grid->coord[1], grid->dx[1]+(jstart-1)); // Fill along j^th direction
 }
 
 void FillMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
