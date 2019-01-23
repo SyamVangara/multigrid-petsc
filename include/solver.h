@@ -119,7 +119,7 @@ void SetUpPostProcess(PostProcess *pp);
 void DestroyPostProcess(PostProcess *pp);
 void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp);
 
-void Assemble(Problem *prob, Mesh *mesh, Levels *levels, Operator *op, Solver *solver);
+//void Assemble(Problem *prob, Mesh *mesh, Levels *levels, Operator *op, Solver *solver);
 
 #endif
 

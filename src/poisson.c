@@ -21,6 +21,7 @@ int totalUnknowns(int *n, int totalGrids);
 //void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
 void ViewGridsInfo(Grids grids, int verbose);
 //void ViewIndicesInfo(Indices indices);
+void ViewMatAInfo(Solver solver);
 void ViewLevelsInfo(Solver solver);
 //void ViewIndexMapsInfoLevel(Level level, int l);
 //void ViewIndexMapsInfo(Indices indices);
@@ -78,6 +79,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
+	ViewMatAInfo(solver);
 	ViewLevelsInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
@@ -474,6 +476,10 @@ void ViewLevelsInfo(Solver solver) {
 		ViewLevelInfo(levels->level[l], dimension, 1);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
+}
+
+void ViewMatAInfo(Solver solver) {
+	// Prints the Mat A info of each level
 }
 
 //void ViewIndicesInfo(Indices indices) {

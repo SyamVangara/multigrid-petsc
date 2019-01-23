@@ -163,6 +163,7 @@ int CreateSolver(Grids *grids, Solver *solver) {
 //	solver->assem->moreInfo = solver->moreInfo;	
 //	SetUpAssembly(levels, solver->assem, solver->cycle);
 	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
+	AssembleLevels(grids, solver->levels);
 //	if (solver->moreInfo == 0) return 0;
 //	if (cyc == D1PSCYCLE) {
 //		int	v	= solver->v[0];
@@ -318,10 +319,21 @@ inline double FD2Der2OrderMid(double *dx) {
 }
 
 inline void FillDirMatA2D(int igstart, int istart,
-			long int inc0, long int inc1,
-			int ln0, int ln1,
+			long int inc0, long int inc1, long int inc2,
+			int ln0, int ln1, int ln2,
 			double *xcoord, double *dx) {
 	// Fill left, mid and right along a direction
+	
+	// Fill "i-center" for all points
+	for (int i=0; i<ln0; i++) {
+		double val = FD2Der2OrderMid(dx+i);
+		for (int k=0; k<ln2; k++) {
+			for (int j=0; j<ln1; j++) {
+				long int row = igstart + i*inc0 + j*inc1 + k*inc2;
+				MatSetValues(A, 1, &row, 1, &row, &val, ADD_VALUES);
+			}
+		}
+	}
 	
 	double *del = malloc(ln0*sizeof(double));
 	
@@ -330,30 +342,26 @@ inline void FillDirMatA2D(int igstart, int istart,
 		del[i] = xcoord[ic+1]-xcoord[ic-1];
 	}
 
-	// Fill "i-center" for all points
-	for (int i=0; i<ln0; i++) {
-		double val = FD2Der2OrderMid(dx+i);
-		for (int j=0; j<ln1; j++) {
-			long int row = igstart + i*inc0 + j*inc1;
-			MatSetValues(A, 1, &row, 1, &row, &val, ADD_VALUES);
-		}
-	}
 	// Fill "i-right" for all points
 	for (int i=0; i<ln0-1; i++) {
 		double val = FD2Der2OrderSide(dx[i+1], del[i]);
-		for (int j=0; j<ln1; j++) {
-			long int row = igstart + i*inc0 + j*inc1;
-			long int col = row+inc0;
-			MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+		for (int k=0; k<ln2; k++) {
+			for (int j=0; j<ln1; j++) {
+				long int row = igstart + i*inc0 + j*inc1 + k*inc2;
+				long int col = row+inc0;
+				MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+			}
 		}
 	}
 	// Fill "i-left" for all points
 	for (int i=1; i<ln0; i++) {
 		double val = FD2Der2OrderSide(dx[i-1], del[i]);
-		for (int j=0; j<ln1; j++) {
-			long int row = igstart + i*inc0 + j*inc1;
-			long int col = row-inc0;
-			MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+		for (int k=0; k<ln2; k++) {
+			for (int j=0; j<ln1; j++) {
+				long int row = igstart + i*inc0 + j*inc1 + k*inc2;
+				long int col = row-inc0;
+				MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+			}
 		}
 	}
 	free(del);
@@ -368,26 +376,68 @@ void FillGridInteriorMatA2D(int lg, Grid *grid, Level *level, Mat *A) {
 	int *l = grid->topo->blockID;
 
 	int istart = grid->range[0][l[0]];
-	FillDirMatA2D(igstart, istart, inc[0], inc[1], ln[0], ln[1], 
+	FillDirMatA2D(igstart, istart, inc[0], inc[1], 0, ln[0], ln[1], 1,
 			grid->coord[0], grid->dx[0]+(istart-1)); // Fill along i^th direction
 	
 	int jstart = grid->range[1][l[1]];
-	FillDirMatA2D(igstart, jstart, inc[1], inc[0], ln[1], ln[0], 
+	FillDirMatA2D(igstart, jstart, inc[1], inc[0], 0, ln[1], ln[0], 1,
 			grid->coord[1], grid->dx[1]+(jstart-1)); // Fill along j^th direction
 }
 
-void FillMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
+void FillMatA(Grids *grids, Level *level, Mat *A) {
 	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids this level possesses
 
-	long int *ranges = level->ranges;
+	long int	*ranges = level->ranges;
+	int		*gridId = level->gridId;
+	Grids		*grid = grids->grid;
+	int		*l = grids->topo->blockID;
 	
 	if (dimension == 2) {
 		for (int lg=0; lg<ngrids; lg++) {
-			FillGridInteriorMatA2D();
+			int igstart = ranges[lg];
+			long int *inc = level->inc[lg];
+			int *ln = grid[lg].ln;
+			double *dx = grid[lg].dx[0];
+			double *dy = grid[lg].dx[1];
+			double *xcoord = grid[lg].coord[0];
+			double *ycoord = grid[lg].coord[1];
+			
+			int istart = grid->range[0][l[0]];
+			FillDirMatA2D(igstart, istart, inc[0], inc[1], 0, ln[0], ln[1], 1,
+					xcoord, dx+(istart-1)); // Fill along i^th direction
+			
+			int jstart = grid->range[1][l[1]];
+			FillDirMatA2D(igstart, jstart, inc[1], inc[0], 0, ln[1], ln[0], 1,
+					ycoord, dy+(jstart-1)); // Fill along j^th direction
+//			FillGridInteriorMatA2D(lg, grids->grid+gridId[lg], level, A);
 		}
 	else if (dimension == 3) {
 		for (int lg=0; lg<ngrids; lg++) {
-			FillGridInteriorMatA3D();
+			int igstart = ranges[lg];
+			long int *inc = level->inc[lg];
+			int *ln = grid[lg].ln;
+			double *dx = grid[lg].dx[0];
+			double *dy = grid[lg].dx[1];
+			double *dz = grid[lg].dx[2];
+			double *xcoord = grid[lg].coord[0];
+			double *ycoord = grid[lg].coord[1];
+			double *zcoord = grid[lg].coord[2];
+			
+			int istart = grid->range[0][l[0]];
+			FillDirMatA2D(igstart, istart, inc[0], inc[1], inc[2], 
+					ln[0], ln[1], ln[2], xcoord, 
+					dx+(istart-1)); // Fill along i^th direction
+			
+			int jstart = grid->range[1][l[1]];
+			FillDirMatA2D(igstart, jstart, inc[1], inc[0], inc[2], 
+					ln[1], ln[0], ln[2], ycoord, 
+					dy+(jstart-1)); // Fill along j^th direction
+			
+			int kstart = grid->range[2][l[2]];
+			FillDirMatA2D(igstart, kstart, inc[2], inc[0], inc[1], 
+					ln[2], ln[0], ln[1], zcoord, 
+					dz+(kstart-1)); // Fill along z^th direction
+//			FillGridInteriorMatA3D();
 		}
 	}
 }
@@ -649,11 +699,8 @@ void FillMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
 //	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
 //}
 
-void AssembleLevelMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
+void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 	// Build matrix "A" for a given level
-	
-	int	rank;
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	int	nnz	= 2*(grids->topo->dimension)+1; // Number of non-zeros per row
 	int	ngrids = level->ngrids;
@@ -668,19 +715,15 @@ void AssembleLevelMatA(Problem *prob, Grids *grids, Level *level, Mat *A) {
 	MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY);
 }
 
-void AssembleLevels(Problem *prob, Grids *grids, Solver *solver) {
+void AssembleLevels(Grids *grids, Levels *levels) {
 	// Build matrix "A" for a given level
 	
-	int	rank;
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	int	nnz	= 2*(grids->topo->dimension)+1; // Number of non-zeros per row
-	int	nlevels	= solver->levels->nlevels;
-	Level	*level	= solver->levels->level;
-	Mat	*A	= solver->levels->A;
+	int	nlevels	= levels->nlevels;
+	Level	*level	= levels->level;
+	Mat	*A	= levels->A;
 
 	for (int l=0; l<nlevels; l++) {
-		AssembleLevelMatA(prob, grids, level+l, A+l);
+		AssembleLevelMatA(grids, level+l, A+l);
 	}
 }
 
