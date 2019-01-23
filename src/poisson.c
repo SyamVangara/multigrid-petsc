@@ -480,6 +480,11 @@ void ViewLevelsInfo(Solver solver) {
 
 void ViewMatAInfo(Solver solver) {
 	// Prints the Mat A info of each level
+	
+	int nlevels = solver.levels->nlevels;
+	Mat *A = solver.levels->A;
+	
+	for (int l=0; l<nlevels; l++) MatView(A[l], PETSC_VIEWER_STDOUT_WORLD);
 }
 
 //void ViewIndicesInfo(Indices indices) {

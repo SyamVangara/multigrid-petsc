@@ -115,76 +115,6 @@ void InitializeSolver(Solver *solver) {
 	solver->levels	= NULL;
 }
 
-int CreateSolver(Grids *grids, Solver *solver) {
-	// Allocates memory to Solver struct
-	
-	int	ierr = 0;
-	
-	if (!grids || !solver) {
-		pERROR_MSG("NULL pointers encountered");
-		return 1;
-	}
-	InitializeSolver(solver);
-
-	PetscBool	set;	
-	ierr = PetscOptionsGetInt(NULL, NULL, "-cycle", &(solver->cycle), &set);
-	if (!set || ierr) {
-		PetscBarrier(PETSC_NULL);
-		pERROR_MSG("Type of MG cycle for solver not set");
-		pERROR_MSG("Set '-cycle n' for n-th type cycle");
-		return 1;
-	} else if (solver->cycle > 4) {
-		PetscBarrier(PETSC_NULL);
-		pERROR_MSG("Selected MG cycle doesn't exist");
-		return 1;
-	}
-	solver->moreInfo = 0;
-//	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver->moreInfo), NULL);
-	ierr = PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
-	if (!set || ierr) {
-		PetscBarrier(PETSC_NULL);
-		pERROR_MSG("Number of iterations not set");
-		pERROR_MSG("Set '-iter n' for n iterations");
-		return 1;
-	}
-	int	vmax = 2;
-	ierr = PetscOptionsGetIntArray(NULL, NULL, "-v", solver->v, &vmax, &set);
-	if (!set || vmax < 2 || ierr) {
-		PetscBarrier(PETSC_NULL);
-		pERROR_MSG("No. of smoothing steps and coarse solver iterations not set properly");
-		pERROR_MSG("Set '-v v1,v2' for v1 smoothing steps and v2 coarse solve iterations");
-		return 1;
-	}
-//	solver->cycle = cyc;
-//	solver->moreInfo = moreInfo;
-	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
-//	solver->assem = malloc(sizeof(Assembly));
-	solver->levels = malloc(sizeof(Levels));
-//	solver->assem->moreInfo = solver->moreInfo;	
-//	SetUpAssembly(levels, solver->assem, solver->cycle);
-	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
-	AssembleLevels(grids, solver->levels);
-//	if (solver->moreInfo == 0) return 0;
-//	if (cyc == D1PSCYCLE) {
-//		int	v	= solver->v[0];
-//		solver->grids	= levels->level->ngrids;
-//		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
-//		for (int i=0; i<solver->grids; i++) {
-//			solver->rNormGrid[i] = malloc(numIter*2*(v+1)*sizeof(double));
-//		}
-//		solver->rNormGlobal = malloc(numIter*2*(v+1)*sizeof(double));
-//	} else if (cyc == D1CYCLE || cyc == D2CYCLE) {
-//		int	v	= solver->v[0];
-//		solver->grids	= levels->level->ngrids;
-//		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
-//		for (int i=0; i<solver->grids; i++) {
-//			solver->rNormGrid[i] = malloc(numIter*(v+1)*sizeof(double));
-//		}
-//		solver->rNormGlobal = malloc(numIter*(v+1)*sizeof(double));
-//	}
-	return 0;
-}
-
 void DestroySolver(Solver *solver) {
 	// Free the memory in Solver struct
 	
@@ -321,7 +251,7 @@ inline double FD2Der2OrderMid(double *dx) {
 inline void FillDirMatA2D(int igstart, int istart,
 			long int inc0, long int inc1, long int inc2,
 			int ln0, int ln1, int ln2,
-			double *xcoord, double *dx) {
+			double *xcoord, double *dx, Mat *A) {
 	// Fill left, mid and right along a direction
 	
 	// Fill "i-center" for all points
@@ -329,8 +259,8 @@ inline void FillDirMatA2D(int igstart, int istart,
 		double val = FD2Der2OrderMid(dx+i);
 		for (int k=0; k<ln2; k++) {
 			for (int j=0; j<ln1; j++) {
-				long int row = igstart + i*inc0 + j*inc1 + k*inc2;
-				MatSetValues(A, 1, &row, 1, &row, &val, ADD_VALUES);
+				int row = igstart + i*inc0 + j*inc1 + k*inc2;
+				MatSetValues(*A, 1, &row, 1, &row, &val, ADD_VALUES);
 			}
 		}
 	}
@@ -347,9 +277,9 @@ inline void FillDirMatA2D(int igstart, int istart,
 		double val = FD2Der2OrderSide(dx[i+1], del[i]);
 		for (int k=0; k<ln2; k++) {
 			for (int j=0; j<ln1; j++) {
-				long int row = igstart + i*inc0 + j*inc1 + k*inc2;
-				long int col = row+inc0;
-				MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+				int row = igstart + i*inc0 + j*inc1 + k*inc2;
+				int col = row+inc0;
+				MatSetValues(*A, 1, &row, 1, &col, &val, ADD_VALUES);
 			}
 		}
 	}
@@ -358,9 +288,9 @@ inline void FillDirMatA2D(int igstart, int istart,
 		double val = FD2Der2OrderSide(dx[i-1], del[i]);
 		for (int k=0; k<ln2; k++) {
 			for (int j=0; j<ln1; j++) {
-				long int row = igstart + i*inc0 + j*inc1 + k*inc2;
-				long int col = row-inc0;
-				MatSetValues(A, 1, &row, 1, &col, &val, ADD_VALUES);
+				int row = igstart + i*inc0 + j*inc1 + k*inc2;
+				int col = row-inc0;
+				MatSetValues(*A, 1, &row, 1, &col, &val, ADD_VALUES);
 			}
 		}
 	}
@@ -377,66 +307,70 @@ void FillGridInteriorMatA2D(int lg, Grid *grid, Level *level, Mat *A) {
 
 	int istart = grid->range[0][l[0]];
 	FillDirMatA2D(igstart, istart, inc[0], inc[1], 0, ln[0], ln[1], 1,
-			grid->coord[0], grid->dx[0]+(istart-1)); // Fill along i^th direction
+			grid->coord[0], grid->dx[0]+(istart-1), A); // Fill along i^th direction
 	
 	int jstart = grid->range[1][l[1]];
 	FillDirMatA2D(igstart, jstart, inc[1], inc[0], 0, ln[1], ln[0], 1,
-			grid->coord[1], grid->dx[1]+(jstart-1)); // Fill along j^th direction
+			grid->coord[1], grid->dx[1]+(jstart-1), A); // Fill along j^th direction
 }
 
 void FillMatA(Grids *grids, Level *level, Mat *A) {
 	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids this level possesses
 
 	long int	*ranges = level->ranges;
+	int		ngrids = level->ngrids;
 	int		*gridId = level->gridId;
-	Grids		*grid = grids->grid;
+	Grid		*grid = grids->grid;
 	int		*l = grids->topo->blockID;
+	int		dimension = grids->topo->dimension;
 	
 	if (dimension == 2) {
 		for (int lg=0; lg<ngrids; lg++) {
 			int igstart = ranges[lg];
 			long int *inc = level->inc[lg];
-			int *ln = grid[lg].ln;
-			double *dx = grid[lg].dx[0];
-			double *dy = grid[lg].dx[1];
-			double *xcoord = grid[lg].coord[0];
-			double *ycoord = grid[lg].coord[1];
+			int g = gridId[lg];
+			int *ln = grid[g].ln;
+			double *dx = grid[g].dx[0];
+			double *dy = grid[g].dx[1];
+			double *xcoord = grid[g].coord[0];
+			double *ycoord = grid[g].coord[1];
 			
-			int istart = grid->range[0][l[0]];
+			int istart = grid[g].range[0][l[0]];
 			FillDirMatA2D(igstart, istart, inc[0], inc[1], 0, ln[0], ln[1], 1,
-					xcoord, dx+(istart-1)); // Fill along i^th direction
+					xcoord, dx+(istart-1), A); // Fill along i^th direction
 			
-			int jstart = grid->range[1][l[1]];
+			int jstart = grid[g].range[1][l[1]];
 			FillDirMatA2D(igstart, jstart, inc[1], inc[0], 0, ln[1], ln[0], 1,
-					ycoord, dy+(jstart-1)); // Fill along j^th direction
+					ycoord, dy+(jstart-1), A); // Fill along j^th direction
 //			FillGridInteriorMatA2D(lg, grids->grid+gridId[lg], level, A);
 		}
-	else if (dimension == 3) {
+	} else if (dimension == 3) {
 		for (int lg=0; lg<ngrids; lg++) {
 			int igstart = ranges[lg];
 			long int *inc = level->inc[lg];
-			int *ln = grid[lg].ln;
-			double *dx = grid[lg].dx[0];
-			double *dy = grid[lg].dx[1];
-			double *dz = grid[lg].dx[2];
-			double *xcoord = grid[lg].coord[0];
-			double *ycoord = grid[lg].coord[1];
-			double *zcoord = grid[lg].coord[2];
+			int g = gridId[lg];
+			int *ln = grid[g].ln;
+			double *dx = grid[g].dx[0];
+			double *dy = grid[g].dx[1];
+			double *dz = grid[g].dx[2];
+			double *xcoord = grid[g].coord[0];
+			double *ycoord = grid[g].coord[1];
+			double *zcoord = grid[g].coord[2];
 			
-			int istart = grid->range[0][l[0]];
+			int istart = grid[g].range[0][l[0]];
 			FillDirMatA2D(igstart, istart, inc[0], inc[1], inc[2], 
 					ln[0], ln[1], ln[2], xcoord, 
-					dx+(istart-1)); // Fill along i^th direction
+					dx+(istart-1), A); // Fill along i^th direction
 			
-			int jstart = grid->range[1][l[1]];
+			int jstart = grid[g].range[1][l[1]];
 			FillDirMatA2D(igstart, jstart, inc[1], inc[0], inc[2], 
 					ln[1], ln[0], ln[2], ycoord, 
-					dy+(jstart-1)); // Fill along j^th direction
+					dy+(jstart-1), A); // Fill along j^th direction
 			
-			int kstart = grid->range[2][l[2]];
+			int kstart = grid[g].range[2][l[2]];
 			FillDirMatA2D(igstart, kstart, inc[2], inc[0], inc[1], 
 					ln[2], ln[0], ln[1], zcoord, 
-					dz+(kstart-1)); // Fill along z^th direction
+					dz+(kstart-1), A); // Fill along z^th direction
 //			FillGridInteriorMatA3D();
 		}
 	}
@@ -707,7 +641,7 @@ void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 	int	size = (int) (level->ranges[ngrids] - level->ranges[0]);
 	MatCreateAIJ(PETSC_COMM_WORLD, size, size, PETSC_DETERMINE, PETSC_DETERMINE, nnz, PETSC_NULL, nnz, PETSC_NULL, A);
 
-	FillMatA(prob, grids, level, A);
+	FillMatA(grids, level, A);
 //	fillRestrictionPortion(prob, mesh, op, level, factor, A);
 //	fillProlongationPortion(prob, mesh, op, level, factor, A);
 	
@@ -725,6 +659,76 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	for (int l=0; l<nlevels; l++) {
 		AssembleLevelMatA(grids, level+l, A+l);
 	}
+}
+
+int CreateSolver(Grids *grids, Solver *solver) {
+	// Allocates memory to Solver struct
+	
+	int	ierr = 0;
+	
+	if (!grids || !solver) {
+		pERROR_MSG("NULL pointers encountered");
+		return 1;
+	}
+	InitializeSolver(solver);
+
+	PetscBool	set;	
+	ierr = PetscOptionsGetInt(NULL, NULL, "-cycle", &(solver->cycle), &set);
+	if (!set || ierr) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Type of MG cycle for solver not set");
+		pERROR_MSG("Set '-cycle n' for n-th type cycle");
+		return 1;
+	} else if (solver->cycle > 4) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Selected MG cycle doesn't exist");
+		return 1;
+	}
+	solver->moreInfo = 0;
+//	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver->moreInfo), NULL);
+	ierr = PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
+	if (!set || ierr) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Number of iterations not set");
+		pERROR_MSG("Set '-iter n' for n iterations");
+		return 1;
+	}
+	int	vmax = 2;
+	ierr = PetscOptionsGetIntArray(NULL, NULL, "-v", solver->v, &vmax, &set);
+	if (!set || vmax < 2 || ierr) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("No. of smoothing steps and coarse solver iterations not set properly");
+		pERROR_MSG("Set '-v v1,v2' for v1 smoothing steps and v2 coarse solve iterations");
+		return 1;
+	}
+//	solver->cycle = cyc;
+//	solver->moreInfo = moreInfo;
+	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
+//	solver->assem = malloc(sizeof(Assembly));
+	solver->levels = malloc(sizeof(Levels));
+//	solver->assem->moreInfo = solver->moreInfo;	
+//	SetUpAssembly(levels, solver->assem, solver->cycle);
+	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
+	AssembleLevels(grids, solver->levels);
+//	if (solver->moreInfo == 0) return 0;
+//	if (cyc == D1PSCYCLE) {
+//		int	v	= solver->v[0];
+//		solver->grids	= levels->level->ngrids;
+//		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
+//		for (int i=0; i<solver->grids; i++) {
+//			solver->rNormGrid[i] = malloc(numIter*2*(v+1)*sizeof(double));
+//		}
+//		solver->rNormGlobal = malloc(numIter*2*(v+1)*sizeof(double));
+//	} else if (cyc == D1CYCLE || cyc == D2CYCLE) {
+//		int	v	= solver->v[0];
+//		solver->grids	= levels->level->ngrids;
+//		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
+//		for (int i=0; i<solver->grids; i++) {
+//			solver->rNormGrid[i] = malloc(numIter*(v+1)*sizeof(double));
+//		}
+//		solver->rNormGlobal = malloc(numIter*(v+1)*sizeof(double));
+//	}
+	return 0;
 }
 
 //
