@@ -297,25 +297,9 @@ inline void FillDirMatA(int igstart, int istart,
 	free(del);
 }
 
-//void FillGridInteriorMatA2D(int lg, Grid *grid, Level *level, Mat *A) {
-//	
-//	int igstart = level->ranges[lg];
-//	long int *inc = level->inc[lg];
-//	
-//	int *ln = grid->ln;
-//	int *l = grid->topo->blockID;
-//
-//	int istart = grid->range[0][l[0]];
-//	FillDirMatA2D(igstart, istart, inc[0], inc[1], 0, ln[0], ln[1], 1,
-//			grid->coord[0], grid->dx[0]+(istart-1), A); // Fill along i^th direction
-//	
-//	int jstart = grid->range[1][l[1]];
-//	FillDirMatA2D(igstart, jstart, inc[1], inc[0], 0, ln[1], ln[0], 1,
-//			grid->coord[1], grid->dx[1]+(jstart-1), A); // Fill along j^th direction
-//}
-
 inline void FillBCDirMatA(long int igstart, long int istart, 
-			long int bcStartIndex0, long int bcStartIndex1,
+			long int bcStartIndex0, long int bcinc01, long int bcinc02, 
+			long int bcStartIndex1, long int bcinc11, long int bcinc12,
 			long int inc0, long int inc1, long int inc2,
 			int ln0, int ln1, int ln2,
 			double *dx, double *coord, Mat *A) {
@@ -329,7 +313,7 @@ inline void FillBCDirMatA(long int igstart, long int istart,
 	for (int k=0; k<ln2; k++) {
 		for (int j=0; j<ln1; j++) {
 			int row = igstart + j*inc1 + k*inc2;
-			int col = bcStartIndex0 + j*inc1 + k*inc2;
+			int col = bcStartIndex0 + j*bcinc01 + k*bcinc02;
 			MatSetValues(*A, 1, &row, 1, &col, &val, ADD_VALUES);
 		}
 	}
@@ -339,8 +323,8 @@ inline void FillBCDirMatA(long int igstart, long int istart,
 	val = FD2Der2OrderSide(dx[istart+ln0-1], del);
 	for (int k=0; k<ln2; k++) {
 		for (int j=0; j<ln1; j++) {
-			int row = igstart + ln0*inc0 + j*inc1 + k*inc2;
-			int col = bcStartIndex1 + j*inc1 + k*inc2;
+			int row = igstart + (ln0-1)*inc0 + j*inc1 + k*inc2;
+			int col = bcStartIndex1 + j*bcinc11 + k*bcinc12;
 			MatSetValues(*A, 1, &row, 1, &col, &val, ADD_VALUES);
 		}
 	}
@@ -376,16 +360,21 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 			int jstart = grid[g].range[1][l[1]];
 			FillDirMatA(igstart, jstart, inc[1], inc[0], 0, ln[1], ln[0], 1,
 					ycoord, dy+(jstart-1), A); // Fill along j^th direction
-			long int bcStartIndex0 = level->bcindices[lg][0][0].bcStartIndex;
+			long int bcStartIndex0	= level->bcindices[lg][0][0].bcStartIndex;
 			long int bcStartIndex1 = level->bcindices[lg][0][1].bcStartIndex;
-			FillBCDirMatA(igstart, istart, bcStartIndex0, bcStartIndex1,
-			inc[0], inc[1], 0, ln[0], ln[1], 1, dx, xcoord, A);
+			long int *bcinc0	= level->bcindices[lg][0][0].bcInc;
+			long int *bcinc1	= level->bcindices[lg][0][1].bcInc;
+			FillBCDirMatA(igstart, istart, bcStartIndex0, bcinc0[1], 0, 
+				bcStartIndex1, bcinc1[1], 0, 
+				inc[0], inc[1], 0, ln[0], ln[1], 1, dx, xcoord, A);
 			
 			bcStartIndex0 = level->bcindices[lg][1][0].bcStartIndex;
 			bcStartIndex1 = level->bcindices[lg][1][1].bcStartIndex;
-			FillBCDirMatA(igstart, jstart, bcStartIndex0, bcStartIndex1,
-			inc[1], inc[0], 0, ln[1], ln[0], 1, dy, ycoord, A);
-//			FillGridInteriorMatA2D(lg, grids->grid+gridId[lg], level, A);
+			bcinc0	= level->bcindices[lg][1][0].bcInc;
+			bcinc1	= level->bcindices[lg][1][1].bcInc;
+			FillBCDirMatA(igstart, jstart, bcStartIndex0,  bcinc0[0], 0,
+				bcStartIndex1, bcinc0[0], 0,
+				inc[1], inc[0], 0, ln[1], ln[0], 1, dy, ycoord, A);
 		}
 	} else if (dimension == 3) {
 		for (int lg=0; lg<ngrids; lg++) {
@@ -401,6 +390,7 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 			double *zcoord = grid[g].coord[2];
 			
 			if (ln[0] == 0 || ln[1] == 0 || ln[2] == 0) continue;
+			// Contributions from within block
 			int istart = grid[g].range[0][l[0]];
 			FillDirMatA(igstart, istart, inc[0], inc[1], inc[2], 
 					ln[0], ln[1], ln[2], xcoord, 
@@ -416,21 +406,30 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 					ln[2], ln[0], ln[1], zcoord, 
 					dz+(kstart-1), A); // Fill along z^th direction
 			
-			long int bcStartIndex0 = level->bcindices[lg][0][0].bcStartIndex;
-			long int bcStartIndex1 = level->bcindices[lg][0][1].bcStartIndex;
-			FillBCDirMatA(igstart, istart, bcStartIndex0, bcStartIndex1,
-			inc[0], inc[1], inc[2], ln[0], ln[1], ln[2], dx, xcoord, A);
+			// Contributions from adjacent blocks
+			long int bcStartIndex0	= level->bcindices[lg][0][0].bcStartIndex;
+			long int bcStartIndex1	= level->bcindices[lg][0][1].bcStartIndex;
+			long int *bcinc0	= level->bcindices[lg][0][0].bcInc;
+			long int *bcinc1	= level->bcindices[lg][0][1].bcInc;
+			FillBCDirMatA(igstart, istart, bcStartIndex0, bcinc0[1], bcinc0[2],
+				bcStartIndex1,  bcinc1[1], bcinc1[2],
+				inc[0], inc[1], inc[2], ln[0], ln[1], ln[2], dx, xcoord, A);
 			
 			bcStartIndex0 = level->bcindices[lg][1][0].bcStartIndex;
 			bcStartIndex1 = level->bcindices[lg][1][1].bcStartIndex;
-			FillBCDirMatA(igstart, jstart, bcStartIndex0, bcStartIndex1,
-			inc[1], inc[0], inc[2], ln[1], ln[0], ln[2], dy, ycoord, A);
+			bcinc0	= level->bcindices[lg][1][0].bcInc;
+			bcinc1	= level->bcindices[lg][1][1].bcInc;
+			FillBCDirMatA(igstart, jstart, bcStartIndex0, bcinc0[0], bcinc0[2], 
+				bcStartIndex1, bcinc1[0], bcinc1[2],
+				inc[1], inc[0], inc[2], ln[1], ln[0], ln[2], dy, ycoord, A);
 			
 			bcStartIndex0 = level->bcindices[lg][2][0].bcStartIndex;
 			bcStartIndex1 = level->bcindices[lg][2][1].bcStartIndex;
-			FillBCDirMatA(igstart, kstart, bcStartIndex0, bcStartIndex1,
-			inc[2], inc[0], inc[1], ln[2], ln[0], ln[1], dz, zcoord, A);
-//			FillGridInteriorMatA3D();
+			bcinc0	= level->bcindices[lg][2][0].bcInc;
+			bcinc1	= level->bcindices[lg][2][1].bcInc;
+			FillBCDirMatA(igstart, kstart, bcStartIndex0, bcinc0[0], bcinc0[1], 
+				bcStartIndex1, bcinc1[0], bcinc1[1],
+				inc[2], inc[0], inc[1], ln[2], ln[0], ln[1], dz, zcoord, A);
 		}
 	}
 }
