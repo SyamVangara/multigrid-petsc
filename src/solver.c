@@ -707,16 +707,90 @@ void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 	MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY);
 }
 
+double RHSfunc2D(double x, double y) {
+	// Gives the f(x,y)
+	
+	return -2*PI*PI*sin(PI*x)*sin(PI*y);
+}
+
+double RHSfunc3D(double x, double y, double z) {
+	// Gives the f(x,y)
+	
+	return -3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z);
+}
+
+void FillLevelVecb(int lg, Grid *grid, Level *level, Vec *b) {
+	// Builds vector "b" for a given grid "lg" in a given level
+	
+	int *blockId = grid->topo->blockID;
+	int dimension = grid->topo->dimension;
+
+	int g	= level->gridId[lg];
+	long int *inc = level->inc[lg];
+	int igstart = level->ranges[lg];
+	
+	int *ln	= grid[g].ln;
+	int tln = grid[g].tln;
+	
+	double *val = malloc(tln*sizeof(double));
+	int *row = malloc(tln*sizeof(int));
+	
+	VecSet(*b, 0.0);
+	if (dimension == 3) {
+		int istart = grid[g].range[0][blockId[0]];
+		int jstart = grid[g].range[1][blockId[1]];
+		int kstart = grid[g].range[2][blockId[2]];
+
+		double *xcoord = grid[g].coord[0];
+		double *ycoord = grid[g].coord[1];
+		double *zcoord = grid[g].coord[2];
+		
+		int count = 0;
+		for (int k=0; k<ln[2]; k++) {
+			for (int j=0; j<ln[1]; j++) {
+				for (int i=0; i<ln[0]; i++) {
+					row[count] = igstart + i*inc[0] + j*inc[1] + k*inc[2];
+					val[count] = RHSfunc3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+					count++;
+				}
+			}
+		}
+	} else if (dimension == 2) {
+		int istart = grid[g].range[0][blockId[0]];
+		int jstart = grid[g].range[1][blockId[1]];
+
+		double *xcoord = grid[g].coord[0];
+		double *ycoord = grid[g].coord[1];
+		
+		int count = 0;
+		for (int j=0; j<ln[1]; j++) {
+			for (int i=0; i<ln[0]; i++) {
+				row[count] = igstart + i*inc[0] + j*inc[1];
+				val[count] = RHSfunc2D(xcoord[istart+i], ycoord[jstart+j]);
+				count++;
+			}
+		}
+	}
+	VecSetValues(*b, tln, row, val, ADD_VALUES);
+	free(row);	
+	free(val);	
+}
+
 void AssembleLevels(Grids *grids, Levels *levels) {
 	// Build matrix "A" for a given level
 	
 	int	nlevels	= levels->nlevels;
 	Level	*level	= levels->level;
 	Mat	*A	= levels->A;
+	Vec	*b	= levels->b;
+	Vec	*u	= levels->u;
 
 	for (int l=0; l<nlevels; l++) {
 		AssembleLevelMatA(grids, level+l, A+l);
 	}
+	MatCreateVecs(A[0], b, u);
+	FillLevelVecb(0, grids->grid, level, b);
+	
 }
 
 int CreateSolver(Grids *grids, Solver *solver) {

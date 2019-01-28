@@ -320,6 +320,8 @@ void InitializeLevel(Level *level) {
 
 void InitializeLevels(Levels *levels) {
 	levels->A = NULL;
+	levels->b = NULL;
+	levels->u = NULL;
 	levels->level = NULL;
 }
 
@@ -404,6 +406,8 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	}
 	
 	levels->A = malloc(levels->nlevels*sizeof(Mat));
+	levels->b = malloc(levels->nlevels*sizeof(Vec));
+	levels->u = malloc(levels->nlevels*sizeof(Vec));
 	levels->level = malloc(levels->nlevels*sizeof(Level));
 	for (int i=0; i<levels->nlevels; i++) InitializeLevel(levels->level+i);
 
@@ -446,7 +450,20 @@ void DestroyLevels(Levels *levels) {
 	// Free the memory allocated to indices
 	
 	if (!levels) return;
-	if (levels->A) free(levels->A);
+	if (levels->A) {
+		for (int l=0; l<levels->nlevels; l++) {
+			MatDestroy(levels->A+l);
+		}
+		free(levels->A);
+	}
+	if (levels->b) {
+		VecDestroy(levels->b);
+		free(levels->b);
+	}
+	if (levels->u) {
+		VecDestroy(levels->u);
+		free(levels->u);
+	}
 	if (levels->level) {
 		for (int l=0;l<levels->nlevels;l++) {
 			if (levels->level[l].gridId) free(levels->level[l].gridId);

@@ -22,6 +22,7 @@ int totalUnknowns(int *n, int totalGrids);
 void ViewGridsInfo(Grids grids, int verbose);
 //void ViewIndicesInfo(Indices indices);
 void ViewMatAInfo(Solver solver);
+void ViewVecbInfo(Solver solver);
 void ViewLevelsInfo(Solver solver);
 //void ViewIndexMapsInfoLevel(Level level, int l);
 //void ViewIndexMapsInfo(Indices indices);
@@ -79,8 +80,9 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewMatAInfo(solver);
 	ViewLevelsInfo(solver);
+//	ViewMatAInfo(solver);
+	ViewVecbInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
 
@@ -485,6 +487,12 @@ void ViewMatAInfo(Solver solver) {
 	Mat *A = solver.levels->A;
 	
 	for (int l=0; l<nlevels; l++) MatView(A[l], PETSC_VIEWER_STDOUT_WORLD);
+}
+
+void ViewVecbInfo(Solver solver) {
+	// Prints the Vec b info of first of first level
+	
+	VecView(solver.levels->b[0], PETSC_VIEWER_STDOUT_WORLD);
 }
 
 //void ViewIndicesInfo(Indices indices) {
