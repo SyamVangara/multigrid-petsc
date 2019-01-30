@@ -719,6 +719,22 @@ double RHSfunc3D(double x, double y, double z) {
 	return -3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z);
 }
 
+void ApplyBCLevelVecb(Grids *grids, Level *level, Vec *b) {
+	// Apply BC to RHS for first grid in the given level
+	
+	Grid	*grid = grids->grid;
+	int	g = level->gridId[0];
+	int	*ln = grid[g].ln;
+	int	tln = grid[g].tln;
+	int	dimension = grids->topo->dimension;
+	
+	if (tln == 0) return;
+
+	if (dimension == 2) {
+	} else if (dimension == 3) {
+	}
+}
+
 void FillLevelVecb(int lg, Grid *grid, Level *level, Vec *b) {
 	// Builds vector "b" for a given grid "lg" in a given level
 	
@@ -790,7 +806,7 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	}
 	MatCreateVecs(A[0], b, u);
 	FillLevelVecb(0, grids->grid, level, b);
-	
+	ApplyBCLevelVecb();
 }
 
 int CreateSolver(Grids *grids, Solver *solver) {
