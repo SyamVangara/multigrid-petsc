@@ -719,6 +719,71 @@ double RHSfunc3D(double x, double y, double z) {
 	return -3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z);
 }
 
+double Sol2D(double x, double y) {
+	// Gives the f(x,y)
+	
+	return sin(PI*x)*sin(PI*y);
+}
+
+double Sol3D(double x, double y, double z) {
+	// Gives the f(x,y)
+	
+	return sin(PI*x)*sin(PI*y)*sin(PI*z);
+}
+
+inline void ApplyDirBCLevelVecb(Grid *grid, Level *level,  Vec *b) {
+	
+	double	*xcoord = grid->coord[0];
+	double	*ycoord = grid->coord[1];
+	double	*zcoord = grid->coord[2];
+	double	**dx = grid->dx;
+	int	*blockID = grid->topo->blockID;
+	long int istart = grid->range[0][blockID[0]];
+	long int jstart = grid->range[1][blockID[1]];
+	long int kstart = grid->range[2][blockID[2]];
+	int	*ln = grid->ln;
+
+	long int igstart = level->ranges[0];
+	long int *inc = level->inc[0];
+	long int bcrank0 = level->bcindices[0][0][0].rank;
+	long int bcrank1 = level->bcindices[0][0][1].rank;
+
+	double *val = malloc(ln[2]*ln[1]*sizeof(double));
+	int *row = malloc(ln[2]*ln[1]*sizeof(int));
+	
+	double del = xcoord[istart+1]-xcoord[istart-1];
+	double coeff = FD2Der2OrderSide(dx[0][istart-1], del);
+	int count = 0;
+	if (bcrank0 < 0) {
+	for (int k=0; k<ln[2]; k++) {
+		for (int j=0; j<ln[1]; j++) {
+			row[count] = igstart + j*inc[1] + k*inc[2];
+			val[count] = -1*coeff*Sol3D(xcoord[istart-1], ycoord[jstart+j], zcoord[kstart+k]);
+			count++;
+		}
+	}
+	VecSetValues(*b, ln[2]*ln[1], row, val, ADD_VALUES);
+	}
+	
+	if (bcrank1 < 0) {
+	del = xcoord[istart+ln[0]]-xcoord[istart+ln[0]-2];
+	coeff = FD2Der2OrderSide(dx[0][istart+ln0-1], del);
+	igstart = igstart + (ln[0]-1)*inc[0];
+	count = 0;
+	for (int k=0; k<ln[2]; k++) {
+		for (int j=0; j<ln[1]; j++) {
+			row[count] = igstart + j*inc[1] + k*inc[2];
+			val[count] = -1*coeff*Sol3D(xcoord[istart+ln[0]], ycoord[jstart+j], zcoord[kstart+k]);
+			count++;
+		}
+	}
+	VecSetValues(*b, ln[2]*ln[1], row, val, ADD_VALUES);
+	}
+	
+	free(row);	
+	free(val);	
+}
+
 void ApplyBCLevelVecb(Grids *grids, Level *level, Vec *b) {
 	// Apply BC to RHS for first grid in the given level
 	
