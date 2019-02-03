@@ -731,33 +731,36 @@ double Sol3D(double x, double y, double z) {
 	return sin(PI*x)*sin(PI*y)*sin(PI*z);
 }
 
-inline void ApplyDirBCLevelVecb(Grid *grid, Level *level,  Vec *b) {
+void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	
 	double	*xcoord = grid->coord[0];
 	double	*ycoord = grid->coord[1];
 	double	*zcoord = grid->coord[2];
-	double	**dx = grid->dx;
+	double	*dx = grid->dx[0];
+	double	*dy = grid->dx[1];
+	double	*dz = grid->dx[2];
 	int	*blockID = grid->topo->blockID;
 	long int istart = grid->range[0][blockID[0]];
 	long int jstart = grid->range[1][blockID[1]];
 	long int kstart = grid->range[2][blockID[2]];
 	int	*ln = grid->ln;
 
-	long int igstart = level->ranges[0];
+	long int gstart = level->ranges[0];
 	long int *inc = level->inc[0];
-	long int bcrank0 = level->bcindices[0][0][0].rank;
-	long int bcrank1 = level->bcindices[0][0][1].rank;
 
+	// Along i^th-direction 
 	double *val = malloc(ln[2]*ln[1]*sizeof(double));
 	int *row = malloc(ln[2]*ln[1]*sizeof(int));
 	
+	long int bcrank0 = level->bcindices[0][0][0].rank;
+	long int bcrank1 = level->bcindices[0][0][1].rank;
 	double del = xcoord[istart+1]-xcoord[istart-1];
-	double coeff = FD2Der2OrderSide(dx[0][istart-1], del);
+	double coeff = FD2Der2OrderSide(dx[istart-1], del);
 	int count = 0;
 	if (bcrank0 < 0) {
 	for (int k=0; k<ln[2]; k++) {
 		for (int j=0; j<ln[1]; j++) {
-			row[count] = igstart + j*inc[1] + k*inc[2];
+			row[count] = gstart + j*inc[1] + k*inc[2];
 			val[count] = -1*coeff*Sol3D(xcoord[istart-1], ycoord[jstart+j], zcoord[kstart+k]);
 			count++;
 		}
@@ -767,8 +770,8 @@ inline void ApplyDirBCLevelVecb(Grid *grid, Level *level,  Vec *b) {
 	
 	if (bcrank1 < 0) {
 	del = xcoord[istart+ln[0]]-xcoord[istart+ln[0]-2];
-	coeff = FD2Der2OrderSide(dx[0][istart+ln0-1], del);
-	igstart = igstart + (ln[0]-1)*inc[0];
+	coeff = FD2Der2OrderSide(dx[istart+ln[0]-1], del);
+	long int igstart = gstart + (ln[0]-1)*inc[0];
 	count = 0;
 	for (int k=0; k<ln[2]; k++) {
 		for (int j=0; j<ln[1]; j++) {
@@ -782,6 +785,165 @@ inline void ApplyDirBCLevelVecb(Grid *grid, Level *level,  Vec *b) {
 	
 	free(row);	
 	free(val);	
+	
+	// Along j^th-direction 
+	val = malloc(ln[2]*ln[0]*sizeof(double));
+	row = malloc(ln[2]*ln[0]*sizeof(int));
+	
+	bcrank0 = level->bcindices[0][1][0].rank;
+	bcrank1 = level->bcindices[0][1][1].rank;
+	del = ycoord[jstart+1]-ycoord[jstart-1];
+	coeff = FD2Der2OrderSide(dy[jstart-1], del);
+	count = 0;
+	if (bcrank0 < 0) {
+	for (int k=0; k<ln[2]; k++) {
+		for (int i=0; i<ln[0]; i++) {
+			row[count] = gstart + i*inc[0] + k*inc[2];
+			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart-1], zcoord[kstart+k]);
+			count++;
+		}
+	}
+	VecSetValues(*b, ln[2]*ln[0], row, val, ADD_VALUES);
+	}
+	
+	if (bcrank1 < 0) {
+	del = ycoord[jstart+ln[1]]-ycoord[jstart+ln[1]-2];
+	coeff = FD2Der2OrderSide(dy[jstart+ln[1]-1], del);
+	long int jgstart = gstart + (ln[1]-1)*inc[1];
+	count = 0;
+	for (int k=0; k<ln[2]; k++) {
+		for (int i=0; i<ln[0]; i++) {
+			row[count] = jgstart + i*inc[0] + k*inc[2];
+			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+ln[1]], zcoord[kstart+k]);
+			count++;
+		}
+	}
+	VecSetValues(*b, ln[2]*ln[0], row, val, ADD_VALUES);
+	}
+	
+	free(row);	
+	free(val);	
+	
+	// Along k^th-direction 
+	val = malloc(ln[0]*ln[1]*sizeof(double));
+	row = malloc(ln[0]*ln[1]*sizeof(int));
+	
+	bcrank0 = level->bcindices[0][2][0].rank;
+	bcrank1 = level->bcindices[0][2][1].rank;
+	del = zcoord[kstart+1]-zcoord[kstart-1];
+	coeff = FD2Der2OrderSide(dz[kstart-1], del);
+	count = 0;
+	if (bcrank0 < 0) {
+	for (int j=0; j<ln[1]; j++) {
+		for (int i=0; i<ln[0]; i++) {
+			row[count] = gstart + i*inc[0] + j*inc[1];
+			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart-1]);
+			count++;
+		}
+	}
+	VecSetValues(*b, ln[0]*ln[1], row, val, ADD_VALUES);
+	}
+	
+	if (bcrank1 < 0) {
+	del = zcoord[kstart+ln[2]]-zcoord[kstart+ln[2]-2];
+	coeff = FD2Der2OrderSide(dz[kstart+ln[2]-1], del);
+	long int kgstart = gstart + (ln[2]-1)*inc[2];
+	count = 0;
+	for (int j=0; j<ln[1]; j++) {
+		for (int i=0; i<ln[0]; i++) {
+			row[count] = kgstart + i*inc[0] + j*inc[1];
+			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+ln[2]]);
+			count++;
+		}
+	}
+	VecSetValues(*b, ln[0]*ln[1], row, val, ADD_VALUES);
+	}
+	
+	free(row);	
+	free(val);	
+}
+
+void ApplyBCLevelVecb2D(Grid *grid, Level *level,  Vec *b) {
+	
+	double	*xcoord = grid->coord[0];
+	double	*ycoord = grid->coord[1];
+	double	*dx = grid->dx[0];
+	double	*dy = grid->dx[1];
+	int	*blockID = grid->topo->blockID;
+	long int istart = grid->range[0][blockID[0]];
+	long int jstart = grid->range[1][blockID[1]];
+	int	*ln = grid->ln;
+
+	long int gstart = level->ranges[0];
+	long int *inc = level->inc[0];
+
+	// Along i^th-direction 
+	double *val = malloc(ln[1]*sizeof(double));
+	int *row = malloc(ln[1]*sizeof(int));
+	
+	long int bcrank0 = level->bcindices[0][0][0].rank;
+	long int bcrank1 = level->bcindices[0][0][1].rank;
+	double del = xcoord[istart+1]-xcoord[istart-1];
+	double coeff = FD2Der2OrderSide(dx[istart-1], del);
+	int count = 0;
+	if (bcrank0 < 0) {
+	for (int j=0; j<ln[1]; j++) {
+		row[count] = gstart + j*inc[1];
+		val[count] = -1*coeff*Sol2D(xcoord[istart-1], ycoord[jstart+j]);
+		count++;
+	}
+	VecSetValues(*b, ln[1], row, val, ADD_VALUES);
+	}
+	
+	if (bcrank1 < 0) {
+	del = xcoord[istart+ln[0]]-xcoord[istart+ln[0]-2];
+	coeff = FD2Der2OrderSide(dx[istart+ln[0]-1], del);
+	long int igstart = gstart + (ln[0]-1)*inc[0];
+	count = 0;
+	for (int j=0; j<ln[1]; j++) {
+		row[count] = igstart + j*inc[1];
+		val[count] = -1*coeff*Sol2D(xcoord[istart+ln[0]], ycoord[jstart+j]);
+		count++;
+	}
+	VecSetValues(*b, ln[1], row, val, ADD_VALUES);
+	}
+	
+	free(row);	
+	free(val);	
+	
+	// Along j^th-direction 
+	val = malloc(ln[0]*sizeof(double));
+	row = malloc(ln[0]*sizeof(int));
+	
+	bcrank0 = level->bcindices[0][1][0].rank;
+	bcrank1 = level->bcindices[0][1][1].rank;
+	del = ycoord[jstart+1]-ycoord[jstart-1];
+	coeff = FD2Der2OrderSide(dy[jstart-1], del);
+	count = 0;
+	if (bcrank0 < 0) {
+	for (int i=0; i<ln[0]; i++) {
+		row[count] = gstart + i*inc[0];
+		val[count] = -1*coeff*Sol2D(xcoord[istart+i], ycoord[jstart-1]);
+		count++;
+	}
+	VecSetValues(*b, ln[0], row, val, ADD_VALUES);
+	}
+	
+	if (bcrank1 < 0) {
+	del = ycoord[jstart+ln[1]]-ycoord[jstart+ln[1]-2];
+	coeff = FD2Der2OrderSide(dy[jstart+ln[1]-1], del);
+	long int jgstart = gstart + (ln[1]-1)*inc[1];
+	count = 0;
+	for (int i=0; i<ln[0]; i++) {
+		row[count] = jgstart + i*inc[0];
+		val[count] = -1*coeff*Sol2D(xcoord[istart+i], ycoord[jstart+ln[1]]);
+		count++;
+	}
+	VecSetValues(*b, ln[0], row, val, ADD_VALUES);
+	}
+	
+	free(row);	
+	free(val);	
 }
 
 void ApplyBCLevelVecb(Grids *grids, Level *level, Vec *b) {
@@ -789,14 +951,15 @@ void ApplyBCLevelVecb(Grids *grids, Level *level, Vec *b) {
 	
 	Grid	*grid = grids->grid;
 	int	g = level->gridId[0];
-	int	*ln = grid[g].ln;
 	int	tln = grid[g].tln;
 	int	dimension = grids->topo->dimension;
 	
 	if (tln == 0) return;
 
 	if (dimension == 2) {
+		ApplyBCLevelVecb2D(grid, level,  b);
 	} else if (dimension == 3) {
+		ApplyBCLevelVecb3D(grid, level,  b);
 	}
 }
 
@@ -871,7 +1034,7 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	}
 	MatCreateVecs(A[0], b, u);
 	FillLevelVecb(0, grids->grid, level, b);
-	ApplyBCLevelVecb();
+	ApplyBCLevelVecb(grids, level, b);
 }
 
 int CreateSolver(Grids *grids, Solver *solver) {

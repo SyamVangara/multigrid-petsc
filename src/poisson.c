@@ -492,6 +492,7 @@ void ViewMatAInfo(Solver solver) {
 void ViewVecbInfo(Solver solver) {
 	// Prints the Vec b info of first of first level
 	
+	PetscPrintf(PETSC_COMM_WORLD,"Vec b of Level 0: \n");
 	VecView(solver.levels->b[0], PETSC_VIEWER_STDOUT_WORLD);
 }
 
