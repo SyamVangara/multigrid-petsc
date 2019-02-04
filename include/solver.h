@@ -82,8 +82,10 @@ typedef struct {
 	double		**rNormGrid; // !Remove
 	double		*rNormGlobal; // !Remove
 	// more info ends
+	double		error[3];
 	double		*rnorm;
 	Levels		*levels;
+	OutFiles	*outfiles;
 //	Assembly	*assem;
 } Solver;
 
@@ -94,7 +96,7 @@ typedef struct {
 	FILE	*resData;
 	FILE	*XgridData;
 	FILE	*YgridData;
-} PostProcess;
+} OutFiles;
 
 int CreateLevels(Grids *grids, Levels *levels);
 void DestroyLevels(Levels *levels);

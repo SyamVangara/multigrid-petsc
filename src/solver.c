@@ -132,7 +132,7 @@ void DestroySolver(Solver *solver) {
 //	free(solver->rNormGlobal);
 }
 
-void SetUpPostProcess(PostProcess *pp) {
+void CreatePostProcess(PostProcess *pp) {
 	// Allocates memory to PostProcess struct
 		
 	int	procs, rank;
@@ -1035,6 +1035,9 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	MatCreateVecs(A[0], b, u);
 	FillLevelVecb(0, grids->grid, level, b);
 	ApplyBCLevelVecb(grids, level, b);
+
+	VecAssemblyBegin(*b);
+	VecAssemblyEnd(*b);
 }
 
 int CreateSolver(Grids *grids, Solver *solver) {
@@ -1932,7 +1935,25 @@ int CreateSolver(Grids *grids, Solver *solver) {
 //	VecRestoreArray(assem->u[0], &px);
 //
 //}
-//
+
+void WriteToFiles(Solver *solver) {
+	
+	OutFiles *outfiles = solver->outfiles;
+
+	FILE	*errData = outfiles->errData;
+	double	*error = solver->error;
+	for (int i=0;i<3;i++) {
+		printf("\nerror[%d] = %.16e\n", i, error[i]);
+		fprintf(errData,"%.16e\n", error[i]);
+	}
+	
+	FILE	*resData = outfiles->resData;
+	double	*rnorm = solver->rnorm; 
+	for (int i=0;i<solver->numIter+1;i++) {
+		fprintf(resData,"%.16e\n", rnorm[i]);
+	}
+}
+
 //void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp) {
 //	// Computes error and writes data to files
 //	
@@ -2029,6 +2050,73 @@ int CreateSolver(Grids *grids, Solver *solver) {
 //	rnorm[n] = rnormAtn;
 //	return 0;
 //}
+
+int NoMultigrid(Solver *solver) {
+	// Solve using a solver without multigrid
+	
+
+	Levels	*levels = solver->levels;
+	int	nlevels = levels->nlevels;
+	int	ngrids = levels->level->ngrids;
+
+	if (nlevels != 1 || ngrids != 1) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("No more than 1 level and grid are allowed for No-MG solver");
+		return 1;
+	}
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	double	*rnorm = solver->rnorm;
+	int	numIter = solver->numIter;
+
+	Mat	*A = levels->A;
+	Vec	*b = levels->b;
+	Vec	*u = levels->u;
+
+	KSP	ksp;
+	
+	PetscLogStage	stageSolve;
+	
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetType(ksp,KSPRICHARDSON);
+	KSPSetOperators(ksp, *A, *A);
+	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
+	KSPSetResidualHistory(ksp, rnorm, numIter, PETSC_FALSE);
+	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
+	KSPSetFromOptions(ksp);
+	
+	// Solve the system
+	PetscBarrier(PETSC_NULL);
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stageSolve);
+	PetscLogStagePush(stageSolve);
+	
+	KSPSolve(ksp, *b, *u);
+	
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	PetscBarrier(PETSC_NULL);
+	KSPGetIterationNumber(ksp, &(solver->numIter));
+
+	double	rnorm0 = rnorm[0];
+	for (int i=0;i<(numIter+1);i++) rnorm[i] = rnorm[i]/rnorm0;
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+
+//	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+	KSPDestroy(&ksp);
+
+	return 0;
+}
 
 int MultigridVcycle(Solver *solver) {
 
@@ -3679,9 +3767,16 @@ int Solve(Solver *solver){
 	
 	//Assemble(Problem *prob, Mesh *mesh, Levels *levels, Operator *op, Solver *solver);
 	int	ierr=0;
-	if (solver->cycle == 0) {
-		ierr = MultigridVcycle(solver); pCHKERR_RETURN("Multigrid V-cycle solver failed");
+	PetscBarrier(PETSC_NULL);
+	switch(solver->cycle) {
+		case 0:
+			ierr = NoMultigrid(solver); pCHKERR_RETURN("Iterative solver (No MG) failed");
+			break;
+		case 1:
+			ierr = MultigridVcycle(solver); pCHKERR_RETURN("Multigrid V-cycle solver failed");
+			break;
 	}
+	PetscBarrier(PETSC_NULL);
 //	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
 //	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
 //	if (solver->cycle == D1CYCLE) MultigridD1cycle(solver);

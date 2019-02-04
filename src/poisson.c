@@ -82,9 +82,16 @@ int main(int argc, char *argv[]) {
 	}
 	ViewLevelsInfo(solver);
 //	ViewMatAInfo(solver);
-	ViewVecbInfo(solver);
+//	ViewVecbInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
+	
+	SetUpPostProcess(&pp);
+	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
+	
+	PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
+	
+	DestroyPostProcess(&pp);
 
 	DestroySolver(&solver);
 	DestroyGrids(&grids);
