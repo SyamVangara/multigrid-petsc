@@ -132,39 +132,39 @@ void DestroySolver(Solver *solver) {
 //	free(solver->rNormGlobal);
 }
 
-void CreatePostProcess(PostProcess *pp) {
-	// Allocates memory to PostProcess struct
-		
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	if (rank == 0) {
-		pp->solData = fopen("uData.dat","w");
-		pp->resData = fopen("rData.dat","w");
-		pp->errData = fopen("eData.dat","w");
-		pp->XgridData = fopen("XgridData.dat","w");
-		pp->YgridData = fopen("YgridData.dat","w");
-	}
-}
-
-void DestroyPostProcess(PostProcess *pp) {
-	// Free the memory in PostProcess struct
-	
-	int	procs, rank;
-	
-	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-	
-	if (rank == 0) {
-		fclose(pp->solData);
-		fclose(pp->resData);
-		fclose(pp->errData);
-		fclose(pp->XgridData);
-		fclose(pp->YgridData);
-	}
-}
+//void CreatePostProcess(PostProcess *pp) {
+//	// Allocates memory to PostProcess struct
+//		
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	if (rank == 0) {
+//		pp->solData = fopen("uData.dat","w");
+//		pp->resData = fopen("rData.dat","w");
+//		pp->errData = fopen("eData.dat","w");
+//		pp->XgridData = fopen("XgridData.dat","w");
+//		pp->YgridData = fopen("YgridData.dat","w");
+//	}
+//}
+//
+//void DestroyPostProcess(PostProcess *pp) {
+//	// Free the memory in PostProcess struct
+//	
+//	int	procs, rank;
+//	
+//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+//	
+//	if (rank == 0) {
+//		fclose(pp->solData);
+//		fclose(pp->resData);
+//		fclose(pp->errData);
+//		fclose(pp->XgridData);
+//		fclose(pp->YgridData);
+//	}
+//}
 
 //void fillJacobians(Problem *prob, Grids *grids, Level *level, Mat *A) {
 //	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids contained in this level
@@ -1357,7 +1357,46 @@ int CreateSolver(Grids *grids, Solver *solver) {
 //	ISCreateGeneral(PETSC_COMM_WORLD, subi, idx, PETSC_COPY_VALUES, indexSet);
 //	free(idx);
 //}
-//
+
+void GetSubIS(int lg, Grid *grid, Level *level, IS *indexSet) {
+	// Get global index set for a grid in given level
+	
+	int dimension = grid->topo->dimension;
+
+	int g	= level->gridId[lg];
+	long int *inc = level->inc[lg];
+	int igstart = level->ranges[lg];
+
+	int *ln	= grid[g].ln;
+	int tln = grid[g].tln;
+	
+	int *row = malloc(tln*sizeof(int));
+	
+	if (dimension == 3) {
+		int count = 0;
+		for (int k=0; k<ln[2]; k++) {
+			for (int j=0; j<ln[1]; j++) {
+				for (int i=0; i<ln[0]; i++) {
+					row[count] = igstart + i*inc[0] + j*inc[1] + k*inc[2];
+					count++;
+				}
+			}
+		}
+	} else if (dimension == 2) {
+		int count = 0;
+		for (int j=0; j<ln[1]; j++) {
+			for (int i=0; i<ln[0]; i++) {
+				row[count] = igstart + i*inc[0] + j*inc[1];
+				count++;
+			}
+		}
+	}
+	
+	ISCreateGeneral(PETSC_COMM_WORLD, tln, row, PETSC_COPY_VALUES, indexSet);
+	free(row);
+}
+
+
 //void getSubIS(Level *level, Level *sublevel, IS *indexSet) {
 ///*********************************************************************************
 // *
@@ -1936,22 +1975,149 @@ int CreateSolver(Grids *grids, Solver *solver) {
 //
 //}
 
+void GetSol(int lg, Grid *grid, Level *level, Vec *usol) {
+	// Computes solution for a grid in a given level
+	
+	int *blockId = grid->topo->blockID;
+	int dimension = grid->topo->dimension;
+
+	int g	= level->gridId[lg];
+	long int *inc = level->inc[lg];
+//	int igstart = level->ranges[lg];
+	int igstart, igend;
+	VecGetOwnershipRange(*usol, &igstart, &igend);
+
+	int *ln	= grid[g].ln;
+	int tln = grid[g].tln;
+	
+	double *val = malloc(tln*sizeof(double));
+	int *row = malloc(tln*sizeof(int));
+	
+	VecSet(*usol, 0.0);
+	if (dimension == 3) {
+		int istart = grid[g].range[0][blockId[0]];
+		int jstart = grid[g].range[1][blockId[1]];
+		int kstart = grid[g].range[2][blockId[2]];
+
+		double *xcoord = grid[g].coord[0];
+		double *ycoord = grid[g].coord[1];
+		double *zcoord = grid[g].coord[2];
+		
+		int count = 0;
+		for (int k=0; k<ln[2]; k++) {
+			for (int j=0; j<ln[1]; j++) {
+				for (int i=0; i<ln[0]; i++) {
+					row[count] = igstart + i*inc[0] + j*inc[1] + k*inc[2];
+					val[count] = Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+					count++;
+				}
+			}
+		}
+	} else if (dimension == 2) {
+		int istart = grid[g].range[0][blockId[0]];
+		int jstart = grid[g].range[1][blockId[1]];
+
+		double *xcoord = grid[g].coord[0];
+		double *ycoord = grid[g].coord[1];
+		
+		int count = 0;
+		for (int j=0; j<ln[1]; j++) {
+			for (int i=0; i<ln[0]; i++) {
+				row[count] = igstart + i*inc[0] + j*inc[1];
+				val[count] = Sol2D(xcoord[istart+i], ycoord[jstart+j]);
+				count++;
+			}
+		}
+	}
+	VecSetValues(*usol, tln, row, val, ADD_VALUES);
+	free(row);	
+	free(val);	
+	VecAssemblyBegin(*usol);
+	VecAssemblyEnd(*usol);
+}
+
+void GetError(Vec *u, Vec *usol, double *error) {
+	// Get L_inf, L1 and L2 error norms
+	// Note: usol is reused to store error!
+	// Note: usol looses its original values!
+	
+	VecAXPY(*usol, -1.0, *u);
+	VecNorm(*usol, NORM_INFINITY, error);
+	VecNorm(*usol, NORM_1, error+1);
+	VecNorm(*usol, NORM_2, error+2);
+}
+
+void GetGridVecFromLevelVec(int lg, Grid *grid, Level *level, Vec *u, Vec *ulg, IS *islg) {
+	// Create a sub-vector for grid "lg" in the given level using level vector
+	GetSubIS(lg, grid, level, islg);
+	VecGetSubVector(*u, *islg, ulg);
+}
+
+void RestoreGridVecToLevelVec(Vec *u, Vec *ulg, IS *islg) {
+	// Restore the sub-vector (grid vector) to level
+	VecRestoreSubVector(*u, *islg, ulg);
+	ISDestroy(islg);
+}
+
 void WriteToFiles(Solver *solver) {
 	
-	OutFiles *outfiles = solver->outfiles;
+//	OutFiles *outfiles = solver->outfiles;
+//	outfiles->solData = fopen("uData.dat","w");
+//	outfiles->XgridData = fopen("XgridData.dat","w");
+//	outfiles->YgridData = fopen("YgridData.dat","w");
 
-	FILE	*errData = outfiles->errData;
+//	FILE	*errData = outfiles->errData;
+//	errData = fopen("eData.dat","w");
+	FILE	*errData = fopen("eData.dat","w");
 	double	*error = solver->error;
 	for (int i=0;i<3;i++) {
-		printf("\nerror[%d] = %.16e\n", i, error[i]);
+		printf("error[%d] = %.16e\n", i, error[i]);
 		fprintf(errData,"%.16e\n", error[i]);
 	}
+	printf("\n");
+	fclose(errData);
 	
-	FILE	*resData = outfiles->resData;
-	double	*rnorm = solver->rnorm; 
-	for (int i=0;i<solver->numIter+1;i++) {
+//	FILE	*resData = outfiles->resData;
+//	resData = fopen("rData.dat","w");
+	FILE	*resData = fopen("rData.dat","w");
+	double	*rnorm = solver->rnorm;
+	int	numIter = solver->numIter;	
+	for (int i=0;i<numIter+1;i++) {
 		fprintf(resData,"%.16e\n", rnorm[i]);
 	}
+	printf("Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], numIter);
+	fclose(resData);
+}
+
+void PostProcessing(Grids *grids, Solver *solver) {
+	// Computes error and writes data to files
+	
+	Grid	*grid = grids->grid;
+	Levels	*levels = solver->levels;
+	Level	*level = levels->level; // First level
+
+	IS is0;
+	Vec usol;
+	Vec *ugrid = NULL;
+	Vec *u = levels->u;
+	if (level->ngrids == 1) {
+		ugrid = u;
+	} else {
+		// Extract finest grid computed solution from level vec
+		GetGridVecFromLevelVec(0, grid, level, u, ugrid, &is0);
+	}
+	VecDuplicate(*ugrid, &usol);
+	GetSol(0, grid, level, &usol); // Get exact solution on finest grid in first level
+
+	double *error = solver->error;
+	GetError(ugrid, &usol, error);
+	if (level->ngrids > 1) RestoreGridVecToLevelVec(u, ugrid, &is0);
+	VecDestroy(&usol);
+	
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	if (rank == 0)	WriteToFiles(solver);
 }
 
 //void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp) {
@@ -2108,11 +2274,13 @@ int NoMultigrid(Solver *solver) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
 //	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
-	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
-	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
-	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+//	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+//	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+//	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
 	KSPDestroy(&ksp);
 
 	return 0;

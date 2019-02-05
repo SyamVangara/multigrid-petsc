@@ -85,7 +85,7 @@ typedef struct {
 	double		error[3];
 	double		*rnorm;
 	Levels		*levels;
-	OutFiles	*outfiles;
+//	OutFiles	*outfiles;
 //	Assembly	*assem;
 } Solver;
 
@@ -117,9 +117,10 @@ int CreateSolver(Grids *grids, Solver *solver);
 void DestroySolver(Solver *solver);
 int Solve(Solver *solver);
 
-void SetUpPostProcess(PostProcess *pp);
-void DestroyPostProcess(PostProcess *pp);
-void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp);
+//void SetUpPostProcess(PostProcess *pp);
+//void DestroyPostProcess(PostProcess *pp);
+//void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp);
+void PostProcessing(Grids *grids, Solver *solver);
 
 //void Assemble(Problem *prob, Mesh *mesh, Levels *levels, Operator *op, Solver *solver);
 

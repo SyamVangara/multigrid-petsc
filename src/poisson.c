@@ -18,12 +18,13 @@
 //static int ipow(int base, int exp);
 int totalUnknowns(int *n, int totalGrids);
 
+void PrintInfo(Grids *grids, Solver *solver);
 //void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
 void ViewGridsInfo(Grids grids, int verbose);
 //void ViewIndicesInfo(Indices indices);
 void ViewMatAInfo(Solver solver);
 void ViewVecbInfo(Solver solver);
-void ViewLevelsInfo(Solver solver);
+void ViewLevelsInfo(Solver solver, int verbose);
 //void ViewIndexMapsInfoLevel(Level level, int l);
 //void ViewIndexMapsInfo(Indices indices);
 //void ViewRangesInfo(Indices indices);
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 1);
+	ViewGridsInfo(grids, 0);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr == 1) {
@@ -80,18 +81,19 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver);
+	ViewLevelsInfo(solver, 0);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
 	
-	SetUpPostProcess(&pp);
-	Postprocessing(&prob, &mesh, &indices, &solver, &pp);
+//	SetUpPostProcess(&pp);
+	PostProcessing(&grids, &solver);
 	
-	PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
+	PrintInfo(&grids, &solver);
+//	PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
 	
-	DestroyPostProcess(&pp);
+//	DestroyPostProcess(&pp);
 
 	DestroySolver(&solver);
 	DestroyGrids(&grids);
@@ -192,59 +194,65 @@ int totalUnknowns(int *n, int totalGrids) {
 	return length;
 }
 
-//void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag) {
-//	// Prints complete some info of problem, grids, solver
-//	
-//	int	procs, rank;
-//
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	if (rank==0) {
-//	printf("=============================================================\n");
-//	printf("Size:				%d x %d\n", mesh.n[0], mesh.n[1]);
-//	if (meshflag==0) printf("Mesh Type:			Uniform\n");
-//	if (meshflag==1) printf("Mesh Type:			Non Uniform\n");
-//	printf("Number of grids:		%d\n",op.totalGrids);
-//	printf("Number of levels:		%d\n",solver.assem->levels);
-//	printf("Number of grids per level:	");
-//	for (int l=0;l<indices.levels;l++) {
-//		printf("%d	", indices.level[l].grids);
+void PrintInfo(Grids *grids, Solver *solver) {
+	// Prints complete some info of problem, grids, solver
+	
+	int	procs, rank;
+
+	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+	
+	if (rank==0) {
+	Grid	*fgrid = grids->grid;
+	Levels	*levels = solver->levels;
+	Level	*level = levels->level;
+	int	dimension = grids->topo->dimension;
+	int	*gridtype = grids->topo->gridtype;
+
+	printf("\n=============================================================\n");
+	printf("Dimension:			%d\n", dimension);
+	printf("Grid size:			(%d", fgrid->n[0]);
+	for (int i=1; i<dimension; i++) {
+		printf(", %d", fgrid->n[i]);
+	}
+	printf(")\n");
+	printf("Characteristic length:		%lf\n", fgrid->h);
+	if (gridtype[0] == 0) printf("Grid Type:			(Uniform");
+	if (gridtype[0] == 1) printf("Grid Type:			(Non-Uniform-Cos");
+	if (gridtype[0] == 2) printf("Grid Type:			(Non-Uniform-Exp");
+	for (int i=1; i<dimension; i++) {
+		if (gridtype[i] == 0) printf(", Uniform");
+		if (gridtype[i] == 1) printf(", Non-Uniform-Cos");
+		if (gridtype[i] == 2) printf(", Non-Uniform-Exp");
+	}
+	printf(")\n");
+//	double	commTocomp = 1.0;
+//	double	*para = fgrid->para;
+//	for (int i=0; i<dimension; i++) {
+//		commTocomp *= fgrid->un[i];
 //	}
-//	printf("\n");
-//	printf("Number of unknowns per level:	");
-//	for (int l=0;l<indices.levels;l++) {
-//		printf("%d	", indices.level[l].global.ni);
-//	}
-//	printf("\n");
-//	if (mappingStyleflag == 0) printf("Mapping style :			Grid after grid\n");
-//	if (mappingStyleflag == 1) printf("Mapping style :			Through the grids\n");
-//	if (mappingStyleflag == 2) printf("Mapping style :			Local grid after grid\n");
-//	if (cyc == 12) printf("Cycle :				AdditiveScaled\n");
-//	if (cyc == 11) printf("Cycle :				Additive\n");
-//	if (cyc == 10) printf("Cycle :				V-Filter\n");
-//	if (cyc == 9) printf("Cycle :				Filter\n");
-//	if (cyc == 8) printf("Cycle :				Petsc-V-Cycle\n");
-//	if (cyc == 7) printf("Cycle :				D1PS-Cycle\n");
-//	if (cyc == 4) printf("Cycle :				D2-Cycle\n");
-//	if (cyc == 3) printf("Cycle :				D1-Cycle\n");
-//	if (cyc == 2) printf("Cycle :				E-Cycle\n");
-//	if (cyc == 1) printf("Cycle :				I-Cycle\n");
-//	if (cyc == 0) printf("Cycle :				V-Cycle\n");
-//	
-//	if (cyc == 7) printf("Number of smoothing steps :	pre: %d and post: %d per iteration \n", solver.v[0], solver.v[0]);
-//	if (cyc == 3 || cyc == 4) printf("Number of smoothing steps :	%d per iteration \n", solver.v[0]);
-//	if (cyc == 2) printf("Number of smoothing steps :	%d per RHS update \n", solver.v[0]);
-//	if (cyc == 0 || cyc == 8) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-//	if (cyc == 9) printf("Number of smoothing steps :	%d(filtered fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-//	if (cyc == 10) printf("Number of smoothing steps :	%d(fine and Filtered fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-//	if (cyc == 11 || cyc ==12) printf("Number of smoothing steps :	%d(fine) %d(coarsest)\n", solver.v[0], solver.v[1]);
-//	printf("Number of processes:		%d\n",procs);
-//	printf("Number of iterations:		%d\n",solver.numIter);
-//	printf("=============================================================\n");
-//	}
-//
-//}
+//	commTocomp = para[0]/commTocomp;
+//	printf("TotalCommCost =			%d\n", (int)para[0]);
+//	printf("MaxLoad =			%d\n", (int)para[1]);
+//	printf("Comm-to-Comp =			%lf\n", commTocomp);
+//	printf("LoadFactor =			%lf\n", para[2]);
+//	printf("nInterfaces =			%d\n", (int)para[3]);
+	printf("Number of grids:		%d\n", grids->ngrids);
+	printf("Number of levels:		%d\n", levels->nlevels);
+	printf("Number of grids per level:	(%d", level[0].ngrids);
+	for (int l=1;l<levels->nlevels;l++) {
+		printf(", %d", level[l].ngrids);
+	}
+	printf(")\n");
+	if (solver->cycle == 1) printf("Cycle :				V-Cycle\n");
+	if (solver->cycle == 0) printf("Cycle :				No MG\n");
+	
+	printf("Number of processes:		%d\n",procs);
+	printf("Number of iterations:		%d\n",solver->numIter);
+	printf("=============================================================\n");
+	}
+
+}
 
 void ViewTopoInfo(Topo *topo) {
 	// Prints the info in Topo data structure
@@ -336,7 +344,7 @@ void ViewGridInfo(Grid grid, int verbose) {
 	
 	PetscPrintf(PETSC_COMM_WORLD,"h = %f\n", grid.h);
       	
-	if (verbose) {
+	if (verbose > 0) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d:	blockID = ( ", rank);
 		for (int i=0; i<dimension; i++)
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", blockID[i]);
@@ -349,6 +357,8 @@ void ViewGridInfo(Grid grid, int verbose) {
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,";	LocalTotalN = %d", grid.tln);
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+	}
+	if (verbose > 1) {
 		ViewNblockInfo(grid.nblock, dimension);
 		for (int i=0;i<dimension;i++) {
 			PetscPrintf(PETSC_COMM_WORLD,"coord[%d]:",i);
@@ -467,7 +477,7 @@ void ViewLevelInfo(Level level, int dimension, int verbose) {
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
 
-void ViewLevelsInfo(Solver solver) {
+void ViewLevelsInfo(Solver solver, int verbose) {
 	// Prints the info of Indices data structure
 	
 	int	procs, rank;
@@ -482,7 +492,7 @@ void ViewLevelsInfo(Solver solver) {
 	PetscPrintf(PETSC_COMM_WORLD,"Total no. of levels = %d\n", levels->nlevels);
 	for (int l=0;l<levels->nlevels;l++) {
 		PetscPrintf(PETSC_COMM_WORLD,"Level-%d:\n", l);
-		ViewLevelInfo(levels->level[l], dimension, 1);
+		ViewLevelInfo(levels->level[l], dimension, verbose);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
