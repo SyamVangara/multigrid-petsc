@@ -39,8 +39,8 @@ typedef struct {
 	int	nlevels;
 	int	totalGrids; // ! Remove
 	int	coarseningFactor; // ! Remove
-	Mat 	*res;
-	Mat 	*pro;
+	Mat 	*res; // only between successive grids (not levels)
+	Mat 	*pro; // only between successive grids (not levels)
 	Mat	*A;
 	Vec	*b;
 	Vec	*u;

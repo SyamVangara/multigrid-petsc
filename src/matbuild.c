@@ -58,6 +58,28 @@ void AssignGridID(Levels *levels, int ngrids) {
 	}
 }
 
+int LevelsGridIDsCheck(Levels *levels) {
+	// Checks if levels have asecnding and non-ovelapping
+	// grids in them. This is needed untill the Levels and 
+	// Grids data structure is improved
+
+	int	nlevels = levels->nlevels;
+	Level	*level = levels->level;
+
+	int pgd = -1;
+	for (int l=0; l<nlevels; l++) {
+		int *gridId = level[l].gridId;
+		for (int lg=0; lg<level[l].ngrids; lg++) {
+			if (gridId[lg] > pgd) {
+				pgd = gridId[lg];
+			} else {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
 //void CreateIndexMaps(Mesh *mesh, Indices *indices) {
 //	// Allocate memory to global-to-grid and grid-to-global maps
 //	
@@ -405,13 +427,19 @@ int CreateLevels(Grids *grids, Levels *levels) {
 		return 1;
 	}
 	
-	levels->A = malloc(levels->nlevels*sizeof(Mat));
-	levels->b = malloc(levels->nlevels*sizeof(Vec));
-	levels->u = malloc(levels->nlevels*sizeof(Vec));
 	levels->level = malloc(levels->nlevels*sizeof(Level));
 	for (int i=0; i<levels->nlevels; i++) InitializeLevel(levels->level+i);
 
 	AssignGridID(levels, grids->ngrids);
+	ierr = LevelsGridIDsCheck(levels);
+	if (ierr) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Grids are not assigned in a strictly ascending manner to Levels");
+		return 1;
+	}
+	levels->A = malloc(levels->nlevels*sizeof(Mat));
+	levels->b = malloc(levels->nlevels*sizeof(Vec));
+	levels->u = malloc(levels->nlevels*sizeof(Vec));
 	for (int i=0;i<levels->nlevels;i++) {
 		fillLevel(grids, levels->level+i);
 //		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(long int[2]));
