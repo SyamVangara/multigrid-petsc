@@ -2227,7 +2227,7 @@ int NoMultigrid(Solver *solver) {
 
 	if (nlevels != 1 || ngrids != 1) {
 		PetscBarrier(PETSC_NULL);
-		pERROR_MSG("No more than 1 level and grid are allowed for No-MG solver");
+		pERROR_MSG("No more than 1 level or grid is allowed for No-MG solver");
 		return 1;
 	}
 	
