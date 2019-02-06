@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 0);
+	ViewLevelsInfo(solver, 1);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
@@ -459,10 +459,17 @@ void ViewLevelInfo(Level level, int dimension, int verbose) {
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	
 	if (verbose) {
-		PetscPrintf(PETSC_COMM_WORLD, "Global index ranges = \n");
+		PetscPrintf(PETSC_COMM_WORLD, "Global Level index ranges = \n");
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ",rank);
 		for (int lg=0;lg<level.ngrids;lg++) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld-%ld: %d %d %d) ",level.ranges[lg], level.ranges[lg+1], level.inc[lg][0], level.inc[lg][1], level.inc[lg][2]);
+		}
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+		PetscPrintf(PETSC_COMM_WORLD, "Global Grid index ranges = \n");
+		PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank: %d; ",rank);
+		for (int lg=0;lg<level.ngrids;lg++) {
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"(%ld-%ld) ",level.granges[lg][0], level.granges[lg][1]);
 		}
 		PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
@@ -471,13 +478,6 @@ void ViewLevelInfo(Level level, int dimension, int verbose) {
 			PetscPrintf(PETSC_COMM_WORLD,"Grid-%d: \n", level.gridId[lg]);
 			ViewBCindicesInfo(level.bcindices[lg], dimension);
 		}
-//		for (int lg=0; lg<level.ngrids;lg++) {
-//		for (int i=0; i<dimension; i++) {
-//			for (int j=0; j<2; j++) {
-//				ViewBCindicesInfo(level.bcindices[lg][i][j]);
-//			}
-//		}
-//		}
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }

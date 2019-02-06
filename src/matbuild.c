@@ -116,8 +116,37 @@ int LevelsGridIDsCheck(Levels *levels) {
 //	}
 //}
 
+long int GetGridBlockStart(Grid *grid, int *blockID) {
+	// Computes the starting global grid index for given block
+	int	dimension = grid->topo->dimension;
+	int	**range = grid->range;
+	int	*un = grid->un;
+	int	id = blockID[0];
+	int	jd = blockID[1];
+	int	kd = blockID[2];
+	
+//	int	crange[MAX_DIMENSION][2]; // Coordinate ranges
+//	for (int dim=0; dim<dimension; dim++)
+//		for (int i=0; i<2; i++)
+//			crange[dim][i] = range[dim][blockID[dim]+i];
+	
+	long int start = (range[1][jd]-1)*(un[0]) 
+		+ (range[0][id]-1)*(range[1][jd+1]-range[1][jd]);
+	if (dimension == 3) {
+		start = start*(range[2][kd+1]-range[2][kd]) + (range[2][kd]-1)*un[1]*un[0];
+	}
+	
+//	long int start = (crange[1][0]-1)*(un[0]) 
+//		+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);
+//	if (dimension == 3) {
+//		start = start*(crange[2][1]-crange[2][0]) + (crange[2][0]-1)*un[1]*un[0];
+//	}
+
+	return start;
+}
+
 long int GetBlockStart(Grids *grids, Level *level, int *blockID) {
-	// Compute the starting global index for given block
+	// Compute the starting global level index for given block
 	
 	int	dimension = grids->topo->dimension;
 	int	ngrids = level->ngrids;
@@ -180,14 +209,12 @@ long int GetBlockGridStart(Grids *grids, Level *level, int *blockID, int targetl
 }
 
 void GetRanges(Grids *grids, Level *level) {
-//void GetBlockRanges(int dimension, Grids *grids, int ngrids, int *gridID, long int *ranges) {
 	// Get global index range in this block for each grid in the list of gridID
 	
 	Grid	*grid = grids->grid;
 	int	*blockid = grids->topo->blockID;
 	int	ngrids = level->ngrids;
 	int	*gridID = level->gridId;
-//	int	dimension = grids->topo->dimension;
 	
 	long int *ranges = level->ranges;
 
@@ -195,37 +222,22 @@ void GetRanges(Grids *grids, Level *level) {
 	for (int lg=1; lg<ngrids+1; lg++) {
 		ranges[lg] = ranges[lg-1] + grid[gridID[lg-1]].tln;
 	}	
-//	int	crange[MAX_DIMENSION][2]; // Coordinate ranges
-//	for (int i=0; i<MAX_DIMENSION; i++)
-//		for (int j=0; j<2; j++)
-//			crange[i][j] = 0;
-//	const	int	nbc = 2; // Assuming 2 BC points per direction
-//	
-//	long int	g0 = 0; // Lower global index for this level's first grid
-//	long int	*deltag = malloc(ngrids*sizeof(long int)); // No. of unknown points for each grid in this level
-//
-//	for (int lg=0; lg<ngrids; lg++) {
-//		Grid	*grid = grids->grid+gridID[lg];
-//		int	*n = grid->n;
-//		
-//		for (int dim=0; dim<dimension; dim++)
-//			for (int i=0; i<2; i++)
-//				crange[dim][i] = grid->range[dim][blockid[dim]+i];
-//		
-//		long int lg0 = (crange[1][0]-1)*(n[0]-nbc) 
-//			+ (crange[0][0]-1)*(crange[1][1]-crange[1][0]);
-//		deltag[lg] = (crange[0][1]-crange[0][0])*(crange[1][1]-crange[1][0]);
-//		if (dimension == 3) {
-//			lg0 = lg0*(crange[2][1]-crange[2][0]) 
-//				+ (crange[2][0]-1)*(n[1]-nbc)*(n[0]-nbc);
-//			deltag[lg] *= (crange[2][1]-crange[2][0]);
-//		}
-//		g0 += lg0;
-//	}
-//
-//	ranges[0] = g0;
-//	for (int lg=1; lg<ngrids; lg++)	ranges[lg] = ranges[lg-1] + deltag[lg-1];
-//	free(deltag);
+}
+
+void GetGridRanges(Grids *grids, Level *level) {
+	// Get global grid index range in this block for each grid in this level
+	
+	Grid	*grid = grids->grid;
+	int	*blockid = grids->topo->blockID;
+	int	ngrids = level->ngrids;
+	int	*gridID = level->gridId;
+	
+	long int (*granges)[2] = level->granges;
+
+	for (int lg=0; lg<ngrids; lg++) {
+		granges[lg][0] = GetGridBlockStart(grid+gridID[lg], blockid);
+		granges[lg][1] = granges[lg][0] + grid[gridID[lg]].tln;
+	}	
 }
 
 //void GetRanges(Grids *grids, Level *level) {
@@ -336,6 +348,7 @@ void GetGridIncrements(int dimension, int *ln, long int *inc) {
 void InitializeLevel(Level *level) {
 	level->gridId	= NULL;
 	level->ranges	= NULL;
+	level->granges	= NULL;
 	level->inc	= NULL;
 	level->bcindices= NULL;
 }
@@ -383,6 +396,8 @@ void fillLevel(Grids *grids, Level *level) {
 
 	level->ranges = malloc((ngrids+1)*sizeof(long int));
 	GetRanges(grids, level);
+	level->granges = malloc((ngrids)*sizeof(long int[2]));
+	GetGridRanges(grids, level);
 
 	level->inc = malloc(ngrids*sizeof(long int[MAX_DIMENSION]));
 	for (int lg=0; lg<ngrids; lg++) {
@@ -442,37 +457,9 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	levels->u = malloc(levels->nlevels*sizeof(Vec));
 	for (int i=0;i<levels->nlevels;i++) {
 		fillLevel(grids, levels->level+i);
-//		levels->level[i].ranges = malloc((levels->level[i].ngrids)*sizeof(long int[2]));
-//		GetRanges(grids, levels->level+i);
-//		levels->level[i].inc = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION]));
-//		levels->level[i].bcIndex = malloc((levels->level[i].ngrids)*sizeof(long int[MAX_DIMENSION][2][3]));
-//		levels->level[i].bcindices = malloc((levels->level[i].ngrids)*sizeof(BCindices[MAX_DIMENSION][2]));
-//		GetIncrements(grids, levels->level+i);
 	}
 	return 0;
 }
-
-//void SetUpIndices(Mesh *mesh, Indices *indices) {
-//	// Get the GridId range, then allocate memory
-//	
-//	int	procs;
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	
-//	indices->level = malloc(indices->levels*sizeof(Level));
-//	GridId(indices);	
-//	for (int i=0;i<indices->levels;i++) {
-//		indices->level[i].ranges = malloc((procs+1)*sizeof(int));
-//		indices->level[i].grid = malloc(indices->level[i].grids*sizeof(ArrayInt2d));
-//		indices->level[i].h = malloc(indices->level[i].grids*sizeof(double[2]));
-//	}
-//	CreateIndexMaps(mesh, indices);
-//	for (int l=0;l<indices->levels;l++) {
-//		for (int lg=0;lg<indices->level[l].grids;lg++) {
-//			indices->level[l].h[lg][0] = 1.0/(indices->level[l].grid[lg].ni+1);
-//			indices->level[l].h[lg][1] = 1.0/(indices->level[l].grid[lg].nj+1);
-//		}
-//	}
-//}
 
 void DestroyLevels(Levels *levels) {
 	// Free the memory allocated to indices
@@ -496,6 +483,7 @@ void DestroyLevels(Levels *levels) {
 		for (int l=0;l<levels->nlevels;l++) {
 			if (levels->level[l].gridId) free(levels->level[l].gridId);
 			if (levels->level[l].ranges) free(levels->level[l].ranges);
+			if (levels->level[l].granges) free(levels->level[l].granges);
 			if (levels->level[l].inc) free(levels->level[l].inc);
 			if (levels->level[l].bcindices) free(levels->level[l].bcindices);
 		}

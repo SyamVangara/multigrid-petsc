@@ -26,7 +26,8 @@ typedef struct {
 	int		ngrids;   // num of grids in this level
 	int		*gridId; // Grid Id of each grid in a given level
 	double		(*h)[2]; // Delta h in reference domain // ! Remove
-	long int	*ranges; // ranges of global indices for each grid
+	long int	*ranges; // ranges of global level indices for each grid
+	long int	(*granges)[2]; // ranges of global grid indices for each grid
 	long int	(*inc)[MAX_DIMENSION]; // increments of global index 
 						// in each direction for each grid
 	BCindices	(*bcindices)[MAX_DIMENSION][2]; // BC indices for all grids in each dir
