@@ -1,7 +1,4 @@
 
-
-
-
 #ifndef _SOLVER_H_
 #define _SOLVER_H_
 
@@ -19,6 +16,7 @@ typedef struct {
 	int		rank; // -ve if BC block 
 	int		blockID[MAX_DIMENSION]; // -ve in a dir => it is BC block in that dir
 	long int	bcStartIndex; // Global start index on BC cells on neighboring block
+	long int	bcGStartIndex; // Global grid start index on BC cells on neighboring block
 	long int	bcInc[MAX_DIMENSION]; // Increments on BC cells on neigbhoring block
 } BCindices;
 

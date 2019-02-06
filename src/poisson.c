@@ -425,6 +425,7 @@ void ViewBCindicesInfo(BCindices (*bcindices)[2], int dimension) {
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", bcindices[i][j].blockID[k]);
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	start = %ld", bcindices[i][j].bcStartIndex);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	gstart = %ld", bcindices[i][j].bcGStartIndex);
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = ( ");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j].bcInc[k]);

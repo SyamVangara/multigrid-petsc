@@ -369,9 +369,15 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 	int *iblockID = level->bcindices[targetlg][dim][dir].blockID;
 	int *gblockID = grid[g].nblock[dim][dir].blockID;
 	long int *startindex = &(level->bcindices[targetlg][dim][dir].bcStartIndex);
+	long int *gstartindex = &(level->bcindices[targetlg][dim][dir].bcGStartIndex);
 
 	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
 	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
+	if (*startindex >=0) {
+		*gstartindex = GetGridBlockStart(grid+g, iblockID);
+	} else {
+		*gstartindex = -1;
+	}
 
 	int dimension = grids->topo->dimension;
 	long int *inc = level->bcindices[targetlg][dim][dir].bcInc;
@@ -380,6 +386,7 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 	
 	if (*startindex >= 0) {
 		*startindex += ((1-dir)*inc[dim]*(ln[dim]-1));
+		*gstartindex += ((1-dir)*inc[dim]*(ln[dim]-1));
 		inc[dim] = 0;
 	} else {
 		for(int i=0; i<dimension; i++) inc[i] = 0;
