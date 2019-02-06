@@ -19,7 +19,6 @@
 int totalUnknowns(int *n, int totalGrids);
 
 void PrintInfo(Grids *grids, Solver *solver);
-//void PrintInfo(Problem prob, Mesh mesh, Indices indices, Operator op, Solver solver, PostProcess pp, int cyc, int meshflag, int mappingStyleflag);
 void ViewGridsInfo(Grids grids, int verbose);
 //void ViewIndicesInfo(Indices indices);
 void ViewMatAInfo(Solver solver);
@@ -86,12 +85,18 @@ int main(int argc, char *argv[]) {
 //	ViewVecbInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
+	if (ierr == 1) {
+		DestroySolver(&solver);
+		DestroyGrids(&grids);
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	
 //	SetUpPostProcess(&pp);
 	PostProcessing(&grids, &solver);
 	
 	PrintInfo(&grids, &solver);
-//	PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
 	
 //	DestroyPostProcess(&pp);
 

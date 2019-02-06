@@ -2085,7 +2085,7 @@ void WriteToFiles(Solver *solver) {
 	for (int i=0;i<numIter+1;i++) {
 		fprintf(resData,"%.16e\n", rnorm[i]);
 	}
-	printf("Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], numIter);
+	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], numIter);
 	fclose(resData);
 }
 
