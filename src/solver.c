@@ -1035,7 +1035,6 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	MatCreateVecs(A[0], b, u);
 	FillLevelVecb(0, grids->grid, level, b);
 	ApplyBCLevelVecb(grids, level, b);
-
 	VecAssemblyBegin(*b);
 	VecAssemblyEnd(*b);
 }

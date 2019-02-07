@@ -64,7 +64,10 @@ typedef struct {
 	double	**dx; // Spacing in coordinates in each direction
 	double	h; // Grid characteristic length
 	double	para[4]; // Domain splitting quality measures
-	Nblock	nblock[MAX_DIMENSION][2]; // Neighboring blocks with non-zero unknowns
+	Nblock	nblock[MAX_DIMENSION][2]; // Neighboring face blocks with non-zero unknowns
+	Nblock	eblock[MAX_DIMENSION][2][2]; // Neighboring edge blocks with non-zero unknowns; 
+					    // [dim][2][2] -> Cyclic
+	Nblock	cblock[2][2][2]; // Neighboring corner blocks with non-zero unknowns
 	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
 } Grid;
 

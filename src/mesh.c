@@ -627,19 +627,55 @@ int identify_neighbor_blocks(Grid *grid) {
 	// Identify neighboring blocks with non-zero unknowns
 	
 	Nblock	(*nblock)[2] = grid->nblock;
+	Nblock	(*eblock)[2][2] = grid->eblock;
+	Nblock	(*cblock)[2][2] = grid->cblock;
 	int	**range = grid->range;
 	int	*blockID = grid->topo->blockID;
 	int	dimension = grid->topo->dimension;
 	int	*l = grid->topo->dimProcs;
 	
-	// Initialize blockID's for neighbor blocks
-	for (int i=0; i<dimension; i++) {
+	// Initialize blockID's for neighbor face, edge and corner blocks
+	for (int i=0; i<MAX_DIMENSION; i++) {
 		for (int j=0; j<2; j++) {
 			int *nblockID = nblock[i][j].blockID;
-			for (int dim=0; dim<MAX_DIMENSION; dim++) nblockID[dim] = blockID[dim];
-		}	
+			for (int dim=0; dim<MAX_DIMENSION; dim++) {
+				nblockID[dim] = blockID[dim];
+			}
+		}
 	}
 
+	for (int i=0; i<MAX_DIMENSION; i++) {
+		for (int j=0; j<2; j++) {
+			for (int k=0; k<2; k++) {
+				int *eblockID = eblock[i][j][k].blockID;
+				for (int dim=0; dim<MAX_DIMENSION; dim++) {
+					if (dimension == 3) {
+						eblockID[dim] = blockID[dim];
+					} else if (dimension == 2) {
+						eblockID[dim] = -2;
+					}
+				}
+			}
+		}
+	}
+	
+	for (int i=0; i<2; i++) {
+		for (int j=0; j<2; j++) {
+			for (int k=0; k<2; k++) {
+				int *cblockID = cblock[i][j][k].blockID;
+				if (k*dimension-2 == 0) {
+					for (int dim=0; dim<MAX_DIMENSION; dim++) {
+						cblockID[dim] = -2;
+					}
+				} else {
+					for (int dim=0; dim<MAX_DIMENSION; dim++) {
+						cblockID[dim] = blockID[dim];
+					}
+				}
+			}
+		}
+	}
+	
 	// Compute the ID's of neighboring blocks with non-zero unknowns
 	for (int i=0; i<dimension; i++) {
 		for (int j=-1; j<2; j=j+2) {
@@ -655,6 +691,32 @@ int identify_neighbor_blocks(Grid *grid) {
 		}
 	}
 	
+	for (int i=0; i<2; i++) {
+		int id = nblock[0][i].blockID[0];
+		for (int j=0; j<2; j++) {
+			int jd = nblock[1][j].blockID[1];
+			for (int k=0; k<dimension-1; k++) {
+				int *cblockID = cblock[i][j][k].blockID;
+				cblockID[0] = id;
+				cblockID[1] = jd;
+				cblockID[2] = nblock[2][k].blockID[2];
+			}
+		}
+	}
+	
+	if (dimension == 3) {
+		for (int idim=0; idim<3; idim++) {
+			int jdim = (idim+1)%3;
+			int kdim = (idim+2)%3;
+			for (int j=0; j<2; j++) {
+				for (int k=0; k<2; k++) {
+					int *eblockID = eblock[idim][j][k].blockID;
+					eblockID[jdim] = nblock[jdim][j].blockID[jdim];
+					eblockID[kdim] = nblock[kdim][k].blockID[kdim];
+				}
+			}
+		}
+	}
 	// Compute the rank and number of local number of points
 	for (int i=0; i<dimension; i++) {
 		for (int j=0; j<2; j++) {
@@ -667,6 +729,38 @@ int identify_neighbor_blocks(Grid *grid) {
 			} else {
 				nblock[i][j].rank = -1;
 				for (int dim=0; dim<dimension; dim++) ln[dim] = 0;
+			}
+
+			for (int k=0; k<2; k++) {
+				int *eblockID = eblock[i][j][k].blockID;
+				int *ln = eblock[i][j][k].ln;
+
+				if (eblockID[0]>=0 && eblockID[1]>=0 && eblockID[2]>=0) {
+					eblock[i][j][k].rank = GetRankFromBlockID(dimension, eblockID, l);
+					GetLocalNPoints(dimension, range, eblockID, ln);
+				} else {
+					eblock[i][j][k].rank = -1;
+					for (int dim=0; dim<dimension; dim++) ln[dim] = 0;
+				}
+
+			}
+		}
+	}
+	
+	for (int i=0; i<2; i++) {
+		for (int j=0; j<2; j++) {
+			for (int k=0; k<2; k++) {
+				int *cblockID = cblock[i][j][k].blockID;
+				int *ln = cblock[i][j][k].ln;
+
+				if (cblockID[0]>=0 && cblockID[1]>=0 && cblockID[2]>=0) {
+					cblock[i][j][k].rank = GetRankFromBlockID(dimension, cblockID, l);
+					GetLocalNPoints(dimension, range, cblockID, ln);
+				} else {
+					cblock[i][j][k].rank = -1;
+					for (int dim=0; dim<dimension; dim++) ln[dim] = 0;
+				}
+
 			}
 		}
 	}
