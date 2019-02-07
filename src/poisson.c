@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 0);
+	ViewGridsInfo(grids, 2);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr == 1) {
@@ -285,8 +285,62 @@ void ViewTopoInfo(Topo *topo) {
 	PetscPrintf(PETSC_COMM_WORLD,"\n\n");
 }
 
+void ViewEblockInfo(Nblock (*eblock)[2][2], int dimension) {
+	// Prints the info in edge blocks
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	PetscPrintf(PETSC_COMM_WORLD,"Neighbor-Edge blocks: \n");
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: \n", rank);
+	for (int i=0; i<dimension; i++) {
+		for (int j=0; j<2; j++) {
+			for (int k=0; k<2; k++) {
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Direction(%d, %d, %d):	rank = %d", i, 2*j-1, 2*k-1, eblock[i][j][k].rank);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, ";	blockID = ( ");
+				for (int dim=0; dim<dimension; dim++)
+					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", eblock[i][j][k].blockID[dim]);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	ln =");
+				for (int dim=0; dim<dimension; dim++)
+					PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d", eblock[i][j][k].ln[dim]);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+			}
+		}
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+}
+
+void ViewCblockInfo(Nblock (*cblock)[2][2], int dimension) {
+	// Prints the info in corner blocks
+	
+	int	procs, rank;
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &procs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	PetscPrintf(PETSC_COMM_WORLD,"Neighbor-Corner blocks: \n");
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: \n", rank);
+	for (int i=0; i<2; i++) {
+		for (int j=0; j<2; j++) {
+			for (int k=0; k<2; k++) {
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Direction(%d, %d, %d):	rank = %d", 2*i-1, 2*j-1, 2*k-1, cblock[i][j][k].rank);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, ";	blockID = ( ");
+				for (int dim=0; dim<dimension; dim++)
+					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", cblock[i][j][k].blockID[dim]);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	ln =");
+				for (int dim=0; dim<dimension; dim++)
+					PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d", cblock[i][j][k].ln[dim]);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+			}
+		}
+	}
+	PetscSynchronizedFlush(PETSC_COMM_WORLD, PETSC_STDOUT);
+}
+
 void ViewNblockInfo(Nblock (*nblock)[2], int dimension) {
-	// Prints the info in Nblock
+	// Prints the info in face blocks
 	
 	int	procs, rank;
 	
@@ -365,6 +419,8 @@ void ViewGridInfo(Grid grid, int verbose) {
 	}
 	if (verbose > 1) {
 		ViewNblockInfo(grid.nblock, dimension);
+		if (dimension == 3) ViewEblockInfo(grid.eblock, dimension);
+		ViewCblockInfo(grid.cblock, dimension);
 		for (int i=0;i<dimension;i++) {
 			PetscPrintf(PETSC_COMM_WORLD,"coord[%d]:",i);
 			for (int j=0;j<grid.n[i];j++) {
