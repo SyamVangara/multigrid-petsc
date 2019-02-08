@@ -29,6 +29,8 @@ typedef struct {
 	long int	(*inc)[MAX_DIMENSION]; // increments of global index 
 						// in each direction for each grid
 	BCindices	(*bcindices)[MAX_DIMENSION][2]; // BC indices for all grids in each dir
+	BCindices	(*ebcindices)[MAX_DIMENSION][2][2]; // Edge BC indices for all grids in each dir
+	BCindices	(*cbcindices)[2][2][2]; // Corner BC indices for all grids in each dir
 	ArrayInt2d	global;  // global to grid map// ! Remove
 	ArrayInt2d	*grid;   // grid to global map// ! Remove
 } Level;

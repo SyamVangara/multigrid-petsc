@@ -351,6 +351,8 @@ void InitializeLevel(Level *level) {
 	level->granges	= NULL;
 	level->inc	= NULL;
 	level->bcindices= NULL;
+	level->ebcindices= NULL;
+	level->cbcindices= NULL;
 }
 
 void InitializeLevels(Levels *levels) {
@@ -387,7 +389,81 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 	if (*startindex >= 0) {
 		*startindex += ((1-dir)*inc[dim]*(ln[dim]-1));
 		*gstartindex += ((1-dir)*inc[dim]*(ln[dim]-1));
-		inc[dim] = 0;
+	} else {
+		for(int i=0; i<dimension; i++) inc[i] = 0;
+	}
+}
+
+void CreateEBCindices(Grids *grids, Level *level, int dim, int jdir, int kdir, int targetlg) {
+	
+	Grid	*grid = grids->grid;
+	int	g = level->gridId[targetlg];
+
+	Nblock		*eblock = &(grid[g].eblock[dim][jdir][kdir]);
+	BCindices	*ebcindices = &(level->ebcindices[targetlg][dim][jdir][kdir]);
+
+	ebcindices->rank = eblock->rank;
+	int *iblockID = ebcindices->blockID;
+	int *gblockID = eblock->blockID;
+	long int *startindex = &(ebcindices->bcStartIndex);
+	long int *gstartindex = &(ebcindices->bcGStartIndex);
+
+	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
+	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
+	if (*startindex >=0) {
+		*gstartindex = GetGridBlockStart(grid+g, iblockID);
+	} else {
+		*gstartindex = -1;
+	}
+
+	int dimension = grids->topo->dimension;
+	long int *inc = ebcindices->bcInc;
+	int *ln = eblock->ln;
+	GetGridIncrements(dimension, ln, inc);
+	
+	if (*startindex >= 0) {
+		int jdim = (dim+1)%3;
+		int kdim = (dim+2)%3;
+		long int temp = ((1-jdir)*inc[jdim]*(ln[jdim]-1)+(1-kdir)*inc[kdim]*(ln[kdim]-1));
+		*startindex += temp;
+		*gstartindex += temp;
+	} else {
+		for(int i=0; i<dimension; i++) inc[i] = 0;
+	}
+}
+
+void CreateCBCindices(Grids *grids, Level *level, int idir, int jdir, int kdir, int targetlg) {
+	
+	Grid	*grid = grids->grid;
+	int	g = level->gridId[targetlg];
+	
+	Nblock		*cblock = &(grid[g].cblock[idir][jdir][kdir]);
+	BCindices	*cbcindices = &(level->cbcindices[targetlg][idir][jdir][kdir]);
+
+	cbcindices->rank = cblock->rank;
+	int *iblockID = cbcindices->blockID;
+	int *gblockID = cblock->blockID;
+	long int *startindex = &(cbcindices->bcStartIndex);
+	long int *gstartindex = &(cbcindices->bcGStartIndex);
+
+	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
+	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
+	if (*startindex >=0) {
+		*gstartindex = GetGridBlockStart(grid+g, iblockID);
+	} else {
+		*gstartindex = -1;
+	}
+
+	int dimension = grids->topo->dimension;
+	long int *inc = cbcindices->bcInc;
+	int *ln = cblock->ln;
+	GetGridIncrements(dimension, ln, inc);
+	
+	if (*startindex >= 0) {
+		long int temp = ((1-idir)*inc[0]*(ln[0]-1)+(1-jdir)*inc[1]*(ln[1]-1));
+		if (dimension == 3) temp += (1-kdir)*inc[2]*(ln[2]-1);
+		*startindex += temp;
+		*gstartindex += temp;
 	} else {
 		for(int i=0; i<dimension; i++) inc[i] = 0;
 	}
@@ -417,6 +493,29 @@ void fillLevel(Grids *grids, Level *level) {
 		for (int i=0; i<dimension; i++) {
 			for (int j=0; j<2; j++) {
 				CreateBCindices(grids, level, i, j, lg);
+			}
+		}
+	}
+
+	level->cbcindices = malloc(ngrids*sizeof(BCindices[2][2][2]));
+	for (int lg=0; lg<ngrids; lg++) {
+		for (int i=0; i<2; i++) {
+			for (int j=0; j<2; j++) {
+				for (int k=0; k<dimension-1; k++) {
+					CreateCBCindices(grids, level, i, j, k, lg);
+				}
+			}
+		}
+	}
+	
+	if (dimension == 2) return;
+	level->ebcindices = malloc(ngrids*sizeof(BCindices[MAX_DIMENSION][2][2]));
+	for (int lg=0; lg<ngrids; lg++) {
+		for (int dim=0; dim<3; dim++) {
+			for (int j=0; j<2; j++) {
+				for (int k=0; k<2; k++) {
+//					CreateEBCindices(grids, level, dim, j, k, lg);
+				}
 			}
 		}
 	}
@@ -493,6 +592,8 @@ void DestroyLevels(Levels *levels) {
 			if (levels->level[l].granges) free(levels->level[l].granges);
 			if (levels->level[l].inc) free(levels->level[l].inc);
 			if (levels->level[l].bcindices) free(levels->level[l].bcindices);
+			if (levels->level[l].ebcindices) free(levels->level[l].ebcindices);
+			if (levels->level[l].cbcindices) free(levels->level[l].cbcindices);
 		}
 		free(levels->level);
 	}
