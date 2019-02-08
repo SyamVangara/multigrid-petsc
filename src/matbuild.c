@@ -514,7 +514,7 @@ void fillLevel(Grids *grids, Level *level) {
 		for (int dim=0; dim<3; dim++) {
 			for (int j=0; j<2; j++) {
 				for (int k=0; k<2; k++) {
-//					CreateEBCindices(grids, level, dim, j, k, lg);
+					CreateEBCindices(grids, level, dim, j, k, lg);
 				}
 			}
 		}
