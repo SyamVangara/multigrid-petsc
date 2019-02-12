@@ -345,19 +345,116 @@ static void GetFGridPoint2D(long int i1, long int j1,
 	*j0 = GetFGridIndex(j1, cfactor);
 }
 
-//static void GetFGridPoint3D(long int i1, long int j1, long int k1,
-//			long int *i0, long int *j0, long int *k0,
-//			int cfactor) {
-//	// Gives fine grid point corresponding to the coarse grid point in 3D
-//	
-//	*i0 = GetFGridIndex(i1, cfactor);
-//	*j0 = GetFGridIndex(j1, cfactor);
-//	*k0 = GetFGridIndex(k1, cfactor);
-//}
+static void GetFGridPoint3D(long int i1, long int j1, long int k1,
+			long int *i0, long int *j0, long int *k0,
+			int cfactor) {
+	// Gives fine grid point corresponding to the coarse grid point in 3D
+	
+	*i0 = GetFGridIndex(i1, cfactor);
+	*j0 = GetFGridIndex(j1, cfactor);
+	*k0 = GetFGridIndex(k1, cfactor);
+}
+
+void FillMatResBC3D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
+			double *weights, Mat *res) {
+	// Fills Mat res for block BC points in 3D
+	
+	int	*blockID = grids->topo->blockID;
+
+	int	g0 = level0->gridId[lg0];
+	int	g1 = level1->gridId[lg1];
+
+	Grid 	*grid0 = grids->grid+g0;
+	Grid 	*grid1 = grids->grid+g1;
+
+	int	*ln0 = grid0->ln;
+	int	*ln1 = grid1->ln;
+
+	long int *inc0 = level0->inc[lg0];
+	long int *inc1 = level1->inc[lg1];
+
+	long int gstart0 = level0->granges[lg0][0];
+	long int gstart1 = level1->granges[lg1][0];
+
+	long int istart0 = grid0->range[0][blockID[0]];
+	long int jstart0 = grid0->range[1][blockID[1]];
+	long int kstart0 = grid0->range[2][blockID[2]];
+
+	long int istart1 = grid1->range[0][blockID[0]];
+	long int jstart1 = grid1->range[1][blockID[1]];
+	long int kstart1 = grid1->range[2][blockID[2]];
+
+	int	cols[27];
+	
+	BCindices	(*bcindices)[2] = level0->bcindices[lg0];
+	BCindices	(*ebcindices)[2][2] = level0->ebcindices[lg0];
+	BCindices	(*cbcindices)[2][2] = level0->cbcindices[lg0];
+	for (int k=0; k<ln1[2]; k++) {
+	for (int j=0; j<ln1[1]; j++) {
+	for (int i=0; i<ln1[0]; i++) {
+		if (i != 0 && i != ln1[0]-1 
+			&& j != 0 && j != ln1[1]-1
+			&& k != 0 && k != ln1[2]-1) continue;
+		int row = gstart1 + i*inc1[0] + j*inc1[1] + k*inc1[2];
+		long int i0, j0, k0;
+		GetFGridPoint3D(istart1+i-1, jstart1+j-1, kstart1+k-1, &i0, &j0, &k0, 2);
+		i0 = i0-istart0;
+		j0 = j0-jstart0;
+		k0 = k0-kstart0;
+		for (int r=0; r<3; r++) {
+		for (int q=0; q<3; q++) {
+		for (int p=0; p<3; p++) {
+			if (i0+p < 0 && j0+q < 0 && k0+r < 0) 
+				cols[r*9+q*3+p] = cbcindices[0][0][0].bcGStartIndex; // [Corners
+			else if (i0+p < 0 && j0+q < 0 && k0+r > ln0[2]-1) 
+				cols[r*9+q*3+p] = cbcindices[0][0][1].bcGStartIndex;
+			else if (i0+p < 0 && j0+q > ln0[1]-1 && k0+r < 0) 
+				cols[r*9+q*3+p] = cbcindices[0][1][0].bcGStartIndex;
+			else if (i0+p < 0 && j0+q > ln0[1]-1 && k0+r > ln0[2]-1) 
+				cols[r*9+q*3+p] = cbcindices[0][1][1].bcGStartIndex;
+			else if (i0+p > ln0[0]-1 && j0+q < 0 && k0+r < 0) 
+				cols[r*9+q*3+p] = cbcindices[1][0][0].bcGStartIndex;
+			else if (i0+p > ln0[0]-1 && j0+q < 0 && k0+r > ln0[2]-1) 
+				cols[r*9+q*3+p] = cbcindices[1][0][1].bcGStartIndex;
+			else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1 && k0+r < 0) 
+				cols[r*9+q*3+p] = cbcindices[1][1][0].bcGStartIndex;
+			else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1 && k0+r > ln0[2]-1) 
+				cols[r*9+q*3+p] = cbcindices[1][1][1].bcGStartIndex; // Corners]
+			else if (j0+q < 0 && k0+r < 0)
+				cols[r*9+q*3+p] = ebcindices[0][0][0].bcGStartIndex
+						+ (i0+p)*ebcindices[0][0][0].bcInc[0]; // [Edges
+			else if (j0+q < 0 && k0+r < 0)
+				cols[r*9+q*3+p] = ebcindices[0][0][0].bcGStartIndex
+						+ (i0+p)*ebcindices[0][0][0].bcInc[0]; 
+			else if (i0+p < 0)
+				cols[r*9+q*3+p] = bcindices[0][0].bcGStartIndex
+					+(j0+q)*bcindices[0][0].bcInc[1];
+			else if (i0+p > ln0[0]-1)
+				cols[r*9+q*3+p] = bcindices[0][1].bcGStartIndex
+					+(j0+q)*bcindices[0][1].bcInc[1];
+			else if (j0+q < 0)
+				cols[r*9+q*3+p] = bcindices[1][0].bcGStartIndex
+					+(i0+p)*bcindices[1][0].bcInc[0];
+			else if (j0+q > ln0[1]-1)
+				cols[r*9+q*3+p] = bcindices[1][1].bcGStartIndex
+					+(i0+p)*bcindices[1][1].bcInc[0];
+			else
+				cols[r*9+q*3+p] = gstart0
+					+(i0+p)*inc0[0]
+					+(j0+q)*inc0[1]
+					+(k0+r)*inc0[2];
+		}
+		}
+		}
+		MatSetValues(*res, 1, &row, 27, cols, weights, INSERT_VALUES);
+	}
+	}
+	}
+}
 
 void FillMatResBC2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
 			double *weights, Mat *res) {
-	// Fills Mat res for BC face points
+	// Fills Mat res for block BC points in 2D
 	
 	int	*blockID = grids->topo->blockID;
 
@@ -422,6 +519,60 @@ void FillMatResBC2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 				}
 			}
 			MatSetValues(*res, 1, &row, 9, cols, weights, INSERT_VALUES);
+		}
+	}
+}
+
+void FillMatResInterior3D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
+			double *weights, Mat *res) {
+	// Fills Mat res for interior coarse points
+	
+	int	*blockID = grids->topo->blockID;
+
+	int	g0 = level0->gridId[lg0];
+	int	g1 = level1->gridId[lg1];
+
+	Grid 	*grid0 = grids->grid+g0;
+	Grid 	*grid1 = grids->grid+g1;
+
+	int	*ln1 = grid1->ln;
+
+	long int *inc0 = level0->inc[lg0];
+	long int *inc1 = level1->inc[lg1];
+
+	long int gstart0 = level0->granges[lg0][0];
+	long int gstart1 = level1->granges[lg1][0];
+
+	long int istart0 = grid0->range[0][blockID[0]];
+	long int jstart0 = grid0->range[1][blockID[1]];
+	long int kstart0 = grid0->range[2][blockID[2]];
+
+	long int istart1 = grid1->range[0][blockID[0]];
+	long int jstart1 = grid1->range[1][blockID[1]];
+	long int kstart1 = grid1->range[2][blockID[2]];
+
+	int	cols[27];
+	for (int k=1; k<ln1[2]-1; k++) {
+		for (int j=1; j<ln1[1]-1; j++) {
+			for (int i=1; i<ln1[0]-1; i++) {
+				int row = gstart1 + i*inc1[0] + j*inc1[1] + k*inc1[2];
+				long int i0, j0, k0;
+				GetFGridPoint3D(istart1+i-1, jstart1+j-1, kstart1+k-1, &i0, &j0, &k0, 2);
+				i0 = i0-istart0;
+				j0 = j0-jstart0;
+				k0 = k0-kstart0;
+				for (int r=0; r<3; r++) {
+					for (int q=0; q<3; q++) {
+						for (int p=0; p<3; p++) {
+							cols[r*9+q*3+p] = gstart0+
+								(i0+p)*inc0[0]+
+								(j0+q)*inc0[1]+
+								(k0+r)*inc0[2];
+						}
+					}
+				}
+				MatSetValues(*res, 1, &row, 27, cols, weights, INSERT_VALUES);
+			}
 		}
 	}
 }
@@ -495,14 +646,16 @@ void FillMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, Ma
 		FillMatResInterior2D(grids, lg0, level0, lg1, level1, weights, res);
 		FillMatResBC2D(grids, lg0, level0, lg1, level1, weights, res);
 	} else if (dimension == 3) {
-//		double	weights[27];
-//		for (int k=0; k<3; k++) {
-//			for (int j=0; j<3; j++) {
-//				for (int i=0; i<3; i++) {
-//					weights[k*9+j*3+i] = opx[i]*opy[j]*opz[k];
-//				}
-//			}
-//		}
+		double	weights[27];
+		for (int k=0; k<3; k++) {
+			for (int j=0; j<3; j++) {
+				for (int i=0; i<3; i++) {
+					weights[k*9+j*3+i] = opx[i]*opy[j]*opz[k];
+				}
+			}
+		}
+		FillMatResInterior3D(grids, lg0, level0, lg1, level1, weights, res);
+		FillMatResBC3D(grids, lg0, level0, lg1, level1, weights, res);
 	}
 }
 
@@ -608,263 +761,6 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 		}
 	}
 }
-
-//void fillRestrictionPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
-//	// Fills restriction portions (such as I_h^H A_h) of level Mat A
-//	
-//	int		*a, *b;
-//	int		ai, aj, bi, bj;
-//	double		*res, *pro;
-//	double		weight;
-//	int		resni, resnj;
-//	
-//	int		grids, *gridId;
-//	int		*ranges;
-//	double		As[5];
-//
-//	int		i0, j0, g0;
-//	int		ifine, jfine;
-//	int		i1, j1, g1;
-//
-//	double		metrics[5], **coord;
-//	
-//	int	procs, rank;
-//	
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	coord = mesh->coord;
-//
-//	ai = level->global.ni;
-//	aj = level->global.nj;
-//	a  = level->global.data;
-//
-//	grids = level->ngrids;
-//	gridId = level->gridId;
-//
-//	ranges = level->ranges;	
-//
-//	// Row-based fill:
-//	for (int row=ranges[rank];row<ranges[rank+1];row++) {
-//		//i0 - row    - y coord
-//		//j0 - column - x coord
-//		//A[0]*u(i0-1,j0) + A[1]*u(i0,j0-1) + A[2]*u(i0,j0) + A[3]*u(i0,j0+1) + A[4]*u(i0+1,j0) = f(i0,j0)
-//		i0 = a[row*aj];
-//		j0 = a[row*aj+1];
-//		g0 = a[row*aj+2]; 
-//		for (int lg=0;lg<grids;lg++) {
-//			g1 = gridId[lg];
-//			if (g1 < g0) {	
-//				// grid-to-global index map
-//				bi = level->grid[lg].ni;
-//				bj = level->grid[lg].nj;
-//				b  = level->grid[lg].data;
-//
-//				// Restriction operator from g1 to g0
-//				resni = op->res[g0-g1-1].ni;
-//				resnj = op->res[g0-g1-1].nj;
-//				res = op->res[g0-g1-1].data;
-//				
-//				// (i1, j1) in grid g1 corresponding to (i0, j0) in grid g0
-//				i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (resni)/2;
-//				j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (resnj)/2;	
-//				for (int i=i1;i<i1 + resni;i++) {
-//					for (int j=j1;j<j1 + resnj;j++) {
-//						// fine grid point corresponding to (i, j) in grid g1
-//						ifine = ipow(factor,(g1))*(i+1)-1;
-//						jfine = ipow(factor,(g1))*(j+1)-1;
-//
-//						// Compute metrics at physical point corresponding to fine grid point
-//						mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//						prob->OpA(As, metrics, level->h[lg]);// Get the coefficients 
-//						
-//						// Fill the values corresponding to restriction from (i, j) to (i0, j0)
-//						weight = res[(i-i1)*resnj+(j-j1)];
-//						if (weight == 0.0) continue;
-//						if (i-1>=0) {
-//							MatSetValue(*A, row, b[(i-1)*bj+j], weight*As[0], ADD_VALUES);
-//						}
-//						if (j-1>=0) {
-//							MatSetValue(*A, row, b[i*bj+j-1], weight*As[1], ADD_VALUES);
-//						}
-//						MatSetValue(*A, row, b[i*bj+j], weight*As[2], ADD_VALUES);
-//						if (j+1<bj) {
-//							MatSetValue(*A, row, b[i*bj+j+1], weight*As[3], ADD_VALUES);
-//						}
-//						if (i+1<bi) {
-//							MatSetValue(*A, row, b[(i+1)*bj+j], weight*As[4], ADD_VALUES);
-//						}
-//					}
-//				}
-//			}
-//		}
-//	}
-//}
-//
-//void fillProlongationPortion(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
-//	// Fills prolongation portions (such as A_h I_H^h) of level Mat A
-//	
-//	int		*a, *b;
-//	int		ai, aj, bi, bj;
-//	double		*res, *pro;
-//	double		weight;
-//	int		proni, pronj;
-//	
-//	int		grids, *gridId;
-//	int		*ranges;
-//	double		As[5];
-//
-//	int		i0, j0, g0;
-//	int		ifine, jfine;
-//	int		i1, j1, g1;
-//
-//	double		metrics[5], **coord;
-//	
-//	int	procs, rank;
-//	
-//	MPI_Comm_size(PETSC_COMM_WORLD, &procs);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	coord = mesh->coord;
-//
-//	// Global-to-grid index map
-//	ai = level->global.ni;
-//	aj = level->global.nj;
-//	a  = level->global.data;
-//
-//	grids = level->ngrids;
-//	gridId = level->gridId;
-//
-//	ranges = level->ranges;	
-//		
-//	// Column based fill
-//	for (int col=ranges[rank];col<ranges[rank+1];col++) {
-//		i0 = a[col*aj];
-//		j0 = a[col*aj+1];
-//		g0 = a[col*aj+2];
-//
-//		for (int lg=0;lg<grids;lg++) {
-//			g1 = gridId[lg];
-//			if (g1 < g0) {
-//				// Grid-to-global index map
-//				bi = level->grid[lg].ni;
-//				bj = level->grid[lg].nj;
-//				b  = level->grid[lg].data;
-//				
-//				// Prolongation operator from g0 to g1
-//				proni = op->pro[g0-g1-1].ni;
-//				pronj = op->pro[g0-g1-1].nj;
-//				pro = op->pro[g0-g1-1].data;
-//				
-//				// (i1, j1) on g1 corresponding to (i0, j0) on g0
-//				i1 = ipow(factor,(g0-g1))*(i0+1)-1 - (proni)/2;
-//				j1 = ipow(factor,(g0-g1))*(j0+1)-1 - (pronj)/2;
-//
-//				// Fill the values associated to interior points in 2d stencil 
-//				for (int i=1;i<proni-1;i++) {
-//					for (int j=1;j<pronj-1;j++) {
-//						// fine grid point corresponding to (i+i1, j+j1) on g1
-//						ifine = ipow(factor,(g1))*(i+i1+1)-1;
-//						jfine = ipow(factor,(g1))*(j+j1+1)-1;
-//
-//						// Compute metrics at physical point correspoding to fine grid point
-//						mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//						prob->OpA(As, metrics, level->h[lg]); // Get coefficients
-//
-//						// Fill the values
-//						weight = As[0]*pro[(i-1)*pronj+(j)] + As[1]*pro[(i)*pronj+(j-1)]+ As[2]*pro[(i)*pronj+(j)]+ As[3]*pro[(i)*pronj+(j+1)]+ As[4]*pro[(i+1)*pronj+(j)];
-//						if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+j+j1], col, weight, ADD_VALUES);
-//					}
-//				}
-//
-//				// Fill the values associated to edges in 2d stencil except corners
-//				for (int j=1;j<pronj-1;j++) {
-//					ifine = ipow(factor,(g1))*(i1+1)-1;
-//					jfine = ipow(factor,(g1))*(j+j1+1)-1;
-//					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//					prob->OpA(As, metrics, level->h[lg]);
-//					weight = As[1]*pro[(j-1)]+ As[2]*pro[(j)]+ As[3]*pro[(j+1)]+ As[4]*pro[pronj+(j)];
-//					if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+j+j1], col, weight, ADD_VALUES);
-//					
-//					ifine = ipow(factor,(g1))*(proni+i1)-1;
-//					jfine = ipow(factor,(g1))*(j+j1+1)-1;
-//					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//					prob->OpA(As, metrics, level->h[lg]);
-//					weight = As[0]*pro[(proni-2)*pronj+(j)] + As[1]*pro[(proni-1)*pronj+(j-1)]+ As[2]*pro[(proni-1)*pronj+(j)]+ As[3]*pro[(proni-1)*pronj+(j+1)];
-//					if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+j+j1], col, weight, ADD_VALUES);
-//				}
-//				
-//				for (int i=1;i<proni-1;i++) {
-//					ifine = ipow(factor,(g1))*(i+i1+1)-1;
-//					jfine = ipow(factor,(g1))*(j1+1)-1;
-//					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//					prob->OpA(As, metrics, level->h[lg]);
-//					weight = As[0]*pro[(i-1)*pronj] + As[2]*pro[(i)*pronj]+ As[3]*pro[(i)*pronj+(1)]+ As[4]*pro[(i+1)*pronj];
-//					if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+j1], col, weight, ADD_VALUES);
-//						
-//					ifine = ipow(factor,(g1))*(i+i1+1)-1;
-//					jfine = ipow(factor,(g1))*(pronj+j1)-1;
-//					mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//					prob->OpA(As, metrics, level->h[lg]);
-//					weight = As[0]*pro[(i-1)*pronj+(pronj-1)] + As[1]*pro[(i)*pronj+(pronj-2)]+ As[2]*pro[(i)*pronj+(pronj-1)]+ As[4]*pro[(i+1)*pronj+(pronj-1)];
-//					if (weight != 0.0) MatSetValue(*A, b[(i+i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
-//				}
-//				
-//				// Fill the values associated to corners in 2d stencil
-//				ifine = ipow(factor,(g1))*(i1+1)-1;
-//				jfine = ipow(factor,(g1))*(j1+1)-1;
-//				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//				prob->OpA(As, metrics, level->h[lg]);
-//				weight = As[2]*pro[0]+ As[3]*pro[1]+ As[4]*pro[pronj];
-//				if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+j1], col, weight, ADD_VALUES);
-//				
-//				ifine = ipow(factor,(g1))*(i1+1)-1;
-//				jfine = ipow(factor,(g1))*(pronj+j1)-1;
-//				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//				prob->OpA(As, metrics, level->h[lg]);
-//				weight = As[1]*pro[(pronj-2)]+ As[2]*pro[(pronj-1)]+ As[4]*pro[pronj+(pronj-1)];
-//				if (weight != 0.0) MatSetValue(*A, b[(i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
-//				
-//				ifine = ipow(factor,(g1))*(proni+i1)-1;
-//				jfine = ipow(factor,(g1))*(j1+1)-1;
-//				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//				prob->OpA(As, metrics, level->h[lg]);
-//				weight = As[0]*pro[(proni-2)*pronj] + As[2]*pro[(proni-1)*pronj]+ As[3]*pro[(proni-1)*pronj+(1)];
-//				if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+j1], col, weight, ADD_VALUES);
-//				
-//				ifine = ipow(factor,(g1))*(proni+i1)-1;
-//				jfine = ipow(factor,(g1))*(pronj+j1)-1;
-//				mesh->MetricCoefficients(mesh, coord[0][jfine+1], coord[1][ifine+1], metrics);
-//				prob->OpA(As, metrics, level->h[lg]);
-//				weight = As[0]*pro[(proni-2)*pronj+(pronj-1)] + As[1]*pro[(proni-1)*pronj+(pronj-2)]+ As[2]*pro[(proni-1)*pronj+(pronj-1)];
-//				if (weight != 0.0) MatSetValue(*A, b[(proni-1+i1)*bj+pronj-1+j1], col, weight, ADD_VALUES);
-//			}
-//		}
-//	}
-//}
-//
-//void levelMatrixA(Problem *prob, Mesh *mesh, Operator *op, Level *level, int factor, Mat *A) {
-//	// Build matrix "A" for a given level
-//	// level - contains global-to-grid, grid-to-global index maps
-//	// factor - coarsening factor
-//	
-//	int	rank;
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	int		grids;
-//	int		*ranges;
-//	grids = level->ngrids;
-//	ranges = level->ranges;	
-//	
-//	MatCreateAIJ(PETSC_COMM_WORLD, ranges[rank+1]-ranges[rank], ranges[rank+1]-ranges[rank], PETSC_DETERMINE, PETSC_DETERMINE, 6*grids, PETSC_NULL, 6*grids, PETSC_NULL, A);
-//
-//	fillJacobians(prob, mesh, level, factor, A);
-//	fillRestrictionPortion(prob, mesh, op, level, factor, A);
-//	fillProlongationPortion(prob, mesh, op, level, factor, A);
-//	
-//	MatAssemblyBegin(*A,MAT_FINAL_ASSEMBLY);
-//	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
-//}
 
 void AssembleMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, Mat *res) {
 	// Build restriction matrix "res" from "lg0" in level0 to "lg1" in level1
