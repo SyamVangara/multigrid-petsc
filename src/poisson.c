@@ -21,6 +21,7 @@ int totalUnknowns(int *n, int totalGrids);
 void PrintInfo(Grids *grids, Solver *solver);
 void ViewGridsInfo(Grids grids, int verbose);
 //void ViewIndicesInfo(Indices indices);
+void ViewMatResInfo(Solver solver);
 void ViewMatAInfo(Solver solver);
 void ViewVecbInfo(Solver solver);
 void ViewLevelsInfo(Solver solver, int verbose);
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 2);
+	ViewGridsInfo(grids, 1);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr == 1) {
@@ -80,7 +81,8 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 2);
+	ViewLevelsInfo(solver, 1);
+	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
@@ -611,6 +613,17 @@ void ViewLevelsInfo(Solver solver, int verbose) {
 		ViewLevelInfo(levels->level[l], dimension, verbose);
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
+}
+
+void ViewMatResInfo(Solver solver) {
+	// Prints the Mat A info of each level
+	
+	int nlevels = solver.levels->nlevels;
+	int lngrids = solver.levels->level[nlevels-1].ngrids;
+	int nres = solver.levels->level[nlevels-1].gridId[lngrids-1];
+	Mat *res = solver.levels->res;
+	
+	for (int l=0; l<nres; l++) MatView(res[l], PETSC_VIEWER_STDOUT_WORLD);
 }
 
 void ViewMatAInfo(Solver solver) {
