@@ -558,6 +558,7 @@ int CreateLevels(Grids *grids, Levels *levels) {
 		pERROR_MSG("Grids are not assigned in a strictly ascending manner to Levels");
 		return 1;
 	}
+	levels->res= malloc((grids->ngrids-1)*sizeof(Mat));
 	levels->A = malloc(levels->nlevels*sizeof(Mat));
 	levels->b = malloc(levels->nlevels*sizeof(Vec));
 	levels->u = malloc(levels->nlevels*sizeof(Vec));
@@ -571,6 +572,21 @@ void DestroyLevels(Levels *levels) {
 	// Free the memory allocated to indices
 	
 	if (!levels) return;
+	if (levels->res) {
+		for (int l=0; l<levels->nlevels; l++) {
+			int ngrids = levels->level[l].ngrids;
+			for (int lg=0; lg<ngrids-1; lg++) {
+				int g = levels->level[l].gridId[lg];
+				MatDestroy(levels->res+g);
+			}
+		}
+		for (int l=0; l<levels->nlevels-1; l++) {
+			int ngrids = levels->level[l].ngrids;
+			int g = levels->level[l].gridId[ngrids-1];
+			MatDestroy(levels->res+g);
+		}
+		free(levels->res);
+	}
 	if (levels->A) {
 		for (int l=0; l<levels->nlevels; l++) {
 			MatDestroy(levels->A+l);

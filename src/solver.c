@@ -331,6 +331,255 @@ inline void FillBCDirMatA(long int igstart, long int istart,
 	}
 }
 
+static long int GetFGridIndex(long int i, int cfactor) {
+	// Gives Fine grid index corresponding to the coarse grid index
+	return (i+1)*cfactor-1;
+}
+
+static void GetFGridPoint2D(long int i1, long int j1, 
+			long int *i0, long int *j0, 
+			int cfactor) {
+	// Gives fine grid point corresponding to the coarse grid point in 2D
+	
+	*i0 = GetFGridIndex(i1, cfactor);
+	*j0 = GetFGridIndex(j1, cfactor);
+}
+
+//static void GetFGridPoint3D(long int i1, long int j1, long int k1,
+//			long int *i0, long int *j0, long int *k0,
+//			int cfactor) {
+//	// Gives fine grid point corresponding to the coarse grid point in 3D
+//	
+//	*i0 = GetFGridIndex(i1, cfactor);
+//	*j0 = GetFGridIndex(j1, cfactor);
+//	*k0 = GetFGridIndex(k1, cfactor);
+//}
+
+void FillMatResBC2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
+			double *weights, Mat *res) {
+	// Fills Mat res for BC face points
+	
+	int	*blockID = grids->topo->blockID;
+
+	int	g0 = level0->gridId[lg0];
+	int	g1 = level1->gridId[lg1];
+
+	Grid 	*grid0 = grids->grid+g0;
+	Grid 	*grid1 = grids->grid+g1;
+
+	int	*ln0 = grid0->ln;
+	int	*ln1 = grid1->ln;
+
+	long int *inc0 = level0->inc[lg0];
+	long int *inc1 = level1->inc[lg1];
+
+	long int gstart0 = level0->granges[lg0][0];
+	long int gstart1 = level1->granges[lg1][0];
+
+	long int istart0 = grid0->range[0][blockID[0]];
+	long int jstart0 = grid0->range[1][blockID[1]];
+//	long int iend0 = grid0->range[0][blockID[0]+1];
+//	long int jend0 = grid0->range[1][blockID[1]+1];
+
+	long int istart1 = grid1->range[0][blockID[0]];
+	long int jstart1 = grid1->range[1][blockID[1]];
+//	long int iend1 = grid1->range[0][blockID[0]+1];
+//	long int jend1 = grid1->range[1][blockID[1]+1];
+	
+//	long int ifmin, jfmin, ifmax, jfmax;
+//	GetFGridPoint2D(istart1, jstart1, &ifmin, &jfmin, 2);
+//	long int imin = 1-ifmin+istart0;
+//	long int jmin = 1-jfmin+jstart0;
+//	GetFGridPoint2D(iend1, jend1, &ifmax, &jfmax, 2);
+//	long int imax = ln1[0]-(1-iend0+ifmax);
+//	long int jmax = ln1[1]-(1-jend0+jfmax);
+
+	int	cols[9];
+	
+	BCindices	(*bcindices)[2] = level0->bcindices[lg0];
+	BCindices	(*cbcindices)[2][2] = level0->cbcindices[lg0];
+	for (int i=0; i<ln1[0]; i++) {
+		for (int j=0; j<ln1[1]; j++) {
+			if (i != 0 && i != ln1[0]-1 && j != 0 && j != ln1[1]-1) continue;
+			int row = gstart1 + i*inc1[0] + j*inc1[1];
+			long int i0, j0;
+			GetFGridPoint2D(istart1+i, jstart1+j, &i0, &j0, 2);
+			i0 = i0-istart0-1;
+			j0 = j0-jstart0-1;
+			for (int q=0; q<3; q++) {
+				for (int p=0; p<3; p++) {
+					if (i0+p < 0 && j0+q < 0) 
+						cols[q*3+p] = cbcindices[0][0][0].bcGStartIndex;
+					else if (i0+p < 0 && j0+q > ln0[1]-1) 
+						cols[q*3+p] = cbcindices[0][1][0].bcGStartIndex;
+					else if (i0+p > ln0[0]-1 && j0+q < 0) 
+						cols[q*3+p] = cbcindices[1][0][0].bcGStartIndex;
+					else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1) 
+						cols[q*3+p] = cbcindices[1][1][0].bcGStartIndex;
+					else if (i0+p < 0)
+						cols[q*3+p] = bcindices[0][0].bcGStartIndex
+							+(j0+q)*bcindices[0][0].bcInc[1];
+					else if (i0+p > ln0[0]-1)
+						cols[q*3+p] = bcindices[0][1].bcGStartIndex
+							+(j0+q)*bcindices[0][1].bcInc[1];
+					else if (j0+q < 0)
+						cols[q*3+p] = bcindices[1][0].bcGStartIndex
+							+(i0+p)*bcindices[1][0].bcInc[0];
+					else if (j0+q > ln0[1]-1)
+						cols[q*3+p] = bcindices[1][1].bcGStartIndex
+							+(i0+p)*bcindices[1][1].bcInc[0];
+					else
+						cols[q*3+p] = gstart0
+							+(i0+p)*inc0[0]+(j0+q)*inc0[1];
+				}
+			}
+			MatSetValues(*res, 1, &row, 9, cols, weights, INSERT_VALUES);
+		}
+	}
+//	// i-left face
+//	if (imin == 1) {
+//	for (int i=imin; i<imax; i=i+(imax-imin)) {
+//		if (i == 0 || i == ln1[0]-1) continue;
+//		BCindices	*bcindices = &(level0->bcindices[lg0][0][(i-imin)/(imax-imin)]);
+//		long int	bcGStartIndex = bcindices->bcGStartIndex;
+//		long int	*bcinc = bcindices->bcInc;
+//		for (int j=jmin; j<jmax; j++) {
+//			int row = gstart1 + j*inc1[1];
+//			long int i0, j0;
+//			GetFGridPoint2D(istart1, jstart1+j, &i0, &j0, 2);
+//			i0 = i0-istart0-1;
+//			j0 = j0-jstart0-1;
+//			for (int q=0; q<3; q++) {
+//				cols[q*3] = bcGStartIndex + (j0+q)*bcinc[1];
+//				for (int p=1; p<3; p++) {
+//					cols[q*3+p] = gstart0+
+//						(i0+p)*inc0[0]+
+//						(j0+q)*inc0[1];
+//				}
+//			}
+//			MatSetValues(*res, 1, &row, 6, cols, weights, INSERT_VALUES);
+//		}
+//	}
+//	}
+//	
+//	// i-right face
+//	if (imax == ln1[0]-1) {
+//		BCindices	*bcindices = &(level0->bcindices[lg0][0][1]);
+//		long int	bcGStartIndex = bcindices->bcGStartIndex;
+//		long int	*bcinc = bcindices->bcInc;
+//		for (int j=jmin; j<jmax; j++) {
+//			int row = gstart1 + (ln1[0]-1)*inc1[0] + j*inc1[1];
+//			long int i0, j0;
+//			GetFGridPoint2D(istart1+i, jstart1+j, &i0, &j0, 2);
+//			i0 = i0-istart0-1;
+//			j0 = j0-jstart0-1;
+//			for (int q=0; q<3; q++) {
+//				cols[q*3+2] = bcGStartIndex + (j0+q)*bcinc[1];
+//				for (int p=0; p<2; p++) {
+//					cols[q*3+p] = gstart0+
+//						(i0+p)*inc0[0]+
+//						(j0+q)*inc0[1];
+//				}
+//			}
+//			MatSetValues(*res, 1, &row, 9, cols, weights, INSERT_VALUES);
+//		}
+//	}
+}
+
+void FillMatResInterior2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
+			double *weights, Mat *res) {
+	// Fills Mat res for interior coarse points
+	
+	int	*blockID = grids->topo->blockID;
+
+	int	g0 = level0->gridId[lg0];
+	int	g1 = level1->gridId[lg1];
+
+	Grid 	*grid0 = grids->grid+g0;
+	Grid 	*grid1 = grids->grid+g1;
+
+	int	*ln1 = grid1->ln;
+
+	long int *inc0 = level0->inc[lg0];
+	long int *inc1 = level1->inc[lg1];
+
+	long int gstart0 = level0->granges[lg0][0];
+	long int gstart1 = level1->granges[lg1][0];
+
+	long int istart0 = grid0->range[0][blockID[0]];
+	long int jstart0 = grid0->range[1][blockID[1]];
+//	long int iend0 = grid0->range[0][blockID[0]+1];
+//	long int jend0 = grid0->range[1][blockID[1]+1];
+
+	long int istart1 = grid1->range[0][blockID[0]];
+	long int jstart1 = grid1->range[1][blockID[1]];
+//	long int iend1 = grid1->range[0][blockID[0]+1];
+//	long int jend1 = grid1->range[1][blockID[1]+1];
+	
+//	long int it, jt;
+//	GetFGridPoint2D(istart1, jstart1, &it, &jt, 2);
+//	long int imin = 1-it+istart0;
+//	long int jmin = 1-jt+jstart0;
+//	GetFGridPoint2D(iend1, jend1, &it, &jt, 2);
+//	long int imax = ln1[0]-(1-iend0+it);
+//	long int jmax = ln1[1]-(1-jend0+jt);
+
+	int	cols[9];
+//	for (int i=imin; i<imax; i++) {
+//		for (int j=jmin; j<jmax; j++) {
+	for (int i=1; i<ln1[0]-1; i++) {
+		for (int j=1; j<ln1[1]-1; j++) {
+			int row = gstart1 + i*inc1[0] + j*inc1[1];
+			long int i0, j0;
+			GetFGridPoint2D(istart1+i, jstart1+j, &i0, &j0, 2);
+			i0 = i0-istart0-1;
+			j0 = j0-jstart0-1;
+			for (int q=0; q<3; q++) {
+				for (int p=0; p<3; p++) {
+					cols[q*3+p] = gstart0+
+						(i0+p)*inc0[0]+
+						(j0+q)*inc0[1];
+				}
+			}
+			MatSetValues(*res, 1, &row, 9, cols, weights, INSERT_VALUES);
+		}
+	}
+}
+
+void FillMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, Mat *res){
+	// Fills Mat res with restriction weights from grid lg0 in leve0 to grid lg1 in level1
+	
+	int	dimension = grids->topo->dimension;
+	
+	// Assuming 3x3x3 restriction stencil
+	double	opx[3] = {0.25, 0.5, 0.25};
+	double	opy[3], opz[3];
+	for (int i=0; i<3; i++) {
+		opy[i] = opx[i];
+		opz[i] = opx[i];
+	}
+
+	if (dimension == 2) {
+		double	weights[9];
+		for (int j=0; j<3; j++) {
+			for (int i=0; i<3; i++) {
+				weights[j*3+i] = opx[i]*opy[j];
+			}
+		}
+		FillMatResInterior2D(grids, lg0, level0, lg1, level1, weights, res);
+		FillMatResBC2D(grids, lg0, level0, lg1, level1, weights, res);
+	} else if (dimension == 3) {
+//		double	weights[27];
+//		for (int k=0; k<3; k++) {
+//			for (int j=0; j<3; j++) {
+//				for (int i=0; i<3; i++) {
+//					weights[k*9+j*3+i] = opx[i]*opy[j]*opz[k];
+//				}
+//			}
+//		}
+	}
+}
+
 void FillMatA(Grids *grids, Level *level, Mat *A) {
 	// Fills Mat A with the Jacobian or Discretized PDE coefficients of all grids this level possesses
 
@@ -691,6 +940,30 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 //	MatAssemblyEnd(*A,MAT_FINAL_ASSEMBLY);
 //}
 
+void AssembleMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, Mat *res) {
+	// Build restriction matrix "res" from "lg0" in level0 to "lg1" in level1
+	
+	int	g0 = level0->gridId[lg0];	
+	int	g1 = level1->gridId[lg1];
+	int	dimension = grids->topo->dimension;
+	if (g1-g0 != 1) return; // Only successive grids are allowed!
+
+	int	dnz = 3;
+	for (int i=1; i<dimension; i++) dnz *= 3;
+	int	onz = 3;
+	for (int i=1; i<dimension; i++) onz *= 2;
+	onz = dnz-onz;
+	Grid	*grid = grids->grid;
+	int	nrows = grid[g1].tln;
+	int	ncols = grid[g0].tln;
+	MatCreateAIJ(PETSC_COMM_WORLD, nrows, ncols, PETSC_DETERMINE, PETSC_DETERMINE, dnz, PETSC_NULL, onz, PETSC_NULL, res);
+
+	FillMatRes(grids, lg0, level0, lg1, level1, res);
+	
+	MatAssemblyBegin(*res, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(*res, MAT_FINAL_ASSEMBLY);
+}
+
 void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 	// Build matrix "A" for a given level
 	
@@ -700,8 +973,6 @@ void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 	MatCreateAIJ(PETSC_COMM_WORLD, size, size, PETSC_DETERMINE, PETSC_DETERMINE, nnz, PETSC_NULL, nnz, PETSC_NULL, A);
 
 	FillMatA(grids, level, A);
-//	fillRestrictionPortion(prob, mesh, op, level, factor, A);
-//	fillProlongationPortion(prob, mesh, op, level, factor, A);
 	
 	MatAssemblyBegin(*A, MAT_FINAL_ASSEMBLY);
 	MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY);
@@ -1025,6 +1296,7 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	
 	int	nlevels	= levels->nlevels;
 	Level	*level	= levels->level;
+	Mat	*res	= levels->res;
 	Mat	*A	= levels->A;
 	Vec	*b	= levels->b;
 	Vec	*u	= levels->u;
@@ -1037,6 +1309,20 @@ void AssembleLevels(Grids *grids, Levels *levels) {
 	ApplyBCLevelVecb(grids, level, b);
 	VecAssemblyBegin(*b);
 	VecAssemblyEnd(*b);
+	
+	for (int l=0; l<nlevels; l++) {
+		int ngrids = level[l].ngrids;
+		for (int lg=0; lg<ngrids-1; lg++) {
+			int g = level[l].gridId[lg];
+			AssembleMatRes(grids, lg, level+l, lg+1, level+l, res+g);
+		}
+	}
+
+	for (int l=0; l<nlevels-1; l++) {
+		int ngrids = level[l].ngrids;
+		int g = level[l].gridId[ngrids-1];
+		AssembleMatRes(grids, ngrids-1, level+l, 0, level+l+1, res+g);
+	}
 }
 
 int CreateSolver(Grids *grids, Solver *solver) {
