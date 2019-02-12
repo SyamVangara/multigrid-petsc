@@ -876,9 +876,7 @@ void AssembleMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 
 	int	dnz = 3;
 	for (int i=1; i<dimension; i++) dnz *= 3;
-	int	onz = 2;
-	for (int i=1; i<dimension; i++) onz *= 2;
-	onz = dnz-onz;
+	int	onz = dnz-1;
 	Grid	*grid = grids->grid;
 	int	nrows = grid[g1].tln;
 	int	ncols = grid[g0].tln;
