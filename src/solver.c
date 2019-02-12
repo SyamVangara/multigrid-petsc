@@ -378,21 +378,9 @@ void FillMatResBC2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 
 	long int istart0 = grid0->range[0][blockID[0]];
 	long int jstart0 = grid0->range[1][blockID[1]];
-//	long int iend0 = grid0->range[0][blockID[0]+1];
-//	long int jend0 = grid0->range[1][blockID[1]+1];
 
 	long int istart1 = grid1->range[0][blockID[0]];
 	long int jstart1 = grid1->range[1][blockID[1]];
-//	long int iend1 = grid1->range[0][blockID[0]+1];
-//	long int jend1 = grid1->range[1][blockID[1]+1];
-	
-//	long int ifmin, jfmin, ifmax, jfmax;
-//	GetFGridPoint2D(istart1, jstart1, &ifmin, &jfmin, 2);
-//	long int imin = 1-ifmin+istart0;
-//	long int jmin = 1-jfmin+jstart0;
-//	GetFGridPoint2D(iend1, jend1, &ifmax, &jfmax, 2);
-//	long int imax = ln1[0]-(1-iend0+ifmax);
-//	long int jmax = ln1[1]-(1-jend0+jfmax);
 
 	int	cols[9];
 	
@@ -403,9 +391,9 @@ void FillMatResBC2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 			if (i != 0 && i != ln1[0]-1 && j != 0 && j != ln1[1]-1) continue;
 			int row = gstart1 + i*inc1[0] + j*inc1[1];
 			long int i0, j0;
-			GetFGridPoint2D(istart1+i, jstart1+j, &i0, &j0, 2);
-			i0 = i0-istart0-1;
-			j0 = j0-jstart0-1;
+			GetFGridPoint2D(istart1+i-1, jstart1+j-1, &i0, &j0, 2);
+			i0 = i0-istart0;
+			j0 = j0-jstart0;
 			for (int q=0; q<3; q++) {
 				for (int p=0; p<3; p++) {
 					if (i0+p < 0 && j0+q < 0) 
@@ -436,54 +424,6 @@ void FillMatResBC2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 			MatSetValues(*res, 1, &row, 9, cols, weights, INSERT_VALUES);
 		}
 	}
-//	// i-left face
-//	if (imin == 1) {
-//	for (int i=imin; i<imax; i=i+(imax-imin)) {
-//		if (i == 0 || i == ln1[0]-1) continue;
-//		BCindices	*bcindices = &(level0->bcindices[lg0][0][(i-imin)/(imax-imin)]);
-//		long int	bcGStartIndex = bcindices->bcGStartIndex;
-//		long int	*bcinc = bcindices->bcInc;
-//		for (int j=jmin; j<jmax; j++) {
-//			int row = gstart1 + j*inc1[1];
-//			long int i0, j0;
-//			GetFGridPoint2D(istart1, jstart1+j, &i0, &j0, 2);
-//			i0 = i0-istart0-1;
-//			j0 = j0-jstart0-1;
-//			for (int q=0; q<3; q++) {
-//				cols[q*3] = bcGStartIndex + (j0+q)*bcinc[1];
-//				for (int p=1; p<3; p++) {
-//					cols[q*3+p] = gstart0+
-//						(i0+p)*inc0[0]+
-//						(j0+q)*inc0[1];
-//				}
-//			}
-//			MatSetValues(*res, 1, &row, 6, cols, weights, INSERT_VALUES);
-//		}
-//	}
-//	}
-//	
-//	// i-right face
-//	if (imax == ln1[0]-1) {
-//		BCindices	*bcindices = &(level0->bcindices[lg0][0][1]);
-//		long int	bcGStartIndex = bcindices->bcGStartIndex;
-//		long int	*bcinc = bcindices->bcInc;
-//		for (int j=jmin; j<jmax; j++) {
-//			int row = gstart1 + (ln1[0]-1)*inc1[0] + j*inc1[1];
-//			long int i0, j0;
-//			GetFGridPoint2D(istart1+i, jstart1+j, &i0, &j0, 2);
-//			i0 = i0-istart0-1;
-//			j0 = j0-jstart0-1;
-//			for (int q=0; q<3; q++) {
-//				cols[q*3+2] = bcGStartIndex + (j0+q)*bcinc[1];
-//				for (int p=0; p<2; p++) {
-//					cols[q*3+p] = gstart0+
-//						(i0+p)*inc0[0]+
-//						(j0+q)*inc0[1];
-//				}
-//			}
-//			MatSetValues(*res, 1, &row, 9, cols, weights, INSERT_VALUES);
-//		}
-//	}
 }
 
 void FillMatResInterior2D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
@@ -508,32 +448,18 @@ void FillMatResInterior2D(Grids *grids, int lg0, Level *level0, int lg1, Level *
 
 	long int istart0 = grid0->range[0][blockID[0]];
 	long int jstart0 = grid0->range[1][blockID[1]];
-//	long int iend0 = grid0->range[0][blockID[0]+1];
-//	long int jend0 = grid0->range[1][blockID[1]+1];
 
 	long int istart1 = grid1->range[0][blockID[0]];
 	long int jstart1 = grid1->range[1][blockID[1]];
-//	long int iend1 = grid1->range[0][blockID[0]+1];
-//	long int jend1 = grid1->range[1][blockID[1]+1];
-	
-//	long int it, jt;
-//	GetFGridPoint2D(istart1, jstart1, &it, &jt, 2);
-//	long int imin = 1-it+istart0;
-//	long int jmin = 1-jt+jstart0;
-//	GetFGridPoint2D(iend1, jend1, &it, &jt, 2);
-//	long int imax = ln1[0]-(1-iend0+it);
-//	long int jmax = ln1[1]-(1-jend0+jt);
 
 	int	cols[9];
-//	for (int i=imin; i<imax; i++) {
-//		for (int j=jmin; j<jmax; j++) {
 	for (int i=1; i<ln1[0]-1; i++) {
 		for (int j=1; j<ln1[1]-1; j++) {
 			int row = gstart1 + i*inc1[0] + j*inc1[1];
 			long int i0, j0;
-			GetFGridPoint2D(istart1+i, jstart1+j, &i0, &j0, 2);
-			i0 = i0-istart0-1;
-			j0 = j0-jstart0-1;
+			GetFGridPoint2D(istart1+i-1, jstart1+j-1, &i0, &j0, 2);
+			i0 = i0-istart0;
+			j0 = j0-jstart0;
 			for (int q=0; q<3; q++) {
 				for (int p=0; p<3; p++) {
 					cols[q*3+p] = gstart0+
@@ -950,7 +876,7 @@ void AssembleMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 
 	int	dnz = 3;
 	for (int i=1; i<dimension; i++) dnz *= 3;
-	int	onz = 3;
+	int	onz = 2;
 	for (int i=1; i<dimension; i++) onz *= 2;
 	onz = dnz-onz;
 	Grid	*grid = grids->grid;

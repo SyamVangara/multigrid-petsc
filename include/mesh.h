@@ -59,7 +59,7 @@ typedef struct {
 	int	tun; // Total no. of unknown grid points
 	int	ln[MAX_DIMENSION]; // No. of local unknown points in each direction
 	int	tln; // Total no. of local unknown points
-	int	**range; // Range of unknown grid points as range[dimension][dirRank]
+	int	**range;// Range of unknown grid points as range[dimension][dirRank];(includes BC)
 	double	**coord; // Coordinates in each direction
 	double	**dx; // Spacing in coordinates in each direction
 	double	h; // Grid characteristic length
