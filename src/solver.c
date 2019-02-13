@@ -355,6 +355,62 @@ static void GetFGridPoint3D(long int i1, long int j1, long int k1,
 	*k0 = GetFGridIndex(k1, cfactor);
 }
 
+//int GetIndexIfCorner3D(int p, int q, int r, int *ln, BCindices (*cbcindices)[2][2]) {
+//	// Check if (p, q, r) is a corner. If yes, give appropriate index
+//	// If not, give negative number
+//	
+//	if ((p >= 0 && p < ln[0]) || (q >= 0 && q < ln[1]) || (r >= 0 && r < ln[2]))
+//		return -1;
+//
+//	int i = (p<0)? 0: 1;
+//	int j = (q<0)? 0: 1;
+//	int k = (r<0)? 0: 1;
+//
+//	return cbcindices[i][j][k].bcGStartIndex;
+//}
+
+int GetColForBCFace3D(int dim, int *id, int i, int j, int k, BCindices (*bcindices)[2]) {
+	// Compute Col for i,j,k in BC face
+	
+	BCindices *bc = &(bcindices[dim][id[dim]]);
+	int col = bc->bcGStartIndex;
+	long int *inc = bc->bcInc;
+
+	if (dim == 0)
+		col += j*inc[1]+k*inc[2];
+	else if (dim == 1)
+		col += i*inc[0]+k*inc[2];
+	else if (dim == 2)
+		col += j*inc[1]+i*inc[0];
+
+	return col;
+}
+
+int GetColForBCEdge3D(int dim, int *id, int i, int j, int k, BCindices (*ebcindices)[2][2]) {
+	// Compute Col for i,j,k in BC edge
+	
+	int col = -1;	
+	if (dim == 0) {
+		BCindices *bc = &(ebcindices[0][id[1]][id[2]]);
+		col = bc->bcGStartIndex + i*bc->bcInc[0]; 
+	} else if (dim == 1) {
+		BCindices *bc = &(ebcindices[1][id[2]][id[0]]);
+		col = bc->bcGStartIndex + j*bc->bcInc[1]; 
+	} else if (dim == 2) {
+		BCindices *bc = &(ebcindices[2][id[0]][id[1]]);
+		col = bc->bcGStartIndex + k*bc->bcInc[2];
+	}
+	return col;
+}
+
+void GetBCType3D(int p, int q, int r, int *ln0, int *id) {
+	// Compute BC type and give it back in "id"
+	
+	id[0] = (p<0)? 0: ((p>ln0[0]-1)? 1: 6);
+	id[1] = (q<0)? 0: ((q>ln0[1]-1)? 1: 9);
+	id[2] = (r<0)? 0: ((r>ln0[2]-1)? 1: 12);
+}
+
 void FillMatResBC3D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, 
 			double *weights, Mat *res) {
 	// Fills Mat res for block BC points in 3D
@@ -404,45 +460,96 @@ void FillMatResBC3D(Grids *grids, int lg0, Level *level0, int lg1, Level *level1
 		for (int r=0; r<3; r++) {
 		for (int q=0; q<3; q++) {
 		for (int p=0; p<3; p++) {
-			if (i0+p < 0 && j0+q < 0 && k0+r < 0) 
-				cols[r*9+q*3+p] = cbcindices[0][0][0].bcGStartIndex; // [Corners
-			else if (i0+p < 0 && j0+q < 0 && k0+r > ln0[2]-1) 
-				cols[r*9+q*3+p] = cbcindices[0][0][1].bcGStartIndex;
-			else if (i0+p < 0 && j0+q > ln0[1]-1 && k0+r < 0) 
-				cols[r*9+q*3+p] = cbcindices[0][1][0].bcGStartIndex;
-			else if (i0+p < 0 && j0+q > ln0[1]-1 && k0+r > ln0[2]-1) 
-				cols[r*9+q*3+p] = cbcindices[0][1][1].bcGStartIndex;
-			else if (i0+p > ln0[0]-1 && j0+q < 0 && k0+r < 0) 
-				cols[r*9+q*3+p] = cbcindices[1][0][0].bcGStartIndex;
-			else if (i0+p > ln0[0]-1 && j0+q < 0 && k0+r > ln0[2]-1) 
-				cols[r*9+q*3+p] = cbcindices[1][0][1].bcGStartIndex;
-			else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1 && k0+r < 0) 
-				cols[r*9+q*3+p] = cbcindices[1][1][0].bcGStartIndex;
-			else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1 && k0+r > ln0[2]-1) 
-				cols[r*9+q*3+p] = cbcindices[1][1][1].bcGStartIndex; // Corners]
-			else if (j0+q < 0 && k0+r < 0)
-				cols[r*9+q*3+p] = ebcindices[0][0][0].bcGStartIndex
-						+ (i0+p)*ebcindices[0][0][0].bcInc[0]; // [Edges
-			else if (j0+q < 0 && k0+r < 0)
-				cols[r*9+q*3+p] = ebcindices[0][0][0].bcGStartIndex
-						+ (i0+p)*ebcindices[0][0][0].bcInc[0]; 
-			else if (i0+p < 0)
-				cols[r*9+q*3+p] = bcindices[0][0].bcGStartIndex
-					+(j0+q)*bcindices[0][0].bcInc[1];
-			else if (i0+p > ln0[0]-1)
-				cols[r*9+q*3+p] = bcindices[0][1].bcGStartIndex
-					+(j0+q)*bcindices[0][1].bcInc[1];
-			else if (j0+q < 0)
-				cols[r*9+q*3+p] = bcindices[1][0].bcGStartIndex
-					+(i0+p)*bcindices[1][0].bcInc[0];
-			else if (j0+q > ln0[1]-1)
-				cols[r*9+q*3+p] = bcindices[1][1].bcGStartIndex
-					+(i0+p)*bcindices[1][1].bcInc[0];
-			else
+			int id[3], total;
+			GetBCType3D(i0+p, j0+q, k0+r, ln0, id);
+			total = id[0]+id[1]+id[2];
+			if (total == 27) { // Interior
 				cols[r*9+q*3+p] = gstart0
-					+(i0+p)*inc0[0]
-					+(j0+q)*inc0[1]
-					+(k0+r)*inc0[2];
+						+(i0+p)*inc0[0]
+						+(j0+q)*inc0[1]
+						+(k0+r)*inc0[2];
+			} else if (total > 14) { // Faces
+				int dim = (22-total)/3;	
+				cols[r*9+q*3+p] = 
+					GetColForBCFace3D(dim, id, i0+p, j0+q, k0+r, bcindices); 
+			} else if (total > 5) { // Edges
+				int dim = (total-6)/3;
+				cols[r*9+q*3+p] = 
+					GetColForBCEdge3D(dim, id, i0+p, j0+q, k0+r, ebcindices); 
+			} else { // Corners
+				cols[r*9+q*3+p] = cbcindices[id[0]][id[1]][id[2]].bcGStartIndex;
+			}
+
+//			col = GetIndexIfCorner3D(i0+p, j0+q, k0+r, ln0, cbcindices);
+//			if (i0+p < 0 && j0+q < 0 && k0+r < 0)	// [Corners
+//				cols[r*9+q*3+p] = cbcindices[0][0][0].bcGStartIndex; 
+//			else if (i0+p < 0 && j0+q < 0 && k0+r > ln0[2]-1) 
+//				cols[r*9+q*3+p] = cbcindices[0][0][1].bcGStartIndex;
+//			else if (i0+p < 0 && j0+q > ln0[1]-1 && k0+r < 0) 
+//				cols[r*9+q*3+p] = cbcindices[0][1][0].bcGStartIndex;
+//			else if (i0+p < 0 && j0+q > ln0[1]-1 && k0+r > ln0[2]-1) 
+//				cols[r*9+q*3+p] = cbcindices[0][1][1].bcGStartIndex;
+//			else if (i0+p > ln0[0]-1 && j0+q < 0 && k0+r < 0) 
+//				cols[r*9+q*3+p] = cbcindices[1][0][0].bcGStartIndex;
+//			else if (i0+p > ln0[0]-1 && j0+q < 0 && k0+r > ln0[2]-1) 
+//				cols[r*9+q*3+p] = cbcindices[1][0][1].bcGStartIndex;
+//			else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1 && k0+r < 0) 
+//				cols[r*9+q*3+p] = cbcindices[1][1][0].bcGStartIndex;
+//			else if (i0+p > ln0[0]-1 && j0+q > ln0[1]-1 && k0+r > ln0[2]-1) 
+//				cols[r*9+q*3+p] = cbcindices[1][1][1].bcGStartIndex; // Corners]
+//			else if (j0+q < 0 && k0+r < 0)	// [Edges i
+//				cols[r*9+q*3+p] = ebcindices[0][0][0].bcGStartIndex
+//						+ (i0+p)*ebcindices[0][0][0].bcInc[0]; 
+//			else if (j0+q < 0 && k0+r > ln0[2]-1)
+//				cols[r*9+q*3+p] = ebcindices[0][0][1].bcGStartIndex
+//						+ (i0+p)*ebcindices[0][0][1].bcInc[0]; 
+//			else if (j0+q > ln0[1]-1 && k0+r < 0)
+//				cols[r*9+q*3+p] = ebcindices[0][1][0].bcGStartIndex
+//						+ (i0+p)*ebcindices[0][1][0].bcInc[0]; 
+//			else if (j0+q > ln0[1]-1 && k0+r > ln0[2]-1)
+//				cols[r*9+q*3+p] = ebcindices[0][1][1].bcGStartIndex
+//						+ (i0+p)*ebcindices[0][1][1].bcInc[0]; // Edges i]
+//			else if (i0+p < 0 && k0+r < 0)	// [Edges j
+//				cols[r*9+q*3+p] = ebcindices[1][0][0].bcGStartIndex
+//						+ (j0+q)*ebcindices[1][0][0].bcInc[1]; 
+//			else if (i0+p < 0 && k0+r > ln0[2]-1)
+//				cols[r*9+q*3+p] = ebcindices[1][1][0].bcGStartIndex
+//						+ (j0+q)*ebcindices[1][1][0].bcInc[1]; 
+//			else if (i0+p > ln0[0]-1 && k0+r < 0)
+//				cols[r*9+q*3+p] = ebcindices[1][0][1].bcGStartIndex
+//						+ (j0+q)*ebcindices[1][0][1].bcInc[1]; 
+//			else if (i0+p > ln0[0]-1 && k0+r > ln0[2]-1)
+//				cols[r*9+q*3+p] = ebcindices[1][1][1].bcGStartIndex
+//						+ (j0+q)*ebcindices[1][1][1].bcInc[1]; // Edges j]
+//			else if (i0+p < 0 && j0+q < 0)	// [Edges k
+//				cols[r*9+q*3+p] = ebcindices[2][0][0].bcGStartIndex
+//						+ (k0+r)*ebcindices[2][0][0].bcInc[2]; 
+//			else if (i0+p < 0 && j0+q > ln0[1]-1)
+//				cols[r*9+q*3+p] = ebcindices[2][0][1].bcGStartIndex
+//						+ (j0+q)*ebcindices[2][0][1].bcInc[2]; 
+//			else if (i0+p > ln0[0]-1 && k0+r < 0)
+//				cols[r*9+q*3+p] = ebcindices[1][0][1].bcGStartIndex
+//						+ (j0+q)*ebcindices[1][0][1].bcInc[1]; 
+//			else if (i0+p > ln0[0]-1 && k0+r > ln0[2]-1)
+//				cols[r*9+q*3+p] = ebcindices[1][1][1].bcGStartIndex
+//						+ (j0+q)*ebcindices[1][1][1].bcInc[1]; // Edges k]
+//			else if (i0+p < 0)
+//				cols[r*9+q*3+p] = bcindices[0][0].bcGStartIndex
+//					+(j0+q)*bcindices[0][0].bcInc[1];
+//			else if (i0+p > ln0[0]-1)
+//				cols[r*9+q*3+p] = bcindices[0][1].bcGStartIndex
+//					+(j0+q)*bcindices[0][1].bcInc[1];
+//			else if (j0+q < 0)
+//				cols[r*9+q*3+p] = bcindices[1][0].bcGStartIndex
+//					+(i0+p)*bcindices[1][0].bcInc[0];
+//			else if (j0+q > ln0[1]-1)
+//				cols[r*9+q*3+p] = bcindices[1][1].bcGStartIndex
+//					+(i0+p)*bcindices[1][1].bcInc[0];
+//			else
+//				cols[r*9+q*3+p] = gstart0
+//					+(i0+p)*inc0[0]
+//					+(j0+q)*inc0[1]
+//					+(k0+r)*inc0[2];
 		}
 		}
 		}
