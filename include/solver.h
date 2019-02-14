@@ -31,6 +31,7 @@ typedef struct {
 	BCindices	(*bcindices)[MAX_DIMENSION][2]; // BC indices for all grids in each dir
 	BCindices	(*ebcindices)[MAX_DIMENSION][2][2]; // Edge BC indices for all grids in each dir; [dim][2][2] -> Cyclic
 	BCindices	(*cbcindices)[2][2][2]; // Corner BC indices for all grids in each dir
+	IS		*is; // index sets to extract vectors of each grid
 	ArrayInt2d	global;  // global to grid map// ! Remove
 	ArrayInt2d	*grid;   // grid to global map// ! Remove
 } Level;
@@ -66,6 +67,8 @@ typedef struct {
 
 int CreateLevels(Grids *grids, Levels *levels);
 void DestroyLevels(Levels *levels);
+
+void GetSubIS(int lg, Grid *grid, Level *level, IS *indexSet);
 
 int CreateOperator(Grids *grids, Operator *op);
 void DestroyOperator(Operator *op);

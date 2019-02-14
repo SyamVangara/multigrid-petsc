@@ -353,6 +353,7 @@ void InitializeLevel(Level *level) {
 	level->bcindices= NULL;
 	level->ebcindices= NULL;
 	level->cbcindices= NULL;
+	level->is	= NULL;
 }
 
 void InitializeLevels(Levels *levels) {
@@ -483,10 +484,17 @@ void fillLevel(Grids *grids, Level *level) {
 	GetGridRanges(grids, level);
 
 	level->inc = malloc(ngrids*sizeof(long int[MAX_DIMENSION]));
+
 	for (int lg=0; lg<ngrids; lg++) {
 		GetGridIncrements(dimension, grid[gridId[lg]].ln, level->inc[lg]);
 	}
-//	GetIncrements(grids, level);
+	
+	if (ngrids > 1) {
+		level->is  = malloc(ngrids*sizeof(IS));
+		for (int lg=0; lg<ngrids; lg++) {
+			GetSubIS(lg, grid, level, level->is+lg);
+		}
+	}
 	
 	level->bcindices = malloc(ngrids*sizeof(BCindices[MAX_DIMENSION][2]));
 	for (int lg=0; lg<ngrids; lg++) {
@@ -614,6 +622,13 @@ void DestroyLevels(Levels *levels) {
 			if (levels->level[l].bcindices) free(levels->level[l].bcindices);
 			if (levels->level[l].ebcindices) free(levels->level[l].ebcindices);
 			if (levels->level[l].cbcindices) free(levels->level[l].cbcindices);
+			if (levels->level[l].is) {
+				int ngrids = levels->level[l].ngrids;
+				for (int lg=0; lg<ngrids; lg++) {
+					ISDestroy(levels->level[l].is+lg);
+				}
+				free(levels->level[l].is);
+			}
 		}
 		free(levels->level);
 	}

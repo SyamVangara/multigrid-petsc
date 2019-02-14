@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-//	ViewLevelsInfo(solver, 0);
+	ViewLevelsInfo(solver, 2);
 //	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
@@ -509,6 +509,13 @@ void ViewLevelInfo(Level level, int dimension, int verbose) {
 			PetscPrintf(PETSC_COMM_WORLD,"\nCorner BC: \n");
 			ViewCBCindicesInfo(level.cbcindices[lg], dimension);
 		}
+		if (level.ngrids > 1) {
+			PetscPrintf(PETSC_COMM_WORLD,"\nGrid Index sets: \n");
+			for (int lg=0; lg<level.ngrids; lg++) {
+				ISView(level.is[lg], PETSC_VIEWER_STDOUT_WORLD);
+			}
+		}
+
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }

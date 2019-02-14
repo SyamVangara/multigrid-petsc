@@ -2557,41 +2557,41 @@ int MultigridVcycle(Solver *solver) {
 
 //void MultigridAdditive(Solver *solver) {
 //
-//	int	iter;
-//	double	rnormchk, bnorm;
-//	
-//	double	*rnorm;
-//	int	maxIter;
+//	Levels	*levels = solver->levels;
+//	int	nlevels = levels->nlevels;
+//	int	dimension = levels->dimension;
 //
-//	int	*v;
-//	int	levels;
-//	Mat 	*res;
-//	Mat 	*pro;
-//	Mat	*A;
-//	Vec	*b;
-//	Vec	*u;
+//	if (nlevels != 1) {
+//		PetscBarrier(PETSC_NULL);
+//		pERROR_MSG("Only one level is allowed in Additive MG solver");
+//		return 1;
+//	}
 //	
-//	int	size, rank;
-//	
-//	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+//	int	ngrids = levels->level->ngrids;
+//	if (ngrids == 1) {
+//		PetscBarrier(PETSC_NULL);
+//		pERROR_MSG("Additive MG solver requires minimum of 2 grids");
+//		return 1;
+//	}
+//
+//	int	rank;
 //	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	maxIter = solver->numIter;	
-//	rnorm	= solver->rnorm;
-//	v	= solver->v;
 //
-//	levels	= solver->assem->levels;
-//	res	= solver->assem->res;
-//	pro	= solver->assem->pro;
-//	A	= solver->assem->A;
-//	b	= solver->assem->b;
-//	u	= solver->assem->u;
-//	
-//	if (levels < 2) {ERROR_MSG("Cannot use Additive cycle for levels < 2; use I-cycle for levels = 1"); return;}
+//	double	rtol	= solver->rtol;
+//	double	*rnorm	= solver->rnorm;
+//	int	numIter	= solver->numIter;
+//	int	*v	= solver->v;
 //
-//	KSP	ksp[levels];
-////	PC	pc[levels];
-//	Vec	r;//, xbuf[levels];
+//	Mat 	*res = levels->res;
+//	Mat	*A = levels->A;
+//	Vec	*b = levels->b;
+//	Vec	*u = levels->u;
+//	Mat 	*pro;
+//	
+//	CreateProMatsFromResMats(dimension, ngrids-1, res, &pro);
+//
+//	KSP	ksp;
+//	Vec	r;
 //	
 //	PetscLogStage	stage;
 //		
@@ -2672,11 +2672,13 @@ int MultigridVcycle(Solver *solver) {
 //	}
 //	solver->numIter = iter;
 //
-//	for (int i=0;i<levels;i++) {
-//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
-//		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
-//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
-//	}
+////	for (int i=0;i<levels;i++) {
+////		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
+////		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
+////		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
+////	}
+//	
+//	DestroyProMats(ngrids-1, &pro);
 //	VecDestroy(&r);
 //	for (int i=0;i<levels;i++) {
 //		KSPDestroy(&(ksp[i]));
@@ -2686,7 +2688,7 @@ int MultigridVcycle(Solver *solver) {
 //	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 //
 //}
-//
+
 //void MultigridAdditiveScaled(Solver *solver) {
 //
 //	int	iter;
@@ -3902,6 +3904,9 @@ int Solve(Solver *solver){
 		case 1:
 			ierr = MultigridVcycle(solver); pCHKERR_RETURN("Multigrid V-cycle solver failed");
 			break;
+//		case 2:
+//			ierr = MultigridAdditive(solver); pCHKERR_RETURN("Additive MG solver failed");
+//			break;
 	}
 	PetscBarrier(PETSC_NULL);
 //	if (solver->cycle == ICYCLE) MultigridIcycle(solver);
