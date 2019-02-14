@@ -2398,6 +2398,28 @@ int NoMultigrid(Solver *solver) {
 	return 0;
 }
 
+static void CreateProMatsFromResMats(int dimension, int length, Mat *res, Mat **pro) {
+	// Creates pro mats from res mats
+	// Must be free the memory outside
+	
+	*pro = malloc(length*sizeof(Mat));
+	double	scalar = 2.0;
+	for (int i=1; i<dimension; i++) scalar *= 2.0;
+	for (int l=0; l<length; l++) {
+		MatTranspose(res[l], MAT_INITIAL_MATRIX, (*pro)+l);
+		MatScale((*pro)[l], scalar);
+	}
+}
+
+static void DestroyProMats(int length, Mat **pro) {
+	// Destroy pro mats
+	
+	for (int l=0; l<length; l++) {
+		MatDestroy((*pro)+l);
+	}
+	free(*pro);
+}
+
 int MultigridVcycle(Solver *solver) {
 	// Solve using MG-V-Cyle solver
 	
@@ -2433,17 +2455,12 @@ int MultigridVcycle(Solver *solver) {
 	Vec	*b = levels->b;
 	Vec	*u = levels->u;
 	Mat 	*pro;
-	pro = malloc((nlevels-1)*sizeof(Mat));
-	double	scalar = 2.0;
-	for (int i=1; i<dimension; i++) scalar *= 2.0;
-	for (int l=0; l<nlevels-1; l++) {
-		MatTranspose(res[l], MAT_INITIAL_MATRIX, pro+l);
-		MatScale(pro[l], scalar);
-	}
+	
+	CreateProMatsFromResMats(dimension, nlevels-1, res, &pro);
 
 	KSP	ksp[nlevels];
 //	PC	pc[levels];
-	Vec	r[nlevels], rv[nlevels];//, xbuf[levels];
+	Vec	r[nlevels], rv[nlevels];
 	
 	PetscLogStage	stage;
 	
@@ -2522,10 +2539,8 @@ int MultigridVcycle(Solver *solver) {
 //		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 //	}
 	
-	for (int l=0; l<nlevels-1; l++) {
-		MatDestroy(pro+l);
-	}
-	free(pro);
+	DestroyProMats(nlevels-1, &pro);
+
 	for (int i=0;i<nlevels;i++) {
 		VecDestroy(&(rv[i]));
 	}
