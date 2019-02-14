@@ -1208,6 +1208,13 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Set '-v v1,v2' for v1 smoothing steps and v2 coarse solve iterations");
 		return 1;
 	}
+	ierr = PetscOptionsGetReal(NULL, NULL, "-rtol", &(solver->rtol), &set);
+	if (!set) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Relative tolerance for solver is not set!");
+		pERROR_MSG("Set '-rtol value'");
+		return 1;
+	}
 	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
 	solver->levels = malloc(sizeof(Levels));
 	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
@@ -2338,8 +2345,9 @@ int NoMultigrid(Solver *solver) {
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	double	*rnorm = solver->rnorm;
-	int	numIter = solver->numIter;
+	double	rtol	= solver->rtol;	
+	double	*rnorm	= solver->rnorm;
+	int	numIter	= solver->numIter;
 
 	Mat	*A = levels->A;
 	Vec	*b = levels->b;
@@ -2354,7 +2362,7 @@ int NoMultigrid(Solver *solver) {
 	KSPSetOperators(ksp, *A, *A);
 	KSPSetNormType(ksp, KSP_NORM_UNPRECONDITIONED);
 	KSPSetResidualHistory(ksp, rnorm, numIter, PETSC_FALSE);
-	KSPSetTolerances(ksp, 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
+	KSPSetTolerances(ksp, rtol, PETSC_DEFAULT, PETSC_DEFAULT, numIter);
 	KSPSetFromOptions(ksp);
 	
 	// Solve the system
@@ -2414,9 +2422,10 @@ int MultigridVcycle(Solver *solver) {
 	
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-
-	double	*rnorm = solver->rnorm;
-	int	numIter = solver->numIter;
+	
+	double	rtol	= solver->rtol;
+	double	*rnorm	= solver->rnorm;
+	int	numIter	= solver->numIter;
 	int	*v	= solver->v;
 
 	Mat 	*res = levels->res;
@@ -2447,7 +2456,7 @@ int MultigridVcycle(Solver *solver) {
 		KSPSetType(ksp[i],KSPRICHARDSON);
 		KSPSetOperators(ksp[i], A[i], A[i]);
 		KSPSetNormType(ksp[i],KSP_NORM_NONE);
-		KSPSetTolerances(ksp[i], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
+		KSPSetTolerances(ksp[i], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
 		KSPSetFromOptions(ksp[i]);
 	}
 
@@ -2455,12 +2464,14 @@ int MultigridVcycle(Solver *solver) {
 	KSPSetType(ksp[nlevels-1],KSPRICHARDSON);
 	KSPSetOperators(ksp[nlevels-1], A[nlevels-1], A[nlevels-1]);
 	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
-	KSPSetTolerances(ksp[nlevels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
 	KSPSetFromOptions(ksp[nlevels-1]);
 	
-	double bnorm, rnormchk;
+	double bnorm, rnormmin, rnormmax, rnormchk;
 	VecNorm(b[0], NORM_2, &bnorm);
-	
+	rnormmax = 100000000*bnorm;
+	rnormmin = rtol*bnorm;
+
 	VecSet(u[0], 0.0); // Note: This should be moved out of this function?
 	MatMult(A[0], u[0], rv[0]);
 	VecAXPY(rv[0], -1.0, b[0]);
@@ -2475,7 +2486,7 @@ int MultigridVcycle(Solver *solver) {
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
-	while (iter<numIter && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
+	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
 		KSPSolve(ksp[0], b[0], u[0]);
 		if (iter==0) KSPSetInitialGuessNonzero(ksp[0],PETSC_TRUE);
 		for (int l=1;l<nlevels;l++) {
@@ -3867,7 +3878,6 @@ int MultigridVcycle(Solver *solver) {
 int Solve(Solver *solver){
 	// Solves the problem with chosen multigrid cycle
 	
-	//Assemble(Problem *prob, Mesh *mesh, Levels *levels, Operator *op, Solver *solver);
 	int	ierr=0;
 	PetscBarrier(PETSC_NULL);
 	switch(solver->cycle) {

@@ -13,8 +13,8 @@
 #include "mesh.h"
 
 typedef struct {
-	int		rank; // -ve if BC block 
-	int		blockID[MAX_DIMENSION]; // -ve in a dir => it is BC block in that dir
+	int		rank; // -ve if block is beyond domain
+	int		blockID[MAX_DIMENSION]; // -ve in a dir => it is beyond domain in that dir
 	long int	bcStartIndex; // Global start index on BC cells on neighboring block
 	long int	bcGStartIndex; // Global grid start index on BC cells on neighboring block
 	long int	bcInc[MAX_DIMENSION]; // Increments on BC cells on neigbhoring block
@@ -55,12 +55,13 @@ typedef struct {
 } Operator;
 
 typedef struct {
-	int		cycle;
-	int		numIter;
-	int		v[2];
-	double		error[3];
-	double		*rnorm;
-	Levels		*levels;
+	int	cycle;
+	int	numIter;
+	int	v[2];
+	double	rtol;
+	double	error[3];
+	double	*rnorm;
+	Levels	*levels;
 } Solver;
 
 int CreateLevels(Grids *grids, Levels *levels);

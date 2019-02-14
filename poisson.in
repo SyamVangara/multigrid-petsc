@@ -8,6 +8,8 @@
 #-bounds 0,1,0,1,0,1
 # iter: [n]; number of maximum iterations for solver
 #-iter 100000
+# rtol: [val]; relative tolerance for solver to stop
+-rtol 1.0e-12
 # ngrids: [ng]; number of grids for multigrid
 #-ngrids 2
 # nlevels: [nl]; number of levels for multigrid
