@@ -2549,13 +2549,6 @@ int MultigridVcycle(Solver *solver) {
 		VecDuplicate(b[i], &(rv[i]));
 	}
 	
-//	KSPCreate(PETSC_COMM_WORLD, &(ksp[0]));
-//	KSPSetType(ksp[0],KSPRICHARDSON);
-//	KSPSetOperators(ksp[0], A[0], A[0]);
-//	KSPSetNormType(ksp[0],KSP_NORM_NONE);
-//	KSPSetTolerances(ksp[0], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-//	KSPSetFromOptions(ksp[0]);
-	
 	for (int i=0; i<nlevels-1; i++) {
 		KSPCreate(PETSC_COMM_WORLD, &(ksp[i]));
 		KSPSetType(ksp[i],KSPRICHARDSON);
@@ -2576,16 +2569,12 @@ int MultigridVcycle(Solver *solver) {
 	VecNorm(b[0], NORM_2, &bnorm);
 	
 	VecSet(u[0], 0.0); // Note: This should be moved out of this function?
-//	VecDuplicate(b[0],&(rv[0]));
 	MatMult(A[0], u[0], rv[0]);
 	VecAXPY(rv[0], -1.0, b[0]);
 	VecNorm(rv[0], NORM_2, &rnormchk);
-//	if (rank==0) rnorm[0] = rnormchk;
 	rnorm[0] = rnormchk;
 
 	int iter = 0;
-//	rnormchk = bnorm;
-//	if (rank==0) rnorm[0] = 1.0;
 	
 	// Solve the system
 	PetscBarrier(PETSC_NULL);
@@ -2611,7 +2600,6 @@ int MultigridVcycle(Solver *solver) {
 		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
 		VecNorm(r[0], NORM_2, &rnormchk);	
 		iter = iter + 1;
-//		if (rank==0) rnorm[iter] = rnormchk/bnorm;
 		rnorm[iter] = rnormchk;
 	}
 	PetscLogStagePop();
@@ -2624,11 +2612,11 @@ int MultigridVcycle(Solver *solver) {
 	}
 	solver->numIter = iter;
 
-	for (int i=0;i<nlevels;i++) {
-		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
-		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
-		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
-	}
+//	for (int i=0;i<nlevels;i++) {
+//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
+//		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
+//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
+//	}
 	
 	for (int l=0; l<nlevels-1; l++) {
 		MatDestroy(pro+l);
@@ -2640,6 +2628,7 @@ int MultigridVcycle(Solver *solver) {
 	for (int i=0;i<nlevels;i++) {
 		KSPDestroy(&(ksp[i]));
 	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
@@ -2647,169 +2636,6 @@ int MultigridVcycle(Solver *solver) {
 	return 0;
 }
 
-//void MultigridVcycle(Solver *solver) {
-//
-//	int	iter;
-//	double	rnormchk, bnorm;
-//	
-//	double	*rnorm;
-//	int	maxIter;
-//
-//	int	*v;
-//	int	levels;
-//	Mat 	*res;
-//	Mat 	*pro;
-//	Mat	*A;
-//	Vec	*b;
-//	Vec	*u;
-//	
-//	int	size, rank;
-//	
-//	MPI_Comm_size(PETSC_COMM_WORLD, &size);
-//	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-//	
-//	maxIter = solver->numIter;	
-//	rnorm	= solver->rnorm;
-//	v	= solver->v;
-//
-//	levels	= solver->assem->levels;
-//	res	= solver->assem->res;
-//	pro	= solver->assem->pro;
-//	A	= solver->assem->A;
-//	b	= solver->assem->b;
-//	u	= solver->assem->u;
-//	
-//	KSP	ksp[levels];
-////	PC	pc[levels];
-//	Vec	r[levels], rv[levels];//, xbuf[levels];
-//	
-//	PetscLogStage	stage;
-//	
-//	//printf("Enter the number of fine grid sweeps = ");
-////	scanf("%d",v);
-//	//printf("Enter the number of coarse grid sweeps = ");
-////	scanf("%d",v+1);
-//
-////	PetscOptionsGetIntArray(NULL, NULL, "-v", v, &vmax, NULL);
-//	
-//	for (int i=0;i<levels;i++) {
-//		VecDuplicate(b[i],&(rv[i]));
-//	}
-//	
-//	KSPCreate(PETSC_COMM_WORLD, &(ksp[0]));
-////	KSPSetType(ksp[0],KSPGMRES);
-//	KSPSetType(ksp[0],KSPRICHARDSON);
-////	KSPRichardsonSetScale(ksp[0],2.0/3.0);
-//	KSPSetOperators(ksp[0], A[0], A[0]);
-////	KSPGetPC(ksp[0],&(pc[0]));
-////	PCSetType(pc[0],PCASM);
-////	PCASMSetType(pc[0],PC_ASM_BASIC);
-////	PCASMSetOverlap(pc[0],3);
-////	PCASMSetTotalSubdomains(pc[0], 32, NULL, NULL);
-////	PCSetType(pc[0],PCJACOBI);
-//	KSPSetNormType(ksp[0],KSP_NORM_NONE);
-//	KSPSetTolerances(ksp[0], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-//	KSPSetFromOptions(ksp[0]);
-//	
-//	for (int i=1;i<levels-1;i++) {
-//		KSPCreate(PETSC_COMM_WORLD, &(ksp[i]));
-////		KSPSetType(ksp[i],KSPGMRES);
-//		KSPSetType(ksp[i],KSPRICHARDSON);
-////		KSPRichardsonSetScale(ksp[i],2.0/3.0);
-//		KSPSetOperators(ksp[i], A[i], A[i]);
-////		KSPGetPC(ksp[i],&(pc[i]));
-////		PCSetType(pc[i],PCASM);
-////		PCASMSetType(pc[i],PC_ASM_BASIC);
-////		PCASMSetOverlap(pc[i],3);
-////		PCASMSetTotalSubdomains(pc[i], 32, NULL, NULL);
-////		PCSetType(pc[i],PCJACOBI);
-//		KSPSetNormType(ksp[i],KSP_NORM_NONE);
-//		KSPSetTolerances(ksp[i], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-//		KSPSetFromOptions(ksp[i]);
-//	}
-//
-//	if (levels>1) {
-//		KSPCreate(PETSC_COMM_WORLD, &(ksp[levels-1]));
-////		KSPSetType(ksp[levels-1],KSPGMRES);
-//		KSPSetType(ksp[levels-1],KSPRICHARDSON);
-////		KSPRichardsonSetScale(ksp[levels-1],2.0/3.0);
-//		KSPSetOperators(ksp[levels-1], A[levels-1], A[levels-1]);
-////		KSPGetPC(ksp[levels-1],&(pc[levels-1]));
-////		PCSetType(pc[levels-1],PCASM);
-////		PCASMSetType(pc[levels-1],PC_ASM_BASIC);
-////		PCASMSetOverlap(pc[levels-1],3);
-////		PCASMSetTotalSubdomains(pc[levels-1], 32, NULL, NULL);
-////		PCSetType(pc[levels-1],PCJACOBI);
-//		KSPSetNormType(ksp[levels-1],KSP_NORM_NONE);
-//		KSPSetTolerances(ksp[levels-1], 1.e-7, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
-//		KSPSetFromOptions(ksp[levels-1]);
-//	}
-//
-//	VecNorm(b[0], NORM_2, &bnorm);
-//	
-//	VecSet(u[0], 0.0); // Note: This should be moved out of this function?
-//	VecDuplicate(b[0],&(rv[0]));
-//	MatMult(A[0], u[0], rv[0]);
-//	VecAXPY(rv[0], -1.0, b[0]);
-//	VecNorm(rv[0], NORM_2, &rnormchk);
-////	if (rank==0) rnorm[0] = rnormchk;
-//	rnorm[0] = rnormchk;
-//
-//	iter = 0;
-////	rnormchk = bnorm;
-////	if (rank==0) rnorm[0] = 1.0;
-//	
-//	double initWallTime = MPI_Wtime();
-//	clock_t solverInitT = clock();
-//	PetscLogStageRegister("Solver", &stage);
-//	PetscLogStagePush(stage);
-//	while (iter<maxIter && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
-//		KSPSolve(ksp[0], b[0], u[0]);
-//		if (iter==0) KSPSetInitialGuessNonzero(ksp[0],PETSC_TRUE);
-//		for (int l=1;l<levels;l++) {
-//			KSPBuildResidual(ksp[l-1],NULL,rv[l-1],&(r[l-1]));
-//			MatMult(res[l-1],r[l-1],b[l]);
-//			KSPSolve(ksp[l], b[l], u[l]);
-//			if (l!=levels-1) KSPSetInitialGuessNonzero(ksp[l],PETSC_TRUE);
-//		}
-//		for (int l=levels-2;l>=0;l=l-1) {
-//			MatMult(pro[l],u[l+1],rv[l]);
-//			VecAXPY(u[l],1.0,rv[l]);
-//			KSPSolve(ksp[l], b[l], u[l]);
-//			if (l!=0) KSPSetInitialGuessNonzero(ksp[l],PETSC_FALSE);
-//		}
-//		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
-//		VecNorm(r[0], NORM_2, &rnormchk);	
-//		iter = iter + 1;
-////		if (rank==0) rnorm[iter] = rnormchk/bnorm;
-//		rnorm[iter] = rnormchk;
-//	}
-//	PetscLogStagePop();
-//	clock_t solverT = clock();
-//	double endWallTime = MPI_Wtime();
-//	rnormchk = rnorm[0];
-//	for (int i=0;i<(maxIter+1);i++) {
-//		rnorm[i] = rnorm[i]/rnormchk;
-//	}
-//	solver->numIter = iter;
-//
-//	for (int i=0;i<levels;i++) {
-//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
-//		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
-//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
-//	}
-//	for (int i=0;i<levels;i++) {
-//		VecDestroy(&(rv[i]));
-//	}
-//	for (int i=0;i<levels;i++) {
-//		KSPDestroy(&(ksp[i]));
-//	}
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
-//	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
-//	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
-//
-//}
-//
 //void MultigridAdditive(Solver *solver) {
 //
 //	int	iter;

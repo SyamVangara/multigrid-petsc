@@ -1,15 +1,18 @@
-# npts - num of points per dimension
--npts 17
-# mesh: [0: Uniform, 1: Non-uniform]
-#-mesh 0
+# dim: [2, 3]; Dimension
+#-dim 3
+# npts: [n0,n1,n2] - num of points in each dimension
+#-npts 17,17,17
+# grid: [0: Uniform, 1: Non-uniform-cos, 2: Non-uniform-exp]
+#-grid_type 0,0,0
+# bounds: [xmin,xmax,ymin,ymax,zmin,zmax]
+#-bounds 0,1,0,1,0,1
+# iter: [n]; number of maximum iterations for solver
 #-iter 100000
-#-grids 2
-#-levels 2
-# cycle: [0: V-Cycle, 1: I-Cycle, 2: E-Cycle, 3: D1-Cycle, 4: D2-Cycle, 5: D3-Cycle, 6: D4-Cycle, 
-# 	7: D1PSCycle, 8: Petsc-V-Cycle, 9: Filter, 10: V-filter, 11: Additive, 12: Additive-scaled]
-#-cycle 0
-# map: [0: Grid-After-Grid, 1: Through-Grids, 2: Local-Grid-After-Grid]
-#-map 2
+# ngrids: [ng]; number of grids for multigrid
+#-ngrids 2
+# nlevels: [nl]; number of levels for multigrid
+#-nlevels 2
+# cycle: [0: No-MG, 1: V-cycle]
+#-cycle 1
+# v: [vfine,vcoarse]; vfine: number of pre-and-post smoothing steps; vcoarse: number of coarse grid solver iterations
 #-v 3,3
-# moreNorm: [0: False, 1:True]
-#-moreNorm 0

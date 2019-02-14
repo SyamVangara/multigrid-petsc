@@ -20,18 +20,10 @@ int totalUnknowns(int *n, int totalGrids);
 
 void PrintInfo(Grids *grids, Solver *solver);
 void ViewGridsInfo(Grids grids, int verbose);
-//void ViewIndicesInfo(Indices indices);
 void ViewMatResInfo(Solver solver);
 void ViewMatAInfo(Solver solver);
 void ViewVecbInfo(Solver solver);
 void ViewLevelsInfo(Solver solver, int verbose);
-//void ViewIndexMapsInfoLevel(Level level, int l);
-//void ViewIndexMapsInfo(Indices indices);
-//void ViewRangesInfo(Indices indices);
-//void ViewSolverInfo(Indices indices, Solver solver);
-//void ViewOperatorInfo(Operator op);
-//void ViewLinSysMatsInfo(Assembly assem, int view);
-//void ViewGridTransferMatsInfo(Assembly assem, int view, int cyc);
 
 int main(int argc, char *argv[]) {
 	
@@ -51,10 +43,7 @@ int main(int argc, char *argv[]) {
 
 	Problem		prob;
 	Grids		grids;
-//	Indices		indices;
-//	Operator	op;
 	Solver		solver;
-//	PostProcess	pp;	
 
 	int	ierr=0;
 
@@ -81,8 +70,8 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 0);
-//	ViewMatResInfo(solver);
+//	ViewLevelsInfo(solver, 0);
+	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	

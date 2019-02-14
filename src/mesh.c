@@ -72,7 +72,6 @@ static void ComputeCoarseGridPara(Grid *grid) {
 		rmin *= tmin;
 		lt[i] = count;
 	}
-	PetscPrintf(PETSC_COMM_WORLD, "rmax = %d, rmin = %d\n", rmax, rmin);
 	int nbc = 2;
 	if (dimension == 2) {
 		grid->n[2] = 1 + nbc;
