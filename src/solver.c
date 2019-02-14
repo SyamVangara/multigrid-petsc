@@ -36,80 +36,6 @@ typedef struct {
 //	return result;
 //}
 
-void SetUpAssembly(Levels *levels, Assembly *assem, int cycle) {
-	// Allocate memory for Assembly struct
-	
-	assem->levels = levels->nlevels;
-	assem->A = malloc((assem->levels)*sizeof(Mat));
-//	if (cycle == ECYCLE) assem->A2 = malloc((assem->levels)*sizeof(Mat)); 
-	assem->u = malloc((assem->levels)*sizeof(Vec));
-	assem->b = malloc((assem->levels)*sizeof(Vec));
-//	if (cycle != D1CYCLE && cycle != D2CYCLE && cycle != D1PSCYCLE) {
-		assem->res = malloc((assem->levels-1)*sizeof(Mat));
-		assem->pro = malloc((assem->levels-1)*sizeof(Mat));
-//	} else if (assem->moreInfo == 0) {
-//		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
-//		assem->topIS	= malloc((assem->levels)*sizeof(IS));
-////		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
-//		assem->res = malloc((assem->levels)*sizeof(Mat));
-//		assem->pro = malloc((assem->levels)*sizeof(Mat));
-//	} else {
-//		assem->bottomIS	= malloc((assem->levels)*sizeof(IS));
-//		assem->topIS	= malloc((assem->levels)*sizeof(IS));
-////		assem->subFineIS= malloc((assem->levels)*sizeof(IS));
-//		assem->gridIS	= malloc((assem->levels)*sizeof(IS*));
-//		for (int i=0; i<assem->levels; i++) {
-//			assem->gridIS[i] = malloc((levels->level[i].grids)*sizeof(IS));
-//		}
-//		assem->res = malloc((assem->levels)*sizeof(Mat));
-//		assem->pro = malloc((assem->levels)*sizeof(Mat));
-//	}
-}
-
-void DestroyAssembly(Assembly *assem, int cycle) 
-{
-	// Free the memory in Assembly struct
-	
-	for (int l=0;l<assem->levels;l++) {
-		MatDestroy(assem->A+l);
-//		if (cycle == ECYCLE) MatDestroy(assem->A2+l);
-		VecDestroy(assem->b+l);
-		VecDestroy(assem->u+l);
-//		if (cycle == D1CYCLE || cycle == D2CYCLE || cycle == D1PSCYCLE) {
-//			ISDestroy(assem->bottomIS+l);
-//			ISDestroy(assem->topIS+l);
-//		}
-	}
-//	if (cycle == D1CYCLE || cycle == D2CYCLE || cycle == D1PSCYCLE) {
-//		MatDestroy(assem->res);
-//		MatDestroy(assem->pro);
-//	}
-	for (int l=0;l<assem->levels-1;l++) {
-		MatDestroy(assem->res+l);
-		MatDestroy(assem->pro+l);
-	}
-	free(assem->res);
-	free(assem->pro);
-	free(assem->A);
-//	if (cycle == ECYCLE) free(assem->A2); 
-	free(assem->b);
-	free(assem->u);
-//	if (cycle != D1CYCLE && cycle != D2CYCLE && cycle != D1PSCYCLE) return;
-//	if (assem->moreInfo == 0) {
-//		free(assem->bottomIS);
-//		free(assem->topIS);
-////		free(assem->subFineIS);
-//	} else {
-//		free(assem->bottomIS);
-//		free(assem->topIS);
-//		for (int i=0; i<assem->levels; i++) {
-//			free(assem->gridIS[i]);
-//		}
-//		free(assem->gridIS);
-////		free(assem->subFineIS);
-//	}
-}
-
 void InitializeSolver(Solver *solver) {
 	solver->rnorm	= NULL;
 	solver->levels	= NULL;
@@ -119,17 +45,9 @@ void DestroySolver(Solver *solver) {
 	// Free the memory in Solver struct
 	
 	if (!solver) return;	
-//	DestroyAssembly(solver->assem, solver->cycle);
-//	free(solver->assem);
 	DestroyLevels(solver->levels);
 	if (solver->levels) free(solver->levels);
 	if (solver->rnorm) free(solver->rnorm);
-//	if (solver->moreInfo == 0) return;
-//	for (int i=0; i<solver->grids; i++) {
-//		free(solver->rNormGrid[i]);
-//	}
-//	free(solver->rNormGrid);
-//	free(solver->rNormGlobal);
 }
 
 //void CreatePostProcess(PostProcess *pp) {
@@ -1275,8 +1193,6 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Selected MG cycle doesn't exist");
 		return 1;
 	}
-	solver->moreInfo = 0;
-//	PetscOptionsGetInt(NULL, NULL, "-moreNorm", &(solver->moreInfo), NULL);
 	ierr = PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
 	if (!set || ierr) {
 		PetscBarrier(PETSC_NULL);
@@ -1292,33 +1208,10 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Set '-v v1,v2' for v1 smoothing steps and v2 coarse solve iterations");
 		return 1;
 	}
-//	solver->cycle = cyc;
-//	solver->moreInfo = moreInfo;
 	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
-//	solver->assem = malloc(sizeof(Assembly));
 	solver->levels = malloc(sizeof(Levels));
-//	solver->assem->moreInfo = solver->moreInfo;	
-//	SetUpAssembly(levels, solver->assem, solver->cycle);
 	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
 	AssembleLevels(grids, solver->levels);
-//	if (solver->moreInfo == 0) return 0;
-//	if (cyc == D1PSCYCLE) {
-//		int	v	= solver->v[0];
-//		solver->grids	= levels->level->ngrids;
-//		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
-//		for (int i=0; i<solver->grids; i++) {
-//			solver->rNormGrid[i] = malloc(numIter*2*(v+1)*sizeof(double));
-//		}
-//		solver->rNormGlobal = malloc(numIter*2*(v+1)*sizeof(double));
-//	} else if (cyc == D1CYCLE || cyc == D2CYCLE) {
-//		int	v	= solver->v[0];
-//		solver->grids	= levels->level->ngrids;
-//		solver->rNormGrid = malloc(solver->grids*sizeof(double *));
-//		for (int i=0; i<solver->grids; i++) {
-//			solver->rNormGrid[i] = malloc(numIter*(v+1)*sizeof(double));
-//		}
-//		solver->rNormGlobal = malloc(numIter*(v+1)*sizeof(double));
-//	}
 	return 0;
 }
 

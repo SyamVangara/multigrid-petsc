@@ -55,49 +55,13 @@ typedef struct {
 } Operator;
 
 typedef struct {
-	int	levels;
-	Mat 	*res;
-	Mat 	*pro;
-	Mat	*A;
-	Mat	*A2;
-	Vec	*b;
-	Vec	*u;
-	IS	*bottomIS;
-	IS	*topIS;
-	int	moreInfo; // 0:False; 1:True
-//	IS	*subFineIS;
-	IS	**gridIS; // moreNorm flag related info begins
-} Assembly;
-
-//typedef enum {VCYCLE, ICYCLE, ECYCLE, D1CYCLE, D2CYCLE, D3CYCLE, D4CYCLE, D1PSCYCLE, PetscPCMG, FILTER, VFILTER, ADDITIVE, ADDITIVEScaled} Cycle;
-//typedef enum {False, True} CustomBool;
-
-typedef struct {
 	int		cycle;
-//	Cycle		cycle;
-//	CustomBool	moreInfo;
-	int		moreInfo; // 0: False; 1: True
 	int		numIter;
 	int		v[2];
-	// For more info; move them to a different struct?
-	double		**rNormGrid; // !Remove
-	double		*rNormGlobal; // !Remove
-	// more info ends
 	double		error[3];
 	double		*rnorm;
 	Levels		*levels;
-//	OutFiles	*outfiles;
-//	Assembly	*assem;
 } Solver;
-
-typedef struct {
-	double	error[3];
-	FILE	*solData;
-	FILE	*errData;
-	FILE	*resData;
-	FILE	*XgridData;
-	FILE	*YgridData;
-} OutFiles;
 
 int CreateLevels(Grids *grids, Levels *levels);
 void DestroyLevels(Levels *levels);

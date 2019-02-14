@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 //	ViewLevelsInfo(solver, 0);
-	ViewMatResInfo(solver);
+//	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
