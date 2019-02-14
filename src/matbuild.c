@@ -594,11 +594,15 @@ void DestroyLevels(Levels *levels) {
 		free(levels->A);
 	}
 	if (levels->b) {
-		VecDestroy(levels->b);
+		for (int l=0; l<levels->nlevels; l++) {
+			VecDestroy(levels->b+l);
+		}
 		free(levels->b);
 	}
 	if (levels->u) {
-		VecDestroy(levels->u);
+		for (int l=0; l<levels->nlevels; l++) {
+			VecDestroy(levels->u+l);
+		}
 		free(levels->u);
 	}
 	if (levels->level) {

@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 2);
+	ViewGridsInfo(grids, 0);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr == 1) {
@@ -81,8 +81,8 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 2);
-	ViewMatResInfo(solver);
+	ViewLevelsInfo(solver, 0);
+//	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
@@ -95,85 +95,14 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	
-//	SetUpPostProcess(&pp);
 	PostProcessing(&grids, &solver);
-	
 	PrintInfo(&grids, &solver);
-	
-//	DestroyPostProcess(&pp);
 
 	DestroySolver(&solver);
 	DestroyGrids(&grids);
 	PetscFinalize();
 	MPI_Finalize();
 	return 0;
-	
-	//PetscOptionsGetInt(NULL, NULL, "-map", &(mappingStyleflag), NULL);
-	//
-	//if (indices.levels>1 && (cyc==3 || cyc==4 || cyc==7)) {
-	//	PetscPrintf(PETSC_COMM_WORLD, "For now only one level is allowed for delayed cycling\n"); 
-	//	PetscFinalize();
-	//	MPI_Finalize();
-	//	return 0;
-	//}
-
-//	//SetUpMesh(&mesh, meshflag);
-//	//if (meshflag == 0) SetUpMesh(&mesh, UNIFORM);
-//	//if (meshflag == 1) SetUpMesh(&mesh, NONUNIFORM1);
-//	//if (meshflag == 2) SetUpMesh(&mesh, NONUNIFORM2);
-
-//	//ViewMeshInfo(mesh);
-	//
-	//indices.coarseningFactor = 2;
-	//SetUpIndices(&mesh, &indices);
-
-//	//ViewIndicesInfo(indices);
-
-	//mapping(&indices, mappingStyleflag);
-	//
-//	//ViewIndexMapsInfo(indices);
-//	//ViewRangesInfo(indices);
-	//
-	//SetUpOperator(&indices, &op);
-	//GridTransferOperators(op, indices);
-
-//	//ViewOperatorInfo(op);
-	//
-	//if (cyc == 0) SetUpSolver(&indices, &solver, VCYCLE);
-	//if (cyc == 1) SetUpSolver(&indices, &solver, ICYCLE);
-	//if (cyc == 2) SetUpSolver(&indices, &solver, ECYCLE);
-	//if (cyc == 3) SetUpSolver(&indices, &solver, D1CYCLE);
-	//if (cyc == 4) SetUpSolver(&indices, &solver, D2CYCLE);
-	//if (cyc == 7) SetUpSolver(&indices, &solver, D1PSCYCLE);
-	//if (cyc == 8) SetUpSolver(&indices, &solver, PetscPCMG);
-	//if (cyc == 9) SetUpSolver(&indices, &solver, FILTER);
-	//if (cyc == 10) SetUpSolver(&indices, &solver, VFILTER);
-	//if (cyc == 11) SetUpSolver(&indices, &solver, ADDITIVE);
-	//if (cyc == 12) SetUpSolver(&indices, &solver, ADDITIVEScaled);
-
-//	//ViewSolverInfo(indices, solver);
-
-	//Assemble(&prob, &mesh, &indices, &op, &solver);
-
-//	//ViewLinSysMatsInfo(*(solver.assem), 0);
-//	//ViewGridTransferMatsInfo(*(solver.assem), 0, cyc);
-	//
-	//Solve(&solver);
-	//
-	//SetUpPostProcess(&pp);
-	//Postprocessing(&prob, &mesh, &indices, &solver, &pp);
-	//
-	//PrintInfo(prob, mesh, indices, op, solver, pp, cyc, meshflag, mappingStyleflag);
-	//
-	//DestroyPostProcess(&pp);
-	//DestroySolver(&solver);
-	//DestroyOperator(&op);
-	//DestroyIndices(&indices);
-	//DestroyMesh(&mesh);
-	//PetscFinalize();
-	//MPI_Finalize();
-
-	//return 0;
 }
 
 //int ipow(int base, int exp) {
