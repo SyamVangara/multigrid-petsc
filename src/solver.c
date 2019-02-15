@@ -728,7 +728,7 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 			bcinc0	= level->bcindices[lg][1][0].bcInc;
 			bcinc1	= level->bcindices[lg][1][1].bcInc;
 			FillBCDirMatA(igstart, jstart, bcStartIndex0,  bcinc0[0], 0,
-				bcStartIndex1, bcinc0[0], 0,
+				bcStartIndex1, bcinc1[0], 0,
 				inc[1], inc[0], 0, ln[1], ln[0], 1, dy, ycoord, A);
 		}
 	} else if (dimension == 3) {
@@ -2630,6 +2630,7 @@ int MultigridAdditive(Solver *solver) {
 	ierr = VecDuplicate(subb[0], &rfine); pCHKERR_RETURN("Vector duplication failed");
 //	GetSubVecs(ngrids, is, &r, &subr);
 	ierr = MatCreateSubMatrix(*A, is[0], is[0], MAT_INITIAL_MATRIX, &Afine); pCHKERR_RETURN("Sub-matrix creation failed");
+	MatView(Afine, PETSC_VIEWER_STDOUT_WORLD);
 
 	KSP	ksp;
 	
