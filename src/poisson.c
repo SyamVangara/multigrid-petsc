@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 2);
+	ViewGridsInfo(grids, 0);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr != 0) {
@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 2);
+	ViewLevelsInfo(solver, 0);
 //	ViewMatResInfo(solver);
-	ViewMatAInfo(solver);
+//	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");

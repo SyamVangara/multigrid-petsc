@@ -2628,9 +2628,7 @@ int MultigridAdditive(Solver *solver) {
 	ierr = GetSubVecs(ngrids, is, b, &subb); pCHKERR_RETURN("Getting sub-vectors failed");
 	ierr = GetSubVecs(ngrids, is, u, &subu); pCHKERR_RETURN("Getting sub-vectors failed");
 	ierr = VecDuplicate(subb[0], &rfine); pCHKERR_RETURN("Vector duplication failed");
-//	GetSubVecs(ngrids, is, &r, &subr);
 	ierr = MatCreateSubMatrix(*A, is[0], is[0], MAT_INITIAL_MATRIX, &Afine); pCHKERR_RETURN("Sub-matrix creation failed");
-	MatView(Afine, PETSC_VIEWER_STDOUT_WORLD);
 
 	KSP	ksp;
 	
@@ -2672,13 +2670,15 @@ int MultigridAdditive(Solver *solver) {
 //			KSPSolve(ksp[l], b[l], u[l]);
 //		}
 		for (int l=ngrids-2;l>0;l=l-1) {
-			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
-//			MatMult(pro[l], subu[l+1], subb[l]);
-//			VecAXPY(u[l], 1.0, b[l]);
+//			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+			MatMult(pro[l], subu[l+1], subb[l]);
+			VecAXPY(subu[l], 1.0, subb[l]);
+			VecSet(subu[l+1], 0.0);
 		}
-		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
-//		MatMult(pro[0], u[1], r);
-//		VecAXPY(u[0], 1.0, r);
+//		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
+		MatMult(pro[0], subu[1], rfine);
+		VecAXPY(subu[0], 1.0, rfine);
+		VecSet(subu[1], 0.0);
 		MatResidual(Afine, subb[0], subu[0], rfine);
 		VecNorm(rfine, NORM_2, &rnormchk);	
 		iter = iter + 1;
@@ -2695,7 +2695,7 @@ int MultigridAdditive(Solver *solver) {
 
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
 	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
-	PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
 
 	MatDestroy(&Afine);
 	VecDestroy(&rfine);
