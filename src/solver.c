@@ -1,12 +1,14 @@
 #include "solver.h"
 
-#define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define ERROR_MSG(message) {PetscBarrier(PETSC_NULL);(fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)));}
+//#define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
 #define CHKERR_PRNT(message) {if(ierr != 0) {ERROR_MSG(message);}}
 #define CHKERR_RETURN(message) {if(ierr != 0) {ERROR_RETURN(message);}}
 #define PI 3.14159265358979323846
 
-#define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define pERROR_MSG(message) {PetscBarrier(PETSC_NULL);(PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)));}
+//#define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
 #define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
 #define pCHKERR_PRNT(message) {if(ierr != 0) {pERROR_MSG(message);}}
 #define pCHKERR_RETURN(message) {if(ierr != 0) {pERROR_RETURN(message);}}
@@ -2171,13 +2173,16 @@ void RestoreGridVecToLevelVec(Vec *u, Vec *ulg, IS *islg) {
 	ISDestroy(islg);
 }
 
-void GetSubVecs(int n, IS *is, Vec *v, Vec **subv) {
+int GetSubVecs(int n, IS *is, Vec *v, Vec **subv) {
 	// Extract "n" sub-vectors from "v" using index sets "is"
 	
 	*subv = malloc(n*sizeof(Vec));
+	int ierr = 0;
 	for (int i=0; i<n; i++) {
-		VecGetSubVector(*v, is[i], (*subv)+i);
+//		ierr = VecCreate(PetscObjectComm((PetscObject)(*v)), (*subv)+i); pCHKERR_RETURN("Vec creation failed");
+		ierr = VecGetSubVector(*v, is[i], (*subv)+i); pCHKERR_RETURN("Getting sub-vector failed");
 	}
+	return 0;
 }
 
 void RestoreSubVecs(int n, IS *is, Vec *v, Vec **subv) {
@@ -2210,14 +2215,16 @@ void WriteToFiles(Solver *solver) {
 	fclose(resData);
 }
 
-void PostProcessing(Grids *grids, Solver *solver) {
+int PostProcessing(Grids *grids, Solver *solver) {
 	// Computes error and writes data to files
 	
 	Grid	*grid = grids->grid;
 	Levels	*levels = solver->levels;
 	Level	*level = levels->level; // First level
 
-	IS is0;
+//	IS is0;
+	int ierr = 0;
+	IS *is = level->is;
 	Vec usol;
 	Vec *ugrid = NULL;
 	Vec *u = levels->u;
@@ -2225,20 +2232,27 @@ void PostProcessing(Grids *grids, Solver *solver) {
 		ugrid = u;
 	} else {
 		// Extract finest grid computed solution from level vec
-		GetGridVecFromLevelVec(0, grid, level, u, ugrid, &is0);
+//		GetGridVecFromLevelVec(0, grid, level, u, ugrid, &is0);
+		ugrid = malloc(sizeof(Vec));
+		ierr = VecGetSubVector(*u, is[0], ugrid); pCHKERR_RETURN("Getting sub-vector failed");
 	}
 	VecDuplicate(*ugrid, &usol);
 	GetSol(0, grid, level, &usol); // Get exact solution on finest grid in first level
 
 	double *error = solver->error;
 	GetError(ugrid, &usol, error);
-	if (level->ngrids > 1) RestoreGridVecToLevelVec(u, ugrid, &is0);
+//	if (level->ngrids > 1) RestoreGridVecToLevelVec(u, ugrid, &is0);
+	if (level->ngrids > 1) {
+		VecRestoreSubVector(*u, is[0], ugrid);
+		free(ugrid);
+	}
 	VecDestroy(&usol);
 	
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	if (rank == 0)	WriteToFiles(solver);
+	return 0;
 }
 
 //void Postprocessing(Problem *prob, Mesh *mesh, Levels *levels, Solver *solver, PostProcess *pp) {
@@ -2468,6 +2482,7 @@ int MultigridVcycle(Solver *solver) {
 	CreateProMatsFromResMats(dimension, nlevels-1, res, &pro);
 
 	KSP	ksp[nlevels];
+	PC	temp;
 //	PC	pc[levels];
 	Vec	r[nlevels], rv[nlevels];
 	
@@ -2481,12 +2496,18 @@ int MultigridVcycle(Solver *solver) {
 		KSPCreate(PETSC_COMM_WORLD, &(ksp[i]));
 		KSPSetType(ksp[i],KSPRICHARDSON);
 		KSPSetOperators(ksp[i], A[i], A[i]);
+		PetscObjectSetOptionsPrefix((PetscObject)ksp[i], "levels_");
+		KSPGetPC(ksp[i], &temp);
+		PetscObjectSetOptionsPrefix((PetscObject)temp, "levels_");
 		KSPSetNormType(ksp[i],KSP_NORM_NONE);
 		KSPSetTolerances(ksp[i], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
 		KSPSetFromOptions(ksp[i]);
 	}
 
 	KSPCreate(PETSC_COMM_WORLD, &(ksp[nlevels-1]));
+	PetscObjectSetOptionsPrefix((PetscObject)ksp[nlevels-1], "coarse_");
+	KSPGetPC(ksp[nlevels-1], &temp);
+	PetscObjectSetOptionsPrefix((PetscObject)temp, "coarse_");
 	KSPSetType(ksp[nlevels-1],KSPRICHARDSON);
 	KSPSetOperators(ksp[nlevels-1], A[nlevels-1], A[nlevels-1]);
 	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
@@ -2537,16 +2558,16 @@ int MultigridVcycle(Solver *solver) {
 	double endWallTime = MPI_Wtime();
 	PetscBarrier(PETSC_NULL);
 	rnormchk = rnorm[0];
-	for (int i=0;i<(numIter+1);i++) {
+	for (int i=0;i<(iter+1);i++) {
 		rnorm[i] = rnorm[i]/rnormchk;
 	}
 	solver->numIter = iter;
 
-//	for (int i=0;i<nlevels;i++) {
-//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
-//		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
-//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
-//	}
+	for (int i=0;i<nlevels;i++) {
+		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
+		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
+		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
+	}
 	
 	DestroyProMats(nlevels-1, &pro);
 
@@ -2564,7 +2585,7 @@ int MultigridVcycle(Solver *solver) {
 	return 0;
 }
 
-void MultigridAdditive(Solver *solver) {
+int MultigridAdditive(Solver *solver) {
 
 	Levels	*levels = solver->levels;
 	int	nlevels = levels->nlevels;
@@ -2593,86 +2614,72 @@ void MultigridAdditive(Solver *solver) {
 
 	Mat 	*res = levels->res;
 	Mat	*A = levels->A;
+	Mat	Afine;
+
 	Vec	*b = levels->b;
 	Vec	*u = levels->u;
 	Vec	*subb, *subu;
+	Vec	rfine;
 	IS	*is = levels->level->is;
 	Mat 	*pro;
 	
+	int	ierr=0;
 	CreateProMatsFromResMats(dimension, ngrids-1, res, &pro);
-	GetSubVecs(ngrids, is, b, &subb);
-	GetSubVecs(ngrids, is, u, &subu);
+	ierr = GetSubVecs(ngrids, is, b, &subb); pCHKERR_RETURN("Getting sub-vectors failed");
+	ierr = GetSubVecs(ngrids, is, u, &subu); pCHKERR_RETURN("Getting sub-vectors failed");
+	ierr = VecDuplicate(subb[0], &rfine); pCHKERR_RETURN("Vector duplication failed");
+//	GetSubVecs(ngrids, is, &r, &subr);
+	ierr = MatCreateSubMatrix(*A, is[0], is[0], MAT_INITIAL_MATRIX, &Afine); pCHKERR_RETURN("Sub-matrix creation failed");
 
 	KSP	ksp;
-	Vec	r;
 	
 	PetscLogStage	stage;
 		
-	VecDuplicate(b[0], &r);
+	KSPCreate(PETSC_COMM_WORLD, &ksp);
+	KSPSetType(ksp, KSPRICHARDSON);
+	KSPSetOperators(ksp, *A, *A);
+	KSPSetNormType(ksp, KSP_NORM_NONE);
+	KSPSetTolerances(ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
+	KSPSetInitialGuessNonzero(ksp, PETSC_TRUE);
+	KSPSetFromOptions(ksp);
 	
-	KSPCreate(PETSC_COMM_WORLD, &(ksp[0]));
-	PetscObjectSetOptionsPrefix(ksp[0], "fine_");
-	KSPSetType(ksp[0],KSPRICHARDSON);
-	KSPSetOperators(ksp[0], A[0], A[0]);
-	KSPSetNormType(ksp[0],KSP_NORM_NONE);
-	KSPSetTolerances(ksp[0], PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-	KSPSetInitialGuessNonzero(ksp[0],PETSC_TRUE);
-	KSPSetFromOptions(ksp[0]);
-	
-	for (int i=1;i<levels-1;i++) {
-		KSPCreate(PETSC_COMM_WORLD, &(ksp[i]));
-		PetscObjectSetOptionsPrefix(ksp[i], "levels_");
-		KSPSetType(ksp[i],KSPRICHARDSON);
-		KSPSetOperators(ksp[i], A[i], A[i]);
-		KSPSetNormType(ksp[i],KSP_NORM_NONE);
-		KSPSetTolerances(ksp[i], PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-		KSPSetFromOptions(ksp[i]);
-	}
+	double	bnorm, rnormmin, rnormmax, rnormchk;
+	VecNorm(subb[0], NORM_2, &bnorm);
+	rnormmax = 100000000*bnorm;
+	rnormmin = rtol*bnorm;
 
-	KSPCreate(PETSC_COMM_WORLD, &(ksp[levels-1]));
-	PetscObjectSetOptionsPrefix(ksp[levels-1], "coarse_");
-	KSPSetType(ksp[levels-1],KSPRICHARDSON);
-	KSPSetOperators(ksp[levels-1], A[levels-1], A[levels-1]);
-	KSPSetNormType(ksp[levels-1],KSP_NORM_NONE);
-	KSPSetTolerances(ksp[levels-1], PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
-	KSPSetFromOptions(ksp[levels-1]);
-
-	VecNorm(b[0], NORM_2, &bnorm);
-	
-//	VecSet(u[0], 0.0); // Note: Should this be moved out of this function?
-	for (int l=0; l<levels; l++) {
-		VecSet(u[l], 0.0); // Note: Should this be moved out of this function?
-	}
-//	VecDuplicate(b[0],&(r[0]));
-	MatResidual(A[0], b[0], u[0], r);
-//	MatMult(A[0], u[0], rv[0]);
-//	VecAXPY(rv[0], -1.0, b[0]);
-	VecNorm(r, NORM_2, &rnormchk);
+	VecSet(*u, 0.0); // Note: Should this be moved out of this function?
+	MatResidual(Afine, subb[0], subu[0], rfine);
+	VecNorm(rfine, NORM_2, &rnormchk);
 	rnorm[0] = rnormchk;
 
-	iter = 0;
+	int iter = 0;
 	
+	PetscBarrier(PETSC_NULL);
 	double initWallTime = MPI_Wtime();
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
 	// Note: Following algorithm is written assuming zer initial solution on coarse grids
-	while (iter<maxIter && 100000000*bnorm > rnormchk && rnormchk > (1.e-7)*bnorm) {
-		MatMult(res[0], r, b[1]);
-		for (int l=1;l<levels-1;l++) {
-			MatMult(res[l], b[l], b[l+1]);
+	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
+		MatMult(res[0], rfine, subb[1]);
+		for (int l=1;l<ngrids-1;l++) {
+			MatMult(res[l], subb[l], subb[l+1]);
 		}
-		for (int l=0; l<levels; l++) {
-			KSPSolve(ksp[l], b[l], u[l]);
+		KSPSolve(ksp, *b, *u);
+//		for (int l=0; l<levels; l++) {
+//			KSPSolve(ksp[l], b[l], u[l]);
+//		}
+		for (int l=ngrids-2;l>0;l=l-1) {
+			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+//			MatMult(pro[l], subu[l+1], subb[l]);
+//			VecAXPY(u[l], 1.0, b[l]);
 		}
-		for (int l=levels-2;l>0;l=l-1) {
-			MatMult(pro[l], u[l+1], b[l]);
-			VecAXPY(u[l], 1.0, b[l]);
-		}
-		MatMult(pro[0], u[1], r);
-		VecAXPY(u[0], 1.0, r);
-		MatResidual(A[0], b[0], u[0], r);
-		VecNorm(r, NORM_2, &rnormchk);	
+		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
+//		MatMult(pro[0], u[1], r);
+//		VecAXPY(u[0], 1.0, r);
+		MatResidual(Afine, subb[0], subu[0], rfine);
+		VecNorm(rfine, NORM_2, &rnormchk);	
 		iter = iter + 1;
 		rnorm[iter] = rnormchk;
 	}
@@ -2680,28 +2687,28 @@ void MultigridAdditive(Solver *solver) {
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
 	rnormchk = rnorm[0];
-	for (int i=0;i<(maxIter+1);i++) {
+	for (int i=0;i<(iter+1);i++) {
 		rnorm[i] = rnorm[i]/rnormchk;
 	}
 	solver->numIter = iter;
 
-//	for (int i=0;i<levels;i++) {
-//		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
-//		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
-//		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
-//	}
-	
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
+
+	MatDestroy(&Afine);
+	VecDestroy(&rfine);
+//	RestoreSubVecs(ngrids, is, &r, &subr);
 	RestoreSubVecs(ngrids, is, u, &subu);
 	RestoreSubVecs(ngrids, is, b, &subb);
 	DestroyProMats(ngrids-1, &pro);
-	VecDestroy(&r);
-	for (int i=0;i<levels;i++) {
-		KSPDestroy(&(ksp[i]));
-	}
+	KSPDestroy(&ksp);
+
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
 	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
 
+	return 0;
 }
 
 //void MultigridAdditiveScaled(Solver *solver) {

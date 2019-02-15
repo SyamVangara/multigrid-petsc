@@ -1,11 +1,11 @@
 #include "header.h"
 
-#define ERROR_MSG(message) (fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define ERROR_MSG(message) {PetscBarrier(PETSC_NULL);(fprintf(stderr,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)));}
 #define ERROR_RETURN(message) {ERROR_MSG(message);return ierr;}
 #define CHKERR_PRNT(message) {if(ierr != 0) {ERROR_MSG(message);}}
 #define CHKERR_RETURN(message) {if(ierr != 0) {ERROR_RETURN(message);}}
 
-#define pERROR_MSG(message) (PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)))
+#define pERROR_MSG(message) {PetscBarrier(PETSC_NULL);(PetscPrintf(PETSC_COMM_WORLD,"ERROR: %s:%d: %s\n",__FILE__,__LINE__,(message)));}
 #define pERROR_RETURN(message) {pERROR_MSG(message);return ierr;}
 #define pCHKERR_PRNT(message) {if(ierr != 0) {pERROR_MSG(message);}}
 #define pCHKERR_RETURN(message) {if(ierr != 0) {pERROR_RETURN(message);}}
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
 //	freopen("poisson.err", "w", stderr);
 	
 	ierr = CreateGrids(&grids); pCHKERR_PRNT("Grids creation failed");
-	if (ierr == 1) {
+	if (ierr != 0) {
 		DestroyGrids(&grids);
 		PetscFinalize();
 		MPI_Finalize();
@@ -63,20 +63,20 @@ int main(int argc, char *argv[]) {
 	ViewGridsInfo(grids, 0);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
-	if (ierr == 1) {
+	if (ierr != 0) {
 		DestroySolver(&solver);
 		DestroyGrids(&grids);
 		PetscFinalize();
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 2);
+	ViewLevelsInfo(solver, 0);
 //	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
 	
 	ierr = Solve(&solver); pCHKERR_PRNT("Solver failed");
-	if (ierr == 1) {
+	if (ierr != 0) {
 		DestroySolver(&solver);
 		DestroyGrids(&grids);
 		PetscFinalize();
@@ -84,9 +84,17 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	
-	PostProcessing(&grids, &solver);
+	ierr = PostProcessing(&grids, &solver); pCHKERR_PRNT("Post-processing failed");
+	if (ierr != 0) {
+		DestroySolver(&solver);
+		DestroyGrids(&grids);
+		PetscFinalize();
+		MPI_Finalize();
+		return 0;
+	}
 	PrintInfo(&grids, &solver);
 
+	PetscBarrier(PETSC_NULL);
 	DestroySolver(&solver);
 	DestroyGrids(&grids);
 	PetscFinalize();

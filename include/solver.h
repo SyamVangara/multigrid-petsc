@@ -78,7 +78,7 @@ int CreateSolver(Grids *grids, Solver *solver);
 void DestroySolver(Solver *solver);
 int Solve(Solver *solver);
 
-void PostProcessing(Grids *grids, Solver *solver);
+int PostProcessing(Grids *grids, Solver *solver);
 
 #endif
 
