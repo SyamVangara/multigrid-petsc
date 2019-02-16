@@ -3977,6 +3977,9 @@ int Solve(Solver *solver){
 		case 3:
 			ierr = MultigridAdditiveScaled(solver); pCHKERR_RETURN("Additive-scaled MG solver failed");
 			break;
+		default:
+			ierr = 1;
+			pCHKERR_RETURN("Invalid Solver option");
 	}
 	PetscBarrier(PETSC_NULL);
 //	if (solver->cycle == ECYCLE) MultigridEcycle(solver);
