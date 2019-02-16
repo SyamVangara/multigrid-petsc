@@ -177,6 +177,8 @@ void PrintInfo(Grids *grids, Solver *solver) {
 		printf(", %d", level[l].ngrids);
 	}
 	printf(")\n");
+	if (solver->cycle == 3) printf("Cycle :				Additive-Scaled\n");
+	if (solver->cycle == 2) printf("Cycle :				Additive\n");
 	if (solver->cycle == 1) printf("Cycle :				V-Cycle\n");
 	if (solver->cycle == 0) printf("Cycle :				No MG\n");
 	
