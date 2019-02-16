@@ -2565,8 +2565,9 @@ int MultigridVcycle(Solver *solver) {
 			if (l!=nlevels-1) KSPSetInitialGuessNonzero(ksp[l],PETSC_TRUE);
 		}
 		for (int l=nlevels-2;l>=0;l=l-1) {
-			MatMult(pro[l],u[l+1],rv[l]);
-			VecAXPY(u[l],1.0,rv[l]);
+			MatMultAdd(pro[l], u[l+1], u[l], u[l]);
+//			MatMult(pro[l],u[l+1],rv[l]);
+//			VecAXPY(u[l],1.0,rv[l]);
 			KSPSolve(ksp[l], b[l], u[l]);
 			if (l!=0) KSPSetInitialGuessNonzero(ksp[l],PETSC_FALSE);
 		}
@@ -2689,14 +2690,14 @@ int MultigridAdditive(Solver *solver) {
 		}
 		KSPSolve(ksp, *b, *u);
 		for (int l=ngrids-2;l>0;l=l-1) {
-//			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
-			MatMult(pro[l], subu[l+1], subb[l]);
-			VecAXPY(subu[l], 1.0, subb[l]);
+			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+//			MatMult(pro[l], subu[l+1], subb[l]);
+//			VecAXPY(subu[l], 1.0, subb[l]);
 			VecSet(subu[l+1], 0.0);
 		}
-//		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
-		MatMult(pro[0], subu[1], rfine);
-		VecAXPY(subu[0], 1.0, rfine);
+		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
+//		MatMult(pro[0], subu[1], rfine);
+//		VecAXPY(subu[0], 1.0, rfine);
 		VecSet(subu[1], 0.0);
 		MatResidual(Afine, subb[0], subu[0], rfine);
 		VecNorm(rfine, NORM_2, &rnormchk);	
@@ -2837,9 +2838,9 @@ int MultigridAdditiveScaled(Solver *solver) {
 
 			lambda[l+1] = lambda[l+1]/r0Dot[l+1];
 			VecScale(subu[l+2], lambda[l+1]);
-//			MatMultAdd(pro[l+1], subu[l+2], subu[l+1], subu[l+1]);
-			MatMult(pro[l+1], subu[l+2], subr[l+1]);
-			VecAXPY(subu[l+1], 1.0, subr[l+1]);
+			MatMultAdd(pro[l+1], subu[l+2], subu[l+1], subu[l+1]);
+//			MatMult(pro[l+1], subu[l+2], subr[l+1]);
+//			VecAXPY(subu[l+1], 1.0, subr[l+1]);
 			VecSet(subu[l+2], 0.0);
 		}
 		MatResidual(subA[0], subb[0], subu[0], subr[0]);
@@ -2850,26 +2851,26 @@ int MultigridAdditiveScaled(Solver *solver) {
 		if (ngrids > 2) {
 			lambda[1] = lambda[1]/r0Dot[1];
 			VecScale(subu[2], lambda[1]);
-//			MatMultAdd(pro[1], subu[2], subu[1], subu[1]);
-			MatMult(pro[1], subu[2], subr[1]);
-			VecAXPY(subu[1], 1.0, subr[1]);
+			MatMultAdd(pro[1], subu[2], subu[1], subu[1]);
+//			MatMult(pro[1], subu[2], subr[1]);
+//			VecAXPY(subu[1], 1.0, subr[1]);
 			VecSet(subu[2], 0.0);
 		}
 		VecTDotEnd(rfine, subr[0], lambda);
 
 		lambda[0] = lambda[0]/r0Dot[0];
 		VecScale(subu[1], lambda[0]);
-//		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
-		MatMult(pro[0], subu[1], subr[0]);
-		VecAXPY(subu[0], 1.0, subr[0]);
+		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
+//		MatMult(pro[0], subu[1], subr[0]);
+//		VecAXPY(subu[0], 1.0, subr[0]);
 		VecSet(subu[1], 0.0);
 		
 //		for (int l=ngrids-2;l>=0;l=l-1) {
 //			lambda[l] = lambda[l]/r0Dot[l];
 //			VecScale(subu[l+1], lambda[l]);
-////			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
-//			MatMult(pro[l], subu[l+1], subr[l]);
-//			VecAXPY(subu[l], 1.0, subr[l]);
+//			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+////			MatMult(pro[l], subu[l+1], subr[l]);
+////			VecAXPY(subu[l], 1.0, subr[l]);
 //			VecSet(subu[l+1], 0.0);
 //		}
 
@@ -2890,7 +2891,7 @@ int MultigridAdditiveScaled(Solver *solver) {
 	solver->numIter = iter;
 
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
-	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	KSPView(ksp, PETSC_VIEWER_STDOUT_WORLD);
 	PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 	
 //	MatDestroy(&Afine);
