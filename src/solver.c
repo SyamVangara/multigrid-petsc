@@ -2813,67 +2813,32 @@ int MultigridAdditiveScaled(Solver *solver) {
 	clock_t solverInitT = clock();
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
-	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
-		MatMult(res[0], rfine, subb[1]);
-		for (int l=1; l<ngrids-1; l++) {
-			VecTDotBegin(subb[l], subb[l], r0Dot+l);
-			MatMult(res[l], subb[l], subb[l+1]);
-		}
-		if(ngrids > 2) PetscCommSplitReductionBegin(comm);
+ 	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
+ 		MatMult(res[0], rfine, subb[1]);
+ 		for (int l=1; l<ngrids-1; l++) {
+ 			MatMult(res[l], subb[l], subb[l+1]);
+ 		}
+ 		for (int l=1; l<ngrids-1; l++) {
+			VecTDot(subb[l], subb[l], r0Dot+l);
+ 		}
 		KSPSolve(ksp, *b, *u);
-		for (int l=1; l<ngrids-1; l++) {
-			VecTDotEnd(subb[l], subb[l], r0Dot+l);
-		}
-//		MatResidual(*A, *b, *u, r);
-		if (ngrids > 2) {
-			MatResidual(subA[ngrids-2], subb[ngrids-2], subu[ngrids-2], subr[ngrids-2]);
-			VecTDotBegin(subb[ngrids-2], subr[ngrids-2], lambda+ngrids-2);
-			PetscCommSplitReductionBegin(comm);
-		}
-		for (int l=ngrids-3; l>0; l=l-1) {
+		for (int l=0; l<ngrids-1; l++) {
 			MatResidual(subA[l], subb[l], subu[l], subr[l]);
-			VecTDotEnd(subb[l+1], subr[l+1], lambda+l+1);
-			VecTDotBegin(subb[l], subr[l], lambda+l);
-			PetscCommSplitReductionBegin(comm);
-
-			lambda[l+1] = lambda[l+1]/r0Dot[l+1];
-			VecScale(subu[l+2], lambda[l+1]);
-			MatMultAdd(pro[l+1], subu[l+2], subu[l+1], subu[l+1]);
-//			MatMult(pro[l+1], subu[l+2], subr[l+1]);
-//			VecAXPY(subu[l+1], 1.0, subr[l+1]);
-			VecSet(subu[l+2], 0.0);
 		}
-		MatResidual(subA[0], subb[0], subu[0], subr[0]);
-		if (ngrids > 2) VecTDotEnd(subb[1], subr[1], lambda+1);
-		VecTDotBegin(rfine, subr[0], lambda);
-		PetscCommSplitReductionBegin(comm);
-
-		if (ngrids > 2) {
-			lambda[1] = lambda[1]/r0Dot[1];
-			VecScale(subu[2], lambda[1]);
-			MatMultAdd(pro[1], subu[2], subu[1], subu[1]);
-//			MatMult(pro[1], subu[2], subr[1]);
-//			VecAXPY(subu[1], 1.0, subr[1]);
-			VecSet(subu[2], 0.0);
+		VecTDot(rfine, subr[0], lambda);
+		for (int l=1; l<ngrids-1; l++) {
+			VecTDot(subb[l], subr[l], lambda+l);
 		}
-		VecTDotEnd(rfine, subr[0], lambda);
-
-		lambda[0] = lambda[0]/r0Dot[0];
-		VecScale(subu[1], lambda[0]);
-		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
-//		MatMult(pro[0], subu[1], subr[0]);
-//		VecAXPY(subu[0], 1.0, subr[0]);
-		VecSet(subu[1], 0.0);
-		
-//		for (int l=ngrids-2;l>=0;l=l-1) {
-//			lambda[l] = lambda[l]/r0Dot[l];
-//			VecScale(subu[l+1], lambda[l]);
-//			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
-////			MatMult(pro[l], subu[l+1], subr[l]);
-////			VecAXPY(subu[l], 1.0, subr[l]);
-//			VecSet(subu[l+1], 0.0);
-//		}
-
+		for (int l=0;l<ngrids-1;l++) {
+			lambda[l] = lambda[l]/r0Dot[l];
+		}
+		for (int l=ngrids-2;l>=0;l=l-1) {
+			VecScale(subu[l+1], lambda[l]);
+			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+//			MatMult(pro[l], subu[l+1], subr[l]);
+//			VecAXPY(subu[l], 1.0, subr[l]);
+			VecSet(subu[l+1], 0.0);
+ 		}
 		MatResidual(subA[0], subb[0], subu[0], rfine);
 		VecTDot(rfine, rfine, r0Dot);
 		rnormchk = sqrt(r0Dot[0]);
@@ -2881,6 +2846,74 @@ int MultigridAdditiveScaled(Solver *solver) {
 		iter = iter + 1;
 		rnorm[iter] = rnormchk;
 	}
+//	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
+//		MatMult(res[0], rfine, subb[1]);
+//		for (int l=1; l<ngrids-1; l++) {
+//			VecTDotBegin(subb[l], subb[l], r0Dot+l);
+//			MatMult(res[l], subb[l], subb[l+1]);
+//		}
+////		if(ngrids > 2) PetscCommSplitReductionBegin(comm);
+//		KSPSolve(ksp, *b, *u);
+//		for (int l=1; l<ngrids-1; l++) {
+//			VecTDotEnd(subb[l], subb[l], r0Dot+l);
+//		}
+////		MatResidual(*A, *b, *u, r);
+//		if (ngrids > 2) {
+//			MatResidual(subA[ngrids-2], subb[ngrids-2], subu[ngrids-2], subr[ngrids-2]);
+//			VecTDotBegin(subb[ngrids-2], subr[ngrids-2], lambda+ngrids-2);
+////			PetscCommSplitReductionBegin(comm);
+//		}
+//		for (int l=ngrids-3; l>0; l=l-1) {
+//			MatResidual(subA[l], subb[l], subu[l], subr[l]);
+//			VecTDotEnd(subb[l+1], subr[l+1], lambda+l+1);
+//			VecTDotBegin(subb[l], subr[l], lambda+l);
+////			PetscCommSplitReductionBegin(comm);
+//
+//			lambda[l+1] = lambda[l+1]/r0Dot[l+1];
+//			VecScale(subu[l+2], lambda[l+1]);
+//			MatMultAdd(pro[l+1], subu[l+2], subu[l+1], subu[l+1]);
+////			MatMult(pro[l+1], subu[l+2], subr[l+1]);
+////			VecAXPY(subu[l+1], 1.0, subr[l+1]);
+//			VecSet(subu[l+2], 0.0);
+//		}
+//		MatResidual(subA[0], subb[0], subu[0], subr[0]);
+//		if (ngrids > 2) VecTDotEnd(subb[1], subr[1], lambda+1);
+//		VecTDotBegin(rfine, subr[0], lambda);
+////		PetscCommSplitReductionBegin(comm);
+//
+//		if (ngrids > 2) {
+//			lambda[1] = lambda[1]/r0Dot[1];
+//			VecScale(subu[2], lambda[1]);
+//			MatMultAdd(pro[1], subu[2], subu[1], subu[1]);
+////			MatMult(pro[1], subu[2], subr[1]);
+////			VecAXPY(subu[1], 1.0, subr[1]);
+//			VecSet(subu[2], 0.0);
+//		}
+//		VecTDotEnd(rfine, subr[0], lambda);
+//
+//		lambda[0] = lambda[0]/r0Dot[0];
+//		VecScale(subu[1], lambda[0]);
+//		MatMultAdd(pro[0], subu[1], subu[0], subu[0]);
+////		MatMult(pro[0], subu[1], subr[0]);
+////		VecAXPY(subu[0], 1.0, subr[0]);
+//		VecSet(subu[1], 0.0);
+//		
+////		for (int l=ngrids-2;l>=0;l=l-1) {
+////			lambda[l] = lambda[l]/r0Dot[l];
+////			VecScale(subu[l+1], lambda[l]);
+////			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+//////			MatMult(pro[l], subu[l+1], subr[l]);
+//////			VecAXPY(subu[l], 1.0, subr[l]);
+////			VecSet(subu[l+1], 0.0);
+////		}
+//
+//		MatResidual(subA[0], subb[0], subu[0], rfine);
+//		VecTDot(rfine, rfine, r0Dot);
+//		rnormchk = sqrt(r0Dot[0]);
+////		VecNorm(rfine, NORM_2, &rnormchk);
+//		iter = iter + 1;
+//		rnorm[iter] = rnormchk;
+//	}
 	PetscLogStagePop();
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();

@@ -1,11 +1,11 @@
 # dim: [2, 3]; Dimension
 #-dim 3
 # npts: [n0,n1,n2] - num of points in each dimension
-#-npts 17,17,17
+#-npts 65,65,65
 # grid: [0: Uniform, 1: Non-uniform-cos, 2: Non-uniform-exp]
-#-grid_type 0,0,0
+-grid_type 0,0,0
 # bounds: [xmin,xmax,ymin,ymax,zmin,zmax]
-#-bounds 0,1,0,1,0,1
+-bounds 0,1,0,1,0,1
 # iter: [n]; number of maximum iterations for solver
 #-iter 100000
 # rtol: [val]; relative tolerance for solver to stop

@@ -979,6 +979,7 @@ int CreateGrids(Grids *grids) {
 //	if (mesh->type == UNIFORM) mesh->MetricCoefficients = &MetricsUniform;
 //	if (mesh->type == NONUNIFORM1) mesh->MetricCoefficients = &MetricsNonUniform1;
 //	if (mesh->type == NONUNIFORM2) mesh->MetricCoefficients = &MetricsNonUniform2;
+	PetscPrintf(PETSC_COMM_WORLD, "Creation of grids done!\n");
 	return 0;
 }
 
