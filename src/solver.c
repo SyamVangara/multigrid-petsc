@@ -1217,7 +1217,7 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Set '-rtol value'");
 		return 1;
 	}
-	solver->rnorm = malloc((solver->numIter+1)*sizeof(double));
+	solver->rnorm = malloc((solver->numIter+10)*sizeof(double));
 	solver->levels = malloc(sizeof(Levels));
 	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
 	AssembleLevels(grids, solver->levels);
@@ -2229,11 +2229,13 @@ void WriteToFiles(Solver *solver) {
 	
 	FILE	*resData = fopen("rData.dat","w");
 	double	*rnorm = solver->rnorm;
-	int	numIter = solver->numIter;	
+	int	numIter = solver->numIter;
 	for (int i=0;i<numIter+1;i++) {
 		fprintf(resData,"%.16e\n", rnorm[i]);
 	}
-	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], numIter);
+
+	int	num = (solver->cycle == 1)? numIter-1: numIter;
+	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], num);
 	fclose(resData);
 }
 
@@ -2585,11 +2587,13 @@ int MultigridVcycle(Solver *solver) {
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
 	PetscBarrier(PETSC_NULL);
+	MatResidual(A[0], b[0], u[0], rv[0]);
+	VecNorm(rv[0], NORM_2, rnorm+iter+1);
 	rnormchk = rnorm[0];
-	for (int i=0;i<(iter+1);i++) {
+	for (int i=0;i<(iter+2);i++) {
 		rnorm[i] = rnorm[i]/rnormchk;
 	}
-	solver->numIter = iter;
+	solver->numIter = iter+1;
 
 	for (int i=0;i<nlevels;i++) {
 		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
@@ -2913,13 +2917,14 @@ int MultigridAdditiveScaled(Solver *solver) {
 		rnormchk = sqrt(r0Dot[0]);
 //		VecNorm(subb[0], NORM_2, &rnormchk);
 //		r0Dot[0] = rnormchk*rnormchk;
-		iter = iter + 1;
 		rnorm[iter] = rnormchk;
+		iter = iter + 1;
 	}
 
 	PetscLogStagePop();
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
+	VecNorm(subb[0], NORM_2, rnorm+iter);
 	rnormchk = rnorm[0];
 	for (int i=0;i<(iter+1);i++) {
 		rnorm[i] = rnorm[i]/rnormchk;
