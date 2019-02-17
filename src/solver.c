@@ -2506,7 +2506,8 @@ int MultigridVcycle(Solver *solver) {
 	KSP	ksp[nlevels];
 	PC	temp;
 //	PC	pc[levels];
-	Vec	r[nlevels], rv[nlevels];
+	Vec	rv[nlevels];
+//	Vec	r[nlevels];
 	
 	PetscLogStage	stage;
 	
@@ -2542,8 +2543,9 @@ int MultigridVcycle(Solver *solver) {
 	rnormmin = rtol*bnorm;
 
 	VecSet(u[0], 0.0); // Note: This should be moved out of this function?
-	MatMult(A[0], u[0], rv[0]);
-	VecAXPY(rv[0], -1.0, b[0]);
+	MatResidual(A[0], b[0], u[0], rv[0]);
+//	MatMult(A[0], u[0], rv[0]);
+//	VecAXPY(rv[0], -1.0, b[0]);
 	VecNorm(rv[0], NORM_2, &rnormchk);
 	rnorm[0] = rnormchk;
 
@@ -2559,11 +2561,13 @@ int MultigridVcycle(Solver *solver) {
 		KSPSolve(ksp[0], b[0], u[0]);
 		if (iter==0) KSPSetInitialGuessNonzero(ksp[0],PETSC_TRUE);
 		for (int l=1;l<nlevels;l++) {
-			KSPBuildResidual(ksp[l-1],NULL,rv[l-1],&(r[l-1]));
-			MatMult(res[l-1],r[l-1],b[l]);
+			MatResidual(A[l-1], b[l-1], u[l-1], rv[l-1]);
+//			KSPBuildResidual(ksp[l-1],NULL,rv[l-1],&(r[l-1]));
+			MatMult(res[l-1],rv[l-1],b[l]);
 			KSPSolve(ksp[l], b[l], u[l]);
 			if (l!=nlevels-1) KSPSetInitialGuessNonzero(ksp[l],PETSC_TRUE);
 		}
+		VecNorm(rv[0], NORM_2, &rnormchk);	
 		for (int l=nlevels-2;l>=0;l=l-1) {
 			MatMultAdd(pro[l], u[l+1], u[l], u[l]);
 //			MatMult(pro[l],u[l+1],rv[l]);
@@ -2571,8 +2575,9 @@ int MultigridVcycle(Solver *solver) {
 			KSPSolve(ksp[l], b[l], u[l]);
 			if (l!=0) KSPSetInitialGuessNonzero(ksp[l],PETSC_FALSE);
 		}
-		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
-		VecNorm(r[0], NORM_2, &rnormchk);	
+//		MatResidual(A[0], b[0], u[0], rv[0]);
+//		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
+//		VecNorm(rv[0], NORM_2, &rnormchk);	
 		iter = iter + 1;
 		rnorm[iter] = rnormchk;
 	}
