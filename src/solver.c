@@ -2765,7 +2765,7 @@ int MultigridAdditiveScaled(Solver *solver) {
 	Vec	*b = levels->b;
 	Vec	*u = levels->u;
 	Vec	*subb, *subu, *subr;
-	Vec	rfine;
+	Vec	ufine, bfine;
 	Vec	r;
 	IS	*is = levels->level->is;
 	Mat 	*pro;
@@ -2777,8 +2777,10 @@ int MultigridAdditiveScaled(Solver *solver) {
 	ierr = GetSubVecs(ngrids, is, b, &subb); pCHKERR_RETURN("Getting sub-vectors failed");
 	ierr = GetSubVecs(ngrids, is, u, &subu); pCHKERR_RETURN("Getting sub-vectors failed");
 	ierr = CreateSubMats(ngrids, is, A, &subA); pCHKERR_RETURN("Sub-matrices creation failed");
-	ierr = VecDuplicate(subb[0], &rfine); pCHKERR_RETURN("Vector duplication failed");
-//	ierr = MatCreateSubMatrix(*A, is[0], is[0], MAT_INITIAL_MATRIX, &Afine); pCHKERR_RETURN("Sub-matrix creation failed");
+	ierr = VecDuplicate(subu[0], &ufine); pCHKERR_RETURN("Vector duplication failed");
+	ierr = VecDuplicate(subb[0], &bfine); pCHKERR_RETURN("Vector duplication failed");
+
+	VecCopy(subb[0], bfine);
 	
 	KSP	ksp;
 	
@@ -2789,24 +2791,26 @@ int MultigridAdditiveScaled(Solver *solver) {
 	KSPSetOperators(ksp, *A, *A);
 	KSPSetNormType(ksp, KSP_NORM_NONE);
 	KSPSetTolerances(ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
-	KSPSetInitialGuessNonzero(ksp, PETSC_TRUE);
+	KSPSetInitialGuessNonzero(ksp, PETSC_FALSE);
+//	KSPSetInitialGuessNonzero(ksp, PETSC_TRUE);
 	KSPSetFromOptions(ksp);
 	
 	double	bnorm, rnormmin, rnormmax, rnormchk;
 	double	lambda[ngrids], r0Dot[ngrids];
-	VecNorm(subb[0], NORM_2, &bnorm);
+	VecNorm(bfine, NORM_2, &bnorm);
 	rnormmax = 100000000*bnorm;
 	rnormmin = rtol*bnorm;
 
 	VecSet(*u, 0.0); // Note: Should this be moved out of this function?
-	MatResidual(subA[0], subb[0], subu[0], rfine);
-	VecNorm(rfine, NORM_2, &rnormchk);
+	VecSet(ufine, 0.0);
+	MatResidual(subA[0], bfine, ufine, subb[0]);
+	VecNorm(subb[0], NORM_2, &rnormchk);
 	rnorm[0] = rnormchk;
 	r0Dot[0] = (rnormchk*rnormchk);
 
 	int iter = 0;
-	MPI_Comm comm;
-	PetscObjectGetComm((PetscObject)(*b), &comm);
+//	MPI_Comm comm;
+//	PetscObjectGetComm((PetscObject)(*b), &comm);
 	
 	PetscBarrier(PETSC_NULL);
 	double initWallTime = MPI_Wtime();
@@ -2814,8 +2818,7 @@ int MultigridAdditiveScaled(Solver *solver) {
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
  	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
- 		MatMult(res[0], rfine, subb[1]);
- 		for (int l=1; l<ngrids-1; l++) {
+ 		for (int l=0; l<ngrids-1; l++) {
  			MatMult(res[l], subb[l], subb[l+1]);
  		}
  		for (int l=1; l<ngrids-1; l++) {
@@ -2825,8 +2828,7 @@ int MultigridAdditiveScaled(Solver *solver) {
 		for (int l=0; l<ngrids-1; l++) {
 			MatResidual(subA[l], subb[l], subu[l], subr[l]);
 		}
-		VecTDot(rfine, subr[0], lambda);
-		for (int l=1; l<ngrids-1; l++) {
+		for (int l=0; l<ngrids-1; l++) {
 			VecTDot(subb[l], subr[l], lambda+l);
 		}
 		for (int l=0;l<ngrids-1;l++) {
@@ -2835,17 +2837,46 @@ int MultigridAdditiveScaled(Solver *solver) {
 		for (int l=ngrids-2;l>=0;l=l-1) {
 			VecScale(subu[l+1], lambda[l]);
 			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
-//			MatMult(pro[l], subu[l+1], subr[l]);
-//			VecAXPY(subu[l], 1.0, subr[l]);
-			VecSet(subu[l+1], 0.0);
  		}
-		MatResidual(subA[0], subb[0], subu[0], rfine);
-		VecTDot(rfine, rfine, r0Dot);
+		VecAXPY(ufine, 1.0, subu[0]);
+		MatResidual(subA[0], bfine, ufine, subb[0]);
+		VecTDot(subb[0], subb[0], r0Dot);
 		rnormchk = sqrt(r0Dot[0]);
-//		VecNorm(rfine, NORM_2, &rnormchk);
 		iter = iter + 1;
 		rnorm[iter] = rnormchk;
 	}
+
+// 	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
+// 		MatMult(res[0], rfine, subb[1]);
+// 		for (int l=1; l<ngrids-1; l++) {
+// 			MatMult(res[l], subb[l], subb[l+1]);
+// 		}
+// 		for (int l=1; l<ngrids-1; l++) {
+//			VecTDot(subb[l], subb[l], r0Dot+l);
+// 		}
+//		KSPSolve(ksp, *b, *u);
+//		for (int l=0; l<ngrids-1; l++) {
+//			MatResidual(subA[l], subb[l], subu[l], subr[l]);
+//		}
+//		VecTDot(rfine, subr[0], lambda);
+//		for (int l=1; l<ngrids-1; l++) {
+//			VecTDot(subb[l], subr[l], lambda+l);
+//		}
+//		for (int l=0;l<ngrids-1;l++) {
+//			lambda[l] = lambda[l]/r0Dot[l];
+//		}
+//		for (int l=ngrids-2;l>=0;l=l-1) {
+//			VecScale(subu[l+1], lambda[l]);
+//			MatMultAdd(pro[l], subu[l+1], subu[l], subu[l]);
+//			VecSet(subu[l+1], 0.0);
+// 		}
+//		MatResidual(subA[0], subb[0], subu[0], rfine);
+//		VecTDot(rfine, rfine, r0Dot);
+//		rnormchk = sqrt(r0Dot[0]);
+//		iter = iter + 1;
+//		rnorm[iter] = rnormchk;
+//	}
+
 //	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
 //		MatMult(res[0], rfine, subb[1]);
 //		for (int l=1; l<ngrids-1; l++) {
@@ -2922,18 +2953,21 @@ int MultigridAdditiveScaled(Solver *solver) {
 		rnorm[i] = rnorm[i]/rnormchk;
 	}
 	solver->numIter = iter;
-
+	
+	VecCopy(bfine, subb[0]);
+	VecCopy(ufine, subu[0]);
+	
 	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
 	KSPView(ksp, PETSC_VIEWER_STDOUT_WORLD);
 	PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
 	
-//	MatDestroy(&Afine);
 	DestroySubMats(ngrids, &subA);
 	RestoreSubVecs(ngrids, is, &r, &subr);
 	RestoreSubVecs(ngrids, is, u, &subu);
 	RestoreSubVecs(ngrids, is, b, &subb);
 	DestroyProMats(ngrids-1, &pro);
-	VecDestroy(&rfine);
+	VecDestroy(&bfine);
+	VecDestroy(&ufine);
 	VecDestroy(&r);
 	KSPDestroy(&ksp);
 
