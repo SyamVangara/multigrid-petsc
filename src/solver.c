@@ -205,7 +205,7 @@ inline void FillDirMatA(int igstart, int istart,
 	}
 	// Fill "i-left" for all points
 	for (int i=1; i<ln0; i++) {
-		double val = FD2Der2OrderSide(dx[i-1], del[i]);
+		double val = FD2Der2OrderSide(dx[i], del[i]);
 		for (int k=0; k<ln2; k++) {
 			for (int j=0; j<ln1; j++) {
 				int row = igstart + i*inc0 + j*inc1 + k*inc2;
@@ -2216,7 +2216,7 @@ void DestroySubMats(int n, Mat **subA) {
 	free(*subA);
 }
 
-void WriteToFiles(Solver *solver) {
+void WriteToFiles(Grids *grids, Solver *solver) {
 	
 	FILE	*errData = fopen("eData.dat","w");
 	double	*error = solver->error;
@@ -2237,6 +2237,62 @@ void WriteToFiles(Solver *solver) {
 	int	num = (solver->cycle == 1)? numIter-1: numIter;
 	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], num);
 	fclose(resData);
+	
+	int size;
+	MPI_Comm_size(PETSC_COMM_WORLD, &size);
+	
+	if (solver->levels->dimension == 2 
+		&& size == 1 
+		&& solver->levels->nlevels == 1
+		&& solver->levels->level->ngrids == 1) {
+		
+		FILE	*xgrid = fopen("xgrid.dat","w");
+		FILE	*ygrid = fopen("ygrid.dat","w");
+		FILE	*compsol = fopen("compsol.dat","w");
+		FILE	*esol = fopen("exactsol.dat","w");
+		FILE	*bfile = fopen("rhs.dat","w");
+		
+		double	*sol, *rhs;
+		VecGetArray(solver->levels->u[0], &sol);
+		VecGetArray(solver->levels->b[0], &rhs);
+
+		int	*ln = grids->grid->ln;
+		int	*n = grids->grid->n;
+		double	*xcoord = grids->grid->coord[0];
+		double	*ycoord = grids->grid->coord[1];
+		for (int j=0;j<n[1];j++) {
+			for (int i=0;i<n[0];i++) {
+				double val, bval, eval;
+				fprintf(xgrid,"%lf    ", xcoord[i]);
+				fprintf(ygrid,"%lf    ", ycoord[j]);
+				eval = Sol2D(xcoord[i], ycoord[j]);
+				if (i > 0 && i < n[0]-1
+					&& j > 0 && j < n[1]-1) {
+					val = sol[(j-1)*ln[0]+(i-1)]; 
+					// below doesn't represent "f(x,y)" for non-zero BC
+					bval = rhs[(j-1)*ln[0]+(i-1)];
+				} else {
+					val = eval;
+					bval = RHSfunc2D(xcoord[i], ycoord[j]);
+				}
+				fprintf(esol,"%.16e    ", eval);
+				fprintf(compsol,"%.16e    ", val);
+				fprintf(bfile,"%.16e    ", bval);
+			}
+			fprintf(xgrid,"\n");
+			fprintf(ygrid,"\n");
+			fprintf(esol,"\n");
+			fprintf(compsol,"\n");
+			fprintf(bfile,"\n");
+		}
+		VecRestoreArray(solver->levels->b[0], &rhs);
+		VecRestoreArray(solver->levels->u[0], &sol);
+		fclose(xgrid);
+		fclose(ygrid);
+		fclose(esol);
+		fclose(compsol);
+		fclose(bfile);
+	}
 }
 
 int PostProcessing(Grids *grids, Solver *solver) {
@@ -2275,7 +2331,7 @@ int PostProcessing(Grids *grids, Solver *solver) {
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
-	if (rank == 0)	WriteToFiles(solver);
+	if (rank == 0)	WriteToFiles(grids, solver);
 	return 0;
 }
 
@@ -2436,10 +2492,9 @@ int NoMultigrid(Solver *solver) {
 	
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
-//	VecView(*u,PETSC_VIEWER_STDOUT_WORLD);
-//	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
-//	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
-//	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
+	PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = 0 |------------------------\n");
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
+	PetscPrintf(PETSC_COMM_WORLD,"----------------------------------------------------------------\n");
 	KSPDestroy(&ksp);
 
 	return 0;

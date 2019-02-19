@@ -7,7 +7,7 @@
 # bounds: [xmin,xmax,ymin,ymax,zmin,zmax]
 -bounds 0,1,0,1,0,1
 # iter: [n]; number of maximum iterations for solver
-#-iter 100000
+-iter 1000
 # rtol: [val]; relative tolerance for solver to stop
 -rtol 1.0e-12
 # ngrids: [ng]; number of grids for multigrid
@@ -18,3 +18,14 @@
 #-cycle 1
 # v: [vfine,vcoarse]; vfine: number of pre-and-post smoothing steps; vcoarse: number of coarse grid solver iterations
 #-v 3,3
+
+# Solver options:
+-levels_pc_type bjacobi
+-levels_sub_pc_type sor
+-coarse_pc_type bjacobi
+-coarse_sub_pc_type sor
+-pc_type bjacobi
+#-sub_pc_type sor
+
+-options_left
+#-log_view
