@@ -178,12 +178,17 @@ void PrintInfo(Grids *grids, Solver *solver) {
 		printf(", %d", level[l].ngrids);
 	}
 	printf(")\n");
-	if (solver->cycle == 5) printf("Cycle :				Additive-Scaled-NB\n");
-	if (solver->cycle == 4) printf("Cycle :				Additive-NB\n");
-	if (solver->cycle == 3) printf("Cycle :				Additive-Scaled\n");
-	if (solver->cycle == 2) printf("Cycle :				Additive\n");
-	if (solver->cycle == 1) printf("Cycle :				V-Cycle\n");
-	if (solver->cycle == 0) printf("Cycle :				No MG\n");
+	if (solver->prob == 0) printf("Problem:			Poisson\n");
+	if (solver->prob == 1) printf("Problem:			Advection-Diffusion (Manufactured solutions)\n");
+	if (solver->prob == 2) printf("Problem:			Advection-Diffusion\n");
+	if (solver->prob > 0) printf("Epsilon(Peclet):		%lf(%lf)\n", solver->eps, 1.0/(solver->eps));
+	
+	if (solver->cycle == 5) printf("Cycle:				Additive-Scaled-NB\n");
+	if (solver->cycle == 4) printf("Cycle:				Additive-NB\n");
+	if (solver->cycle == 3) printf("Cycle:				Additive-Scaled\n");
+	if (solver->cycle == 2) printf("Cycle:				Additive\n");
+	if (solver->cycle == 1) printf("Cycle:				V-Cycle\n");
+	if (solver->cycle == 0) printf("Cycle:				No MG\n");
 	
 	printf("Number of processes:		%d\n",procs);
 	int	num = (solver->cycle == 1)? solver->numIter-1: solver->numIter;

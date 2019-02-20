@@ -1195,6 +1195,33 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Selected MG cycle doesn't exist");
 		return 1;
 	}
+	ierr = PetscOptionsGetInt(NULL, NULL, "-prob", &(solver->prob), &set);
+	if (!set || ierr) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Type of the problem is not set");
+		pERROR_MSG("Set '-prob n' for n-th type problem");
+		return 1;
+	} else if (solver->prob > 2) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Selected type of problem doesn't exist");
+		return 1;
+	}
+	ierr = PetscOptionsGetReal(NULL, NULL, "-eps", &(solver->eps), &set);
+	if (!set && solver->prob != 0) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Epsilon value not set");
+		pERROR_MSG("Set '-eps value' for setting epsilon");
+		return 1;
+	} else if (set && solver->eps <= 0 && solver->prob != 0) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Epsilon must be greater than 0.0");
+		pERROR_MSG("Set '-eps value' for setting epsilon");
+		return 1;
+	} else if (set && solver->prob == 0) {
+		PetscBarrier(PETSC_NULL);
+		PetscPrintf(PETSC_COMM_WORLD, "\nNote: Epsilon changed to 1.0\n");
+	}
+	if (solver->prob == 0) solver->eps = 1.0;
 	ierr = PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
 	if (!set || ierr) {
 		PetscBarrier(PETSC_NULL);
