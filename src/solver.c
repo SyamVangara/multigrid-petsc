@@ -1190,7 +1190,7 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Type of MG cycle for solver not set");
 		pERROR_MSG("Set '-cycle n' for n-th type cycle");
 		return 1;
-	} else if (solver->cycle > 4) {
+	} else if (solver->cycle > 5) {
 		PetscBarrier(PETSC_NULL);
 		pERROR_MSG("Selected MG cycle doesn't exist");
 		return 1;
@@ -2933,6 +2933,165 @@ int MultigridAdditive(Solver *solver) {
 	return 0;
 }
 
+int MultigridAdditiveScaledNB(Solver *solver) {
+
+	Levels	*levels = solver->levels;
+	int	nlevels = levels->nlevels;
+	int	dimension = levels->dimension;
+
+	int flag=0;
+	for (int l=0; l<nlevels; l++)
+		flag += levels->level[l].ngrids-1;
+
+	if (nlevels == 1) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Additive-Scaled-NB MG solver requires minimum of 2 levels");
+		return 1;
+	}
+	if (flag != 0) {
+		PetscBarrier(PETSC_NULL);
+		pERROR_MSG("Only one grid per level is allowed in Additive-Scaled-NB MG solver");
+		return 1;
+	}
+
+	int	rank;
+	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+
+	double	rtol	= solver->rtol;
+	double	*rnorm	= solver->rnorm;
+	int	numIter	= solver->numIter;
+	int	*v	= solver->v;
+
+	Mat 	*res = levels->res;
+	Mat	*A = levels->A;
+	Vec	*b = levels->b;
+	Vec	*u = levels->u;
+	Mat 	*pro;
+	
+	CreateProMatsFromResMats(dimension, nlevels-1, res, &pro);
+
+	KSP	ksp[nlevels];
+	PC	temp;
+//	PC	pc[levels];
+	Vec	rfine;
+	Vec	r[nlevels];
+	
+	VecDuplicate(b[0], &rfine);
+	for (int l=0; l<nlevels; l++) {
+		VecDuplicate(b[l], r+l);
+	}
+
+	PetscLogStage	stage;		
+
+	for (int i=0; i<nlevels-1; i++) {
+		KSPCreate(PETSC_COMM_WORLD, &(ksp[i]));
+		KSPSetType(ksp[i],KSPRICHARDSON);
+		KSPSetOperators(ksp[i], A[i], A[i]);
+		PetscObjectSetOptionsPrefix((PetscObject)ksp[i], "levels_");
+		KSPGetPC(ksp[i], &temp);
+		PetscObjectSetOptionsPrefix((PetscObject)temp, "levels_");
+		KSPSetNormType(ksp[i],KSP_NORM_NONE);
+		if (i == 0) KSPSetInitialGuessNonzero(ksp[i],PETSC_TRUE);
+		KSPSetTolerances(ksp[i], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[0]);
+		KSPSetFromOptions(ksp[i]);
+	}
+
+	KSPCreate(PETSC_COMM_WORLD, &(ksp[nlevels-1]));
+	PetscObjectSetOptionsPrefix((PetscObject)ksp[nlevels-1], "coarse_");
+	KSPGetPC(ksp[nlevels-1], &temp);
+	PetscObjectSetOptionsPrefix((PetscObject)temp, "coarse_");
+	KSPSetType(ksp[nlevels-1],KSPRICHARDSON);
+	KSPSetOperators(ksp[nlevels-1], A[nlevels-1], A[nlevels-1]);
+	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
+	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+	KSPSetFromOptions(ksp[nlevels-1]);
+	
+	double	bnorm, rnormmin, rnormmax, rnormchk;
+	double	lambda[nlevels-1], r0Dot[nlevels-1];
+	VecNorm(b[0], NORM_2, &bnorm);
+	rnormmax = 100000000*bnorm;
+	rnormmin = rtol*bnorm;
+
+	VecSet(u[0], 0.0); // Note: Should this be moved out of this function?
+	MatResidual(A[0], b[0], u[0], rfine);
+	VecNorm(rfine, NORM_2, &rnormchk);
+	rnorm[0] = rnormchk;
+	r0Dot[0] = rnormchk*rnormchk;
+
+	int iter = 0;
+	
+	PetscBarrier(PETSC_NULL);
+	double initWallTime = MPI_Wtime();
+	clock_t solverInitT = clock();
+	PetscLogStageRegister("Solver", &stage);
+	PetscLogStagePush(stage);
+
+ 	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
+		MatMult(res[0], rfine, b[1]);
+		for (int l=1;l<nlevels-1;l++) {
+			MatMult(res[l], b[l], b[l+1]);
+		}
+//		VecTDot(rfine, rfine, r0Dot);
+ 		for (int l=1; l<nlevels-1; l++) {
+			VecTDot(b[l], b[l], r0Dot+l);
+ 		}
+		for (int l=0; l<nlevels; l++) {
+			KSPSolve(ksp[l], b[l], u[l]);
+		}
+		for (int l=0; l<nlevels-1; l++) {
+			MatResidual(A[l], b[l], u[l], r[l]);
+		}
+		VecTDot(rfine, r[0], lambda);
+		for (int l=1; l<nlevels-1; l++) {
+			VecTDot(b[l], r[l], lambda+l);
+		}
+		for (int l=0;l<nlevels-1;l++) {
+			lambda[l] = lambda[l]/r0Dot[l];
+		}
+		for (int l=nlevels-2;l>=0;l=l-1) {
+			VecScale(u[l+1], lambda[l]);
+			MatMultAdd(pro[l], u[l+1], u[l], u[l]);
+		}
+		MatResidual(A[0], b[0], u[0], rfine);
+		VecTDot(rfine, rfine, r0Dot);
+//		VecNorm(rfine, NORM_2, &rnormchk);
+		iter = iter + 1;
+		rnormchk = sqrt(r0Dot[0]);
+		rnorm[iter] = rnormchk;
+	}
+
+	PetscLogStagePop();
+	clock_t solverT = clock();
+	double endWallTime = MPI_Wtime();
+	rnormchk = rnorm[0];
+	for (int i=0;i<(iter+1);i++) {
+		rnorm[i] = rnorm[i]/rnormchk;
+	}
+	solver->numIter = iter;
+	
+	for (int i=0;i<nlevels;i++) {
+		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);
+		KSPView(ksp[i],PETSC_VIEWER_STDOUT_WORLD);
+		PetscPrintf(PETSC_COMM_WORLD,"-----------------------------------------------------------------\n");
+	}
+
+	DestroyProMats(nlevels-1, &pro);
+
+	VecDestroy(&rfine);
+	for (int i=0;i<nlevels;i++) {
+		VecDestroy(&(r[i]));
+	}
+	for (int i=0;i<nlevels;i++) {
+		KSPDestroy(&(ksp[i]));
+	}
+
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver cputime:                %lf\n",rank,(double)(solverT-solverInitT)/CLOCKS_PER_SEC);
+	PetscSynchronizedPrintf(PETSC_COMM_WORLD,"rank = [%d]; Solver walltime:               %lf\n",rank,endWallTime-initWallTime);
+	PetscSynchronizedFlush(PETSC_COMM_WORLD,PETSC_STDOUT);
+	
+	return 0;
+}
+
 int MultigridAdditiveScaled(Solver *solver) {
 
 	Levels	*levels = solver->levels;
@@ -4223,9 +4382,9 @@ int Solve(Solver *solver){
 		case 4:
 			ierr = MultigridAdditiveNB(solver); pCHKERR_RETURN("Additive-NB MG solver failed");
 			break;
-//		case 5:
-//			ierr = MultigridAdditiveScaledNB(solver); pCHKERR_RETURN("Additive-scaled-NB MG solver failed");
-//			break;
+		case 5:
+			ierr = MultigridAdditiveScaledNB(solver); pCHKERR_RETURN("Additive-scaled-NB MG solver failed");
+			break;
 		default:
 			ierr = 1;
 			pCHKERR_RETURN("Invalid Solver option");
