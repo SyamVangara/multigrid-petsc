@@ -21,12 +21,16 @@
 
 # Solver options:
 
--levels_pc_type bjacobi
--levels_sub_pc_type ilu
--coarse_pc_type bjacobi
--coarse_sub_pc_type ilu
--pc_type bjacobi
--sub_pc_type ilu
+-levels_pc_type sor 
+-coarse_pc_type sor 
+-pc_type sor 
+
+#-levels_pc_type bjacobi
+#-levels_sub_pc_type ilu
+#-coarse_pc_type bjacobi
+#-coarse_sub_pc_type ilu
+#-pc_type bjacobi
+#-sub_pc_type ilu
 
 #-levels_pc_type bjacobi
 #-levels_sub_pc_type sor

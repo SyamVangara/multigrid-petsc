@@ -159,13 +159,13 @@ void DestroySolver(Solver *solver) {
 inline double FD2Der2OrderSide(double dx, double del) {
 	// Gives 2nd order FD right point coefficient for 2nd derivative
 	
-	return 2.0/(dx*del);
+	return -2.0/(dx*del);
 }
 
 inline double FD2Der2OrderMid(double *dx) {
 	// Gives 2nd order FD mid point coefficient for 2nd derivative
 	
-	return -2.0/(dx[0]*dx[1]);
+	return 2.0/(dx[0]*dx[1]);
 }
 
 inline void FillDirMatA(int igstart, int istart,
@@ -828,13 +828,13 @@ void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 double RHSfunc2D(double x, double y) {
 	// Gives the f(x,y)
 	
-	return -2*PI*PI*sin(PI*x)*sin(PI*y);
+	return 2*PI*PI*sin(PI*x)*sin(PI*y);
 }
 
 double RHSfunc3D(double x, double y, double z) {
 	// Gives the f(x,y)
 	
-	return -3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z);
+	return 3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z);
 }
 
 double Sol2D(double x, double y) {
