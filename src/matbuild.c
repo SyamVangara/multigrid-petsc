@@ -369,6 +369,9 @@ void CreateBCindicesFromNblock(int targetlg, int dim, int dir, Grids *grids, Lev
 	
 	Grid	*grid = grids->grid;
 	int	g = level->gridId[targetlg];
+	
+	int	*iln = bcindices->ln;
+	int	*gln = nblock->ln;
 	int	*iblockID = bcindices->blockID;
 	int	*gblockID = nblock->blockID;
 	long int *startindex = &(bcindices->bcStartIndex);
@@ -376,7 +379,10 @@ void CreateBCindicesFromNblock(int targetlg, int dim, int dir, Grids *grids, Lev
 	
 	bcindices->sbcindices = NULL;	
 	bcindices->rank = nblock->rank;
-	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
+	for (int i=0; i<MAX_DIMENSION; i++) {
+		iblockID[i] = gblockID[i]; 
+		iln[i] = gln[i];
+	}
 	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
 	if (*startindex >=0) {
 		*gstartindex = GetGridBlockStart(grid+g, iblockID);
@@ -472,12 +478,17 @@ void CreateEBCindices(Grids *grids, Level *level, int dim, int jdir, int kdir, i
 	BCindices	*ebcindices = &(level->ebcindices[targetlg][dim][jdir][kdir]);
 
 	ebcindices->rank = eblock->rank;
+	int	*iln = ebcindices->ln;
+	int	*gln = eblock->ln;
 	int *iblockID = ebcindices->blockID;
 	int *gblockID = eblock->blockID;
 	long int *startindex = &(ebcindices->bcStartIndex);
 	long int *gstartindex = &(ebcindices->bcGStartIndex);
 
-	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
+	for (int i=0; i<MAX_DIMENSION; i++) {
+		iblockID[i] = gblockID[i]; 
+		iln[i] = gln[i];
+	}
 	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
 	if (*startindex >=0) {
 		*gstartindex = GetGridBlockStart(grid+g, iblockID);
@@ -510,12 +521,17 @@ void CreateCBCindices(Grids *grids, Level *level, int idir, int jdir, int kdir, 
 	BCindices	*cbcindices = &(level->cbcindices[targetlg][idir][jdir][kdir]);
 
 	cbcindices->rank = cblock->rank;
+	int	*iln = cbcindices->ln;
+	int	*gln = cblock->ln;
 	int *iblockID = cbcindices->blockID;
 	int *gblockID = cblock->blockID;
 	long int *startindex = &(cbcindices->bcStartIndex);
 	long int *gstartindex = &(cbcindices->bcGStartIndex);
 
-	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
+	for (int i=0; i<MAX_DIMENSION; i++) {
+		iblockID[i] = gblockID[i]; 
+		iln[i] = gln[i];
+	}
 	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
 	if (*startindex >=0) {
 		*gstartindex = GetGridBlockStart(grid+g, iblockID);

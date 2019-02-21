@@ -15,6 +15,8 @@
 typedef struct BCblocks{
 	int		rank; // -ve if block is beyond domain
 	int		blockID[MAX_DIMENSION]; // -ve in a dir => it is beyond domain in that dir
+	int		ln[MAX_DIMENSION];// No. of local unknown points in each direction;
+				   // zero if BC block 
 	long int	bcStartIndex; // Global start index on BC cells on neighboring block
 	long int	bcGStartIndex; // Global grid start index on BC cells on neighboring block
 	long int	bcInc[MAX_DIMENSION]; // Increments on BC cells on neigbhoring block

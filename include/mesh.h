@@ -47,7 +47,7 @@ typedef struct Nblocks{
 	int	rank; // -ve if BC block
 	int	blockID[MAX_DIMENSION]; // If -ve in a dir, then it is BC block in that dir
 	int	ln[MAX_DIMENSION]; // No. of local unknown points in each direction;
-				   // -ve if BC block
+				   // zero if BC block
 	struct Nblocks *snblock; // Second neighbor
 } Nblock;
 

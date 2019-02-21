@@ -731,6 +731,19 @@ void FillMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, Ma
 	}
 }
 
+//inline GetColsValsForUpwindDirBC1(double ax, int istart, double *dx, double *vals, int *cols, int inc) {
+//	// Get cols and vals (in a dimension) according to the direction of upwind
+//	int dir = (ax<0)? -1: 1;
+//	int i0 = (dir>0)? istart-1: istart;
+//	double dx0 = dx[i0];
+//	
+//	vals[0] = ax*dir*FD1Der1OrderUpwindMid(dx0);
+//	vals[1] = 0.0;
+//	cols[1] = -1;
+//	vals[2] = 0.0;
+//	cols[2] = -1;
+//}
+//
 //inline GetColsValsForUpwindDir(double ax, int istart, double *dx, double *vals, int *cols, int inc) {
 //	// Get cols and vals (in a dimension) according to the direction of upwind
 //	int dir = (ax<0)? -1: 1;
@@ -748,14 +761,20 @@ void FillMatRes(Grids *grids, int lg0, Level *level0, int lg1, Level *level1, Ma
 //void GetColsValsAdvDiffDir(BCindices *bcindices) {
 //	// Get Cols and Vals for advection-diffusion at BCs
 //	
+//	// First neighbor	
 //	int rank = bcindices->rank;
 //	long int bcstart = bcindices->bcStartIndex;
 //	long int *bcinc = bcindices->bcInc;
-//
+//	// Second neighbor
+//	int srank = bcindices->sbcindices->rank;
+//	long int sbcstart = bcindices->sbcindices->bcStartIndex;
+//	long int *sbcinc = bcindices->sbcindices->bcInc;
+//	
 //	int dir = (ax<0)? -1: 1;
 //	if (dir == 1 && i == 0) {
-//		if (bcindices->rank > 0) {
-//			
+//		if (rank < 0) {
+//			GetColsValsForUpwindDirBC1(ax, istart+i, dx, vals, cols, inc[0]);
+//		} else if (rank > 0 && ){
 //		}
 //	} else if (dir == -1 && i == ln[0]-1) {
 //	} else {
