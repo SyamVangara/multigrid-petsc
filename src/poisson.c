@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 2);
+	ViewGridsInfo(grids, 0);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr != 0) {
@@ -419,7 +419,7 @@ void ViewBCindicesInfo(BCindices (*bcindices)[2], int dimension) {
 	PetscSynchronizedPrintf(PETSC_COMM_WORLD, "Rank = %d: \n", rank);
 	for (int i=0; i<dimension; i++) {
 		for (int j=0; j<2; j++) {
-			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Dim-%d, Dir(%d):	rank = %d", i, 2*j-1, bcindices[i][j].rank);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Dim-%d, Dir(%d):		rank = %d", i, 2*j-1, bcindices[i][j].rank);
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ";	blockID = ( ");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", bcindices[i][j].blockID[k]);
@@ -428,6 +428,17 @@ void ViewBCindicesInfo(BCindices (*bcindices)[2], int dimension) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = ( ");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j].bcInc[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")\n");
+			BCindices	*sbcindices = bcindices[i][j].sbcindices;
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Dim-%d, Dir(%d)-sn:	rank = %d", i, 2*j-1, sbcindices->rank);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ";	blockID = ( ");
+			for (int k=0; k<dimension; k++)
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", sbcindices->blockID[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	start = %ld", sbcindices->bcStartIndex);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	gstart = %ld", sbcindices->bcGStartIndex);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = ( ");
+			for (int k=0; k<dimension; k++)
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", sbcindices->bcInc[k]);
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")\n");
 		}
 	}

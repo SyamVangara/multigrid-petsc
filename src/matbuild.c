@@ -363,17 +363,19 @@ void InitializeLevels(Levels *levels) {
 	levels->level = NULL;
 }
 
-void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg) {
+void CreateBCindicesFromNblock(int targetlg, int dim, int dir, Grids *grids, Level *level, Nblock *nblock, BCindices *bcindices) {
+	// Creates BCindices corresponding to a Nblock for targeted grid
+	// i.e., create neighbor grid indices info from neighbor grid block info
 	
 	Grid	*grid = grids->grid;
 	int	g = level->gridId[targetlg];
+	int	*iblockID = bcindices->blockID;
+	int	*gblockID = nblock->blockID;
+	long int *startindex = &(bcindices->bcStartIndex);
+	long int *gstartindex = &(bcindices->bcGStartIndex);
 	
-	level->bcindices[targetlg][dim][dir].rank = grid[g].nblock[dim][dir].rank;
-	int *iblockID = level->bcindices[targetlg][dim][dir].blockID;
-	int *gblockID = grid[g].nblock[dim][dir].blockID;
-	long int *startindex = &(level->bcindices[targetlg][dim][dir].bcStartIndex);
-	long int *gstartindex = &(level->bcindices[targetlg][dim][dir].bcGStartIndex);
-
+	bcindices->sbcindices = NULL;	
+	bcindices->rank = nblock->rank;
 	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
 	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
 	if (*startindex >=0) {
@@ -381,10 +383,10 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 	} else {
 		*gstartindex = -1;
 	}
-
+	
 	int dimension = grids->topo->dimension;
-	long int *inc = level->bcindices[targetlg][dim][dir].bcInc;
-	int *ln = grid[g].nblock[dim][dir].ln;
+	long int *inc = bcindices->bcInc;
+	int *ln = nblock->ln;
 	GetGridIncrements(dimension, ln, inc);
 	
 	if (*startindex >= 0) {
@@ -393,6 +395,72 @@ void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg)
 	} else {
 		for(int i=0; i<dimension; i++) inc[i] = 0;
 	}
+	
+}
+
+void CreateBCindices(Grids *grids, Level *level, int dim, int dir, int targetlg) {
+	
+	Grid	*grid = grids->grid;
+	int	g = level->gridId[targetlg];
+	
+	CreateBCindicesFromNblock(targetlg, dim, dir, grids, level, 
+		&(grid[g].nblock[dim][dir]), &(level->bcindices[targetlg][dim][dir]));
+//	level->bcindices[targetlg][dim][dir].rank = grid[g].nblock[dim][dir].rank;
+//	int *iblockID = level->bcindices[targetlg][dim][dir].blockID;
+//	int *gblockID = grid[g].nblock[dim][dir].blockID;
+//	long int *startindex = &(level->bcindices[targetlg][dim][dir].bcStartIndex);
+//	long int *gstartindex = &(level->bcindices[targetlg][dim][dir].bcGStartIndex);
+//
+//	for (int i=0; i<MAX_DIMENSION; i++) iblockID[i] = gblockID[i]; 
+//	*startindex = GetBlockGridStart(grids, level, iblockID, targetlg);
+//	if (*startindex >=0) {
+//		*gstartindex = GetGridBlockStart(grid+g, iblockID);
+//	} else {
+//		*gstartindex = -1;
+//	}
+//
+//	int dimension = grids->topo->dimension;
+//	long int *inc = level->bcindices[targetlg][dim][dir].bcInc;
+//	int *ln = grid[g].nblock[dim][dir].ln;
+//	GetGridIncrements(dimension, ln, inc);
+//	
+//	if (*startindex >= 0) {
+//		*startindex += ((1-dir)*inc[dim]*(ln[dim]-1));
+//		*gstartindex += ((1-dir)*inc[dim]*(ln[dim]-1));
+//	} else {
+//		for(int i=0; i<dimension; i++) inc[i] = 0;
+//	}
+	
+	// Create second neighbor indices
+	level->bcindices[targetlg][dim][dir].sbcindices = malloc(sizeof(BCindices));
+	BCindices	*secbcindices = level->bcindices[targetlg][dim][dir].sbcindices;
+	Nblock		*snblock = grid[g].nblock[dim][dir].snblock;
+	
+	CreateBCindicesFromNblock(targetlg, dim, dir, grids, level, snblock, secbcindices);
+//	secbcindices->rank = snblock->rank;
+//	int *siblockID = secbcindices->blockID;
+//	int *sgblockID = snblock->blockID;
+//	long int *sstartindex = &(secbcindices->bcStartIndex);
+//	long int *sgstartindex = &(secbcindices->bcGStartIndex);
+//	
+//	for (int i=0; i<MAX_DIMENSION; i++) siblockID[i] = sgblockID[i]; 
+//	*sstartindex = GetBlockGridStart(grids, level, siblockID, targetlg);
+//	if (*sstartindex >=0) {
+//		*sgstartindex = GetGridBlockStart(grid+g, siblockID);
+//	} else {
+//		*sgstartindex = -1;
+//	}
+//	long int *sinc = secbcindices->bcInc;
+//	int *sln = snblock->ln;
+//	GetGridIncrements(dimension, sln, sinc);
+//	
+//	if (*sstartindex >= 0) {
+//		*startindex += ((1-dir)*sinc[dim]*(sln[dim]-1));
+//		*sgstartindex += ((1-dir)*sinc[dim]*(sln[dim]-1));
+//	} else {
+//		for(int i=0; i<dimension; i++) sinc[i] = 0;
+//	}
+	
 }
 
 void CreateEBCindices(Grids *grids, Level *level, int dim, int jdir, int kdir, int targetlg) {
@@ -623,7 +691,17 @@ void DestroyLevels(Levels *levels) {
 			if (levels->level[l].ranges) free(levels->level[l].ranges);
 			if (levels->level[l].granges) free(levels->level[l].granges);
 			if (levels->level[l].inc) free(levels->level[l].inc);
-			if (levels->level[l].bcindices) free(levels->level[l].bcindices);
+			if (levels->level[l].bcindices) {
+				for (int lg=0; lg<levels->level[l].ngrids; lg++) {
+				for (int dim=0; dim<levels->dimension; dim++) {
+				for (int dir=0; dir<2; dir++) {
+					BCindices *tbcindices = &(levels->level[l].bcindices[lg][dim][dir]);
+					if(tbcindices->sbcindices) free(tbcindices->sbcindices);
+				}
+				}
+				}
+				free(levels->level[l].bcindices);
+			}
 			if (levels->level[l].ebcindices) free(levels->level[l].ebcindices);
 			if (levels->level[l].cbcindices) free(levels->level[l].cbcindices);
 			if (levels->level[l].is) {
