@@ -1373,9 +1373,9 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Epsilon must be greater than 0.0");
 		pERROR_MSG("Set '-eps value' for setting epsilon");
 		return 1;
-	} else if (set && solver->prob == 0) {
+	} else if (set && solver->prob == 0 && solver->eps != 1.0) {
 		PetscBarrier(PETSC_NULL);
-		PetscPrintf(PETSC_COMM_WORLD, "\nNote: Epsilon changed to 1.0\n");
+		PetscPrintf(PETSC_COMM_WORLD, "Note: Epsilon changed to 1.0\n\n");
 	}
 	if (solver->prob == 0) solver->eps = 1.0;
 	ierr = PetscOptionsGetInt(NULL, NULL, "-iter", &(solver->numIter), &set);
