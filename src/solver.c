@@ -772,15 +772,10 @@ void GetColFace(int dimension, int dim, int dir, int i, int j, int k, BCindices 
 	// First neighbor
 	int rank = bcindices[dim][dir].rank;
 	int *ln = bcindices[dim][dir].ln;
-//	int tln = ln[0];
-//	for (int i=1; i<dimension; i++) tln *= ln[i];
 	long int bcstart = bcindices[dim][dir].bcStartIndex;
 	long int *bcinc = bcindices[dim][dir].bcInc;
 	// Second neighbor
 	int srank = bcindices[dim][dir].sbcindices->rank;
-//	int *sln = bcindices[dim][dir].sbcindices->ln;
-//	int stln = sln[0];
-//	for (int i=1; i<dimension; i++) stln *= sln[i];
 	long int sbcstart = bcindices[dim][dir].sbcindices->bcStartIndex;
 	long int *sbcinc = bcindices[dim][dir].sbcindices->bcInc;
 	
@@ -798,6 +793,131 @@ void GetColFace(int dimension, int dim, int dir, int i, int j, int k, BCindices 
 		} else {
 			cols[1] = sbcstart + ijk[d[1]]*sbcinc[d[1]] + ijk[d[2]]*sbcinc[d[2]];
 		}
+	}
+}
+
+void FillAdvectionMatA3DBC(Grid *grid, int lg, Level *level, Mat *A) {
+	// Fills 2D Advection portion in Mat A for interior points
+	
+	int	*blockID = grid->topo->blockID;
+	int	dimension = grid->topo->dimension;
+
+	long int	*ranges = level->ranges;
+	int		*ln = grid->ln;
+	int		*n = grid->n;
+	long int	*inc = level->inc[lg];
+	long int 	igstart = ranges[lg];
+	long int 	istart = grid->range[0][blockID[0]];
+	long int 	jstart = grid->range[1][blockID[1]];
+	long int 	kstart = grid->range[2][blockID[2]];
+	double		*dx = grid->dx[0];
+	double		*dy = grid->dx[1];
+	double		*dz = grid->dx[2];
+	double		*xcoord = grid->coord[0];
+	double		*ycoord = grid->coord[1];
+	double		*zcoord = grid->coord[2];
+	
+	BCindices	(*bcindices)[2] = level->bcindices[lg];
+	
+	int	cols[3];
+	double	vals[3], ax, ay, az;
+	for (int k=0; k<ln[2]; k++) {
+	for (int j=0; j<ln[1]; j++) {
+	for (int i=0; i<ln[0]; i++) {
+		if (i != 0 && i != 1 && i != ln[0]-2 && i != ln[0]-1
+			&& j != 0 && j != 1 && j != ln[1]-2 && j != ln[1]-1
+			&& k != 0 && k != 1 && k != ln[2]-2 && k != ln[2]-1) continue;
+		int row = igstart + i*inc[0] + j*inc[1] + k*inc[2];
+		cols[0] = row;
+		ax = axfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+		ay = ayfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+		az = azfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+		// For x-dimension
+		GetValsForUpwindDirBC(ax, istart+i, n[0], dx, vals);
+		int dir = (ax<0)? -1: 1;
+		if (dir == 1 && i < 2) {
+			int	bccols[2];
+			GetColFace(dimension, 0, 0, i, j, k, bcindices, bccols);
+			if (i == 0) {
+				cols[1] = bccols[0];
+				cols[2] = bccols[1];
+			} else {
+				cols[1] = row-inc[0];
+				cols[2] = bccols[0];
+			}
+		} else if (dir == -1 && i > ln[0]-3) {
+			int	bccols[2];
+			GetColFace(dimension, 0, 1, i, j, k, bcindices, bccols);
+			if (i == ln[0]-1) {
+				cols[1] = bccols[0];
+				cols[2] = bccols[1];
+			} else {
+				cols[1] = row+inc[0];
+				cols[2] = bccols[0];
+			}
+		} else {
+			cols[1] = row-dir*inc[0];
+			cols[2] = row-2*dir*inc[0];
+		}
+		MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
+		// For y-dimension
+		GetValsForUpwindDirBC(ay, jstart+j, n[1], dy, vals);
+		dir = (ay<0)? -1: 1;
+		if (dir == 1 && j < 2) {
+			int	bccols[2];
+			GetColFace(dimension, 1, 0, i, j, k, bcindices, bccols);
+			if (j == 0) {
+				cols[1] = bccols[0];
+				cols[2] = bccols[1];
+			} else {
+				cols[1] = row-inc[1];
+				cols[2] = bccols[0];
+			}
+		} else if (dir == -1 && j > ln[1]-3) {
+			int	bccols[2];
+			GetColFace(dimension, 1, 1, i, j, k, bcindices, bccols);
+			if (j == ln[1]-1) {
+				cols[1] = bccols[0];
+				cols[2] = bccols[1];
+			} else {
+				cols[1] = row+inc[1];
+				cols[2] = bccols[0];
+			}
+		} else {
+			cols[1] = row-dir*inc[1];
+			cols[2] = row-2*dir*inc[1];
+		}
+		MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
+		// For z-dimension
+		GetValsForUpwindDirBC(az, kstart+k, n[2], dz, vals);
+		dir = (az<0)? -1: 1;
+		if (dir == 1 && k < 2) {
+			int	bccols[2];
+			GetColFace(dimension, 2, 0, i, j, k, bcindices, bccols);
+			if (k == 0) {
+				cols[1] = bccols[0];
+				cols[2] = bccols[1];
+			} else {
+				cols[1] = row-inc[2];
+				cols[2] = bccols[0];
+			}
+		} else if (dir == -1 && k > ln[2]-3) {
+			int	bccols[2];
+			GetColFace(dimension, 2, 1, i, j, k, bcindices, bccols);
+			if (k == ln[2]-1) {
+				cols[1] = bccols[0];
+				cols[2] = bccols[1];
+			} else {
+				cols[1] = row+inc[2];
+				cols[2] = bccols[0];
+			}
+		} else {
+			cols[1] = row-dir*inc[2];
+			cols[2] = row-2*dir*inc[2];
+		}
+		MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
+	}
+	}
 	}
 }
 
@@ -888,6 +1008,46 @@ void FillAdvectionMatA2DBC(Grid *grid, int lg, Level *level, Mat *A) {
 		}
 		MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
 	}
+	}
+}
+
+void FillAdvectionMatA3DInterior(Grid *grid, int lg, Level *level, Mat *A) {
+	// Fills 2D Advection portion in Mat A for interior points
+	
+	int	*blockID = grid->topo->blockID;
+
+	long int	*ranges = level->ranges;
+	int		*ln = grid->ln;
+	long int	*inc = level->inc[lg];
+	long int 	igstart = ranges[lg];
+	long int 	istart = grid->range[0][blockID[0]];
+	long int 	jstart = grid->range[1][blockID[1]];
+	long int 	kstart = grid->range[2][blockID[2]];
+	double		*dx = grid->dx[0];
+	double		*dy = grid->dx[1];
+	double		*dz = grid->dx[2];
+	double		*xcoord = grid->coord[0];
+	double		*ycoord = grid->coord[1];
+	double		*zcoord = grid->coord[2];
+	
+	int	cols[3];
+	double	vals[3], ax, ay, az;
+	for (int i=2; i<ln[0]-2; i++) {
+		for (int j=2; j<ln[1]-2; j++) {
+			for (int k=2; k<ln[2]-2; k++) {
+				int row = igstart + i*inc[0] + j*inc[1] + k*inc[2];
+				cols[0] = row;
+				ax = axfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+				ay = ayfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+				az = azfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+				GetColsValsForUpwindDir(ax,istart+i, dx, vals, cols, inc[0]);
+				MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
+				GetColsValsForUpwindDir(ay,jstart+j, dy, vals, cols, inc[1]);
+				MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
+				GetColsValsForUpwindDir(az,kstart+k, dz, vals, cols, inc[2]);
+				MatSetValues(*A, 1, &row, 3, cols, vals, ADD_VALUES);
+			}
+		}
 	}
 }
 
@@ -1028,6 +1188,10 @@ void FillMatA(Grids *grids, Level *level, Mat *A) {
 			FillBCDirMatA(igstart, kstart, bcStartIndex0, bcinc0[0], bcinc0[1], 
 				bcStartIndex1, bcinc1[0], bcinc1[1],
 				inc[2], inc[0], inc[1], ln[2], ln[0], ln[1], eps, dz, zcoord, A);
+			if (prob > 0) {
+				FillAdvectionMatA3DInterior(grid+g, lg, level, A);
+				FillAdvectionMatA3DBC(grid+g, lg, level, A);
+			}
 		}
 	}
 }
@@ -1079,7 +1243,8 @@ double RHSfunc2D(double x, double y) {
 double RHSfunc3D(double x, double y, double z) {
 	// Gives the f(x,y)
 	
-	return 3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z);
+//	return 3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z); // Poisson
+	return 0.0; // Adv-Diff
 }
 
 double Sol2D(double x, double y) {
@@ -1097,7 +1262,13 @@ double Sol2D(double x, double y) {
 double Sol3D(double x, double y, double z) {
 	// Gives the f(x,y)
 	
-	return sin(PI*x)*sin(PI*y)*sin(PI*z);
+//	return sin(PI*x)*sin(PI*y)*sin(PI*z); // Poisson
+	
+	//Add-Diff
+	double val = 0.0;
+	if (x == 1.0) val = 1.0;
+
+	return val;
 }
 
 void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
@@ -1231,6 +1402,108 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	
 	free(row);	
 	free(val);	
+}
+
+void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
+	// Fills 2D Advection portion in Mat A for interior points
+	
+	int	*blockID = grid->topo->blockID;
+
+	long int	*ranges = level->ranges;
+	int		*ln = grid->ln;
+	int		*n = grid->n;
+	long int	*inc = level->inc[lg];
+	long int 	igstart = ranges[lg];
+	long int 	istart = grid->range[0][blockID[0]];
+	long int 	jstart = grid->range[1][blockID[1]];
+	long int 	kstart = grid->range[2][blockID[2]];
+	double		*dx = grid->dx[0];
+	double		*dy = grid->dx[1];
+	double		*dz = grid->dx[2];
+	double		*xcoord = grid->coord[0];
+	double		*ycoord = grid->coord[1];
+	double		*zcoord = grid->coord[2];
+	
+	double	vals[3], ax, ay, az;
+	for (int k=0; k<ln[2]; k++) {
+	for (int j=0; j<ln[1]; j++) {
+	for (int i=0; i<ln[0]; i++) {
+		if (i != 0 && i != 1 && i != ln[0]-2 && i != ln[0]-1
+			&& j != 0 && j != 1 && j != ln[1]-2 && j != ln[1]-1
+			&& k != 0 && k != 1 && k != ln[2]-2 && k != ln[2]-1) continue;
+		int row = igstart + i*inc[0] + j*inc[1] + k*inc[2];
+		ax = axfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+		ay = ayfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+		az = azfunc(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+		// For x-dimension
+		GetValsForUpwindDirBC(ax, istart+i, n[0], dx, vals);
+		int dir = (ax<0)? -1: 1;
+		if (dir == 1 && istart+i < 3) {
+			double solu = Sol3D(xcoord[0], ycoord[jstart+j], zcoord[kstart+k]);
+			double temp = 0.0;
+			if (istart+i == 1) {
+				temp = -1*vals[1]*solu;
+			} else {
+				temp = -1*vals[2]*solu;
+			}
+			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
+		} else if (dir == -1 && istart+i > n[0]-4) {
+			double solu = Sol3D(xcoord[n[0]-1], ycoord[jstart+j], zcoord[kstart+k]);
+			double temp = 0.0;
+			if (istart+i == n[0]-2) {
+				temp = -1*vals[1]*solu;
+			} else {
+				temp = -1*vals[2]*solu;
+			}
+			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
+		}
+		// For y-dimension
+		GetValsForUpwindDirBC(ay, jstart+j, n[1], dy, vals);
+		dir = (ay<0)? -1: 1;
+		if (dir == 1 && jstart+j < 3) {
+			double solu = Sol3D(xcoord[istart+i], ycoord[0], zcoord[kstart+k]);
+			double temp = 0.0;
+			if (jstart+j == 1) {
+				temp = -1*vals[1]*solu;
+			} else {
+				temp = -1*vals[2]*solu;
+			}
+			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
+		} else if (dir == -1 && jstart+j > n[1]-4) {
+			double solu = Sol3D(xcoord[istart+i], ycoord[n[1]-1], zcoord[kstart+k]);
+			double temp = 0.0;
+			if (jstart+j == n[1]-2) {
+				temp = -1*vals[1]*solu;
+			} else {
+				temp = -1*vals[2]*solu;
+			}
+			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
+		}
+		// For z-dimension
+		GetValsForUpwindDirBC(az, kstart+k, n[2], dz, vals);
+		dir = (az<0)? -1: 1;
+		if (dir == 1 && kstart+k < 3) {
+			double solu = Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[0]);
+			double temp = 0.0;
+			if (kstart+k == 1) {
+				temp = -1*vals[1]*solu;
+			} else {
+				temp = -1*vals[2]*solu;
+			}
+			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
+		} else if (dir == -1 && kstart+k > n[2]-4) {
+			double solu = Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[n[2]-1]);
+			double temp = 0.0;
+			if (kstart+k == n[2]-2) {
+				temp = -1*vals[1]*solu;
+			} else {
+				temp = -1*vals[2]*solu;
+			}
+			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
+		}
+	}
+	}
+	}
 }
 
 void ApplyAdvectionBCLevelVecb2D(Grid *grid, int lg, Level *level, Vec *b) {
@@ -1411,6 +1684,7 @@ void ApplyBCLevelVecb(Grids *grids, Level *level, Vec *b) {
 		if (prob > 0) ApplyAdvectionBCLevelVecb2D(grid, 0, level, b);
 	} else if (dimension == 3) {
 		ApplyBCLevelVecb3D(grid, level,  b);
+		if (prob > 0) ApplyAdvectionBCLevelVecb3D(grid, 0, level, b);
 	}
 }
 
@@ -2638,6 +2912,62 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 				} else {
 					val = eval;
 					bval = RHSfunc2D(xcoord[i], ycoord[j]);
+				}
+				fprintf(esol,"%.16e    ", eval);
+				fprintf(compsol,"%.16e    ", val);
+				fprintf(bfile,"%.16e    ", bval);
+			}
+			fprintf(xgrid,"\n");
+			fprintf(ygrid,"\n");
+			fprintf(esol,"\n");
+			fprintf(compsol,"\n");
+			fprintf(bfile,"\n");
+		}
+		VecRestoreArray(solver->levels->b[0], &rhs);
+		VecRestoreArray(solver->levels->u[0], &sol);
+		fclose(xgrid);
+		fclose(ygrid);
+		fclose(esol);
+		fclose(compsol);
+		fclose(bfile);
+	}
+	
+	if (solver->levels->dimension == 3 
+		&& size == 1 
+		&& solver->levels->nlevels == 1
+		&& solver->levels->level->ngrids == 1
+		&& solver->prob > 0) {
+		
+		FILE	*xgrid = fopen("xgrid.dat","w");
+		FILE	*ygrid = fopen("ygrid.dat","w");
+		FILE	*compsol = fopen("compsol.dat","w");
+		FILE	*esol = fopen("exactsol.dat","w");
+		FILE	*bfile = fopen("rhs.dat","w");
+		
+		double	*sol, *rhs;
+		VecGetArray(solver->levels->u[0], &sol);
+		VecGetArray(solver->levels->b[0], &rhs);
+
+		int	*ln = grids->grid->ln;
+		int	*n = grids->grid->n;
+		double	*xcoord = grids->grid->coord[0];
+		double	*ycoord = grids->grid->coord[1];
+		double	*zcoord = grids->grid->coord[2];
+		int	k = (3*ln[2])/4;
+		for (int j=0;j<n[1];j++) {
+			for (int i=0;i<n[0];i++) {
+				double val, bval, eval;
+				fprintf(xgrid,"%lf    ", xcoord[i]);
+				fprintf(ygrid,"%lf    ", ycoord[j]);
+				eval = Sol3D(xcoord[i], ycoord[j], zcoord[k]);
+				if (i > 0 && i < n[0]-1
+					&& j > 0 && j < n[1]-1) {
+					val = sol[(k-1)*ln[0]*ln[1]+(j-1)*ln[0]+(i-1)]; 
+					// below doesn't represent "f(x,y)" for non-zero BC
+					bval = rhs[(k-1)*ln[0]*ln[1]+(j-1)*ln[0]+(i-1)];
+				} else {
+					val = eval;
+					bval = RHSfunc3D(xcoord[i], ycoord[j], zcoord[k]);
 				}
 				fprintf(esol,"%.16e    ", eval);
 				fprintf(compsol,"%.16e    ", val);
