@@ -640,6 +640,7 @@ int identify_neighbor_blocks(Grid *grid) {
 			for (int dim=0; dim<MAX_DIMENSION; dim++) {
 				nblockID[dim] = blockID[dim];
 			}
+			nblock[i][j].snblock = NULL;
 		}
 	}
 
@@ -654,6 +655,7 @@ int identify_neighbor_blocks(Grid *grid) {
 						eblockID[dim] = -2;
 					}
 				}
+				eblock[i][j][k].snblock = NULL;
 			}
 		}
 	}
@@ -671,6 +673,7 @@ int identify_neighbor_blocks(Grid *grid) {
 						cblockID[dim] = blockID[dim];
 					}
 				}
+				cblock[i][j][k].snblock = NULL;
 			}
 		}
 	}
@@ -689,7 +692,28 @@ int identify_neighbor_blocks(Grid *grid) {
 			nblock[i][(j+1)/2].blockID[i] = temp;
 		}
 	}
-	
+
+	for (int i=0; i<dimension; i++) {
+		for (int j=-1; j<2; j=j+2) {
+			// Identify the non-zero unknowns neighbor block in j^th direction
+			nblock[i][(j+1)/2].snblock = malloc(sizeof(Nblock));
+			nblock[i][(j+1)/2].snblock->snblock = NULL;
+			Nblock *tnblock = nblock[i][(j+1)/2].snblock;
+			for (int dim=0; dim<dimension; dim++) {
+				tnblock->blockID[dim] = nblock[i][(j+1)/2].blockID[dim];
+			}
+			if (tnblock->blockID[i]<0) continue;
+			int temp = -1;
+			for (int id=tnblock->blockID[i]+j; (id<l[i] && id>=0); id=id+j) {
+				if (range[i][id+1]-range[i][id] != 0) {
+					temp = id;
+					break;
+				}
+			}
+			tnblock->blockID[i] = temp;
+		}
+	}
+
 	for (int i=0; i<2; i++) {
 		int id = nblock[0][i].blockID[0];
 		for (int j=0; j<2; j++) {
@@ -725,9 +749,20 @@ int identify_neighbor_blocks(Grid *grid) {
 			if (nblockID[i]>=0) {
 				nblock[i][j].rank = GetRankFromBlockID(dimension, nblockID, l);
 				GetLocalNPoints(dimension, range, nblockID, ln);
+				Nblock	*tnblock = nblock[i][j].snblock;
+				if (tnblock->blockID[i] >= 0) {
+					tnblock->rank = GetRankFromBlockID(dimension, tnblock->blockID, l);
+					GetLocalNPoints(dimension, range, tnblock->blockID, tnblock->ln);
+				} else {
+					tnblock->rank = -1;
+					for (int dim=0; dim<dimension; dim++) tnblock->ln[dim] = 0;
+				}
 			} else {
 				nblock[i][j].rank = -1;
 				for (int dim=0; dim<dimension; dim++) ln[dim] = 0;
+				Nblock	*tnblock = nblock[i][j].snblock;
+				tnblock->rank = -1;
+				for (int dim=0; dim<dimension; dim++) tnblock->ln[dim] = 0;
 			}
 
 			for (int k=0; k<2; k++) {
@@ -991,6 +1026,12 @@ void DestroyGrids(Grids *grids) {
 			if (grids->grid[i].range) free2dIntArray(&(grids->grid[i].range));
 			if (grids->grid[i].coord) free2dArray(&(grids->grid[i].coord));
 			if (grids->grid[i].dx) free2dArray(&(grids->grid[i].dx));
+			Grid	*grid = grids->grid+i;
+			for (int j=0; j<MAX_DIMENSION; j++) {
+				for (int k=0; k<2; k++) {
+					if (grid->nblock[j][k].snblock) free(grid->nblock[j][k].snblock);
+				}
+			}
 		}
 		free(grids->grid);
 	}

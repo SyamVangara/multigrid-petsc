@@ -43,11 +43,12 @@ typedef struct {
 	void	(*MetricCoefficients)(void *mesh, double x, double y, double *metrics);
 } Mesh;
 
-typedef struct {
+typedef struct Nblocks{
 	int	rank; // -ve if BC block
 	int	blockID[MAX_DIMENSION]; // If -ve in a dir, then it is BC block in that dir
 	int	ln[MAX_DIMENSION]; // No. of local unknown points in each direction;
 				   // -ve if BC block
+	struct Nblocks *snblock; // Second neighbor
 } Nblock;
 
 typedef struct {

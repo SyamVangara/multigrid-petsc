@@ -12,17 +12,20 @@
 #include "petscksp.h"
 #include "mesh.h"
 
-typedef struct {
+typedef struct BCblocks{
 	int		rank; // -ve if block is beyond domain
 	int		blockID[MAX_DIMENSION]; // -ve in a dir => it is beyond domain in that dir
 	long int	bcStartIndex; // Global start index on BC cells on neighboring block
 	long int	bcGStartIndex; // Global grid start index on BC cells on neighboring block
 	long int	bcInc[MAX_DIMENSION]; // Increments on BC cells on neigbhoring block
+	struct BCblocks	*sbcindices; // Second neighoring block
 } BCindices;
 
 typedef struct {
+	int		prob;
 	int		ngrids;   // num of grids in this level
 	int		*gridId; // Grid Id of each grid in a given level
+	double		eps;
 	double		(*h)[2]; // Delta h in reference domain // ! Remove
 	long int	*ranges; // ranges of global level indices for each grid
 	long int	(*granges)[2]; // ranges of global grid indices for each grid
@@ -38,7 +41,9 @@ typedef struct {
 
 typedef struct {
 	int	dimension;
+	int	prob;
 	int	nlevels;
+	double	eps;
 	int	totalGrids; // ! Remove
 	int	coarseningFactor; // ! Remove
 	Mat 	*res; // only between successive grids (not levels)

@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 0);
+	ViewGridsInfo(grids, 2);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr != 0) {
@@ -297,6 +297,15 @@ void ViewNblockInfo(Nblock (*nblock)[2], int dimension) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	ln =");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d", nblock[i][j].ln[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
+			Nblock	*tnblock = nblock[i][j].snblock;
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD,"Direction(%d, %d)-sn:	rank = %d", i, 2*j-1, tnblock->rank);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ";	blockID = ( ");
+			for (int k=0; k<dimension; k++)
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%d ", tnblock->blockID[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ");	ln =");
+			for (int k=0; k<dimension; k++)
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD," %d", tnblock->ln[k]);
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "\n");
 		}
 	}

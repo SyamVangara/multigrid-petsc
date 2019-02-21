@@ -570,8 +570,12 @@ int CreateLevels(Grids *grids, Levels *levels) {
 	levels->A = malloc(levels->nlevels*sizeof(Mat));
 	levels->b = malloc(levels->nlevels*sizeof(Vec));
 	levels->u = malloc(levels->nlevels*sizeof(Vec));
+	int	prob = levels->prob;
+	double	eps = levels->eps;
 	for (int i=0;i<levels->nlevels;i++) {
 		fillLevel(grids, levels->level+i);
+		levels->level[i].prob = prob;
+		levels->level[i].eps = eps;
 	}
 	return 0;
 }
