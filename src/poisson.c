@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewGridsInfo(grids, 2);
+	ViewGridsInfo(grids, 0);
 	PetscBarrier(PETSC_NULL);
 	ierr = CreateSolver(&grids, &solver); pCHKERR_PRNT("Solver creation failed");
 	if (ierr != 0) {
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize();
 		return 0;
 	}
-	ViewLevelsInfo(solver, 2);
+	ViewLevelsInfo(solver, 0);
 //	ViewMatResInfo(solver);
 //	ViewMatAInfo(solver);
 //	ViewVecbInfo(solver);
@@ -428,6 +428,7 @@ void ViewBCindicesInfo(BCindices (*bcindices)[2], int dimension) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	ln = (");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j].ln[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")");
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = (");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j].bcInc[k]);
@@ -442,6 +443,7 @@ void ViewBCindicesInfo(BCindices (*bcindices)[2], int dimension) {
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	ln = (");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", sbcindices->ln[k]);
+			PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")");
 			PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = (");
 			for (int k=0; k<dimension; k++)
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", sbcindices->bcInc[k]);
@@ -473,6 +475,7 @@ void ViewEBCindicesInfo(BCindices (*bcindices)[2][2], int dimension) {
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	ln = (");
 				for (int dim=0; dim<dimension; dim++)
 					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j][k].ln[dim]);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")");
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = (");
 				for (int dim=0; dim<dimension; dim++)
 					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j][k].bcInc[dim]);
@@ -504,6 +507,7 @@ void ViewCBCindicesInfo(BCindices (*bcindices)[2][2], int dimension) {
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	ln = (");
 				for (int dim=0; dim<dimension; dim++)
 					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j][k].ln[dim]);
+				PetscSynchronizedPrintf(PETSC_COMM_WORLD, ")");
 				PetscSynchronizedPrintf(PETSC_COMM_WORLD, "	Inc = (");
 				for (int dim=0; dim<dimension; dim++)
 					PetscSynchronizedPrintf(PETSC_COMM_WORLD,"%ld ", bcindices[i][j][k].bcInc[dim]);
