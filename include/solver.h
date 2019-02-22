@@ -65,6 +65,7 @@ typedef struct {
 typedef struct {
 	int	cycle;
 	int	prob;
+	int	writesol;
 	int	numIter;
 	int	v[2];
 	double	eps;

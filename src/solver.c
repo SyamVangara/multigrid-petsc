@@ -1813,6 +1813,12 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Selected type of problem doesn't exist");
 		return 1;
 	}
+	solver->writesol = 0; // By default don't write solution
+	ierr = PetscOptionsGetInt(NULL, NULL, "-writesol", &(solver->writesol), &set);
+	if (set) {
+		PetscBarrier(PETSC_NULL);
+		PetscPrintf(PETSC_COMM_WORLD, "Note: Writes solution to a file\n\n");
+	}
 	ierr = PetscOptionsGetReal(NULL, NULL, "-eps", &(solver->eps), &set);
 	if (!set && solver->prob != 0) {
 		PetscBarrier(PETSC_NULL);
@@ -2933,9 +2939,10 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 	}
 	
 	if (solver->levels->dimension == 3 
-		&& size == 1 
-		&& solver->levels->nlevels == 1
-		&& solver->levels->level->ngrids == 1
+		&& size == 1
+		&& solver->writesol == 1
+//		&& solver->levels->nlevels == 1
+//		&& solver->levels->level->ngrids == 1
 		&& solver->prob > 0) {
 		
 		FILE	*xgrid = fopen("xgrid.dat","w");
