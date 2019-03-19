@@ -3293,8 +3293,9 @@ int MultigridVcycle(Solver *solver) {
 	PetscObjectSetOptionsPrefix((PetscObject)temp, "coarse_");
 	KSPSetType(ksp[nlevels-1],KSPRICHARDSON);
 	KSPSetOperators(ksp[nlevels-1], A[nlevels-1], A[nlevels-1]);
-	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
-	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+//	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
+	KSPSetTolerances(ksp[nlevels-1], PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+//	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
 	KSPSetFromOptions(ksp[nlevels-1]);
 	
 	double bnorm, rnormmin, rnormmax, rnormchk;
@@ -3442,8 +3443,9 @@ int MultigridAdditiveNB(Solver *solver) {
 	PetscObjectSetOptionsPrefix((PetscObject)temp, "coarse_");
 	KSPSetType(ksp[nlevels-1],KSPRICHARDSON);
 	KSPSetOperators(ksp[nlevels-1], A[nlevels-1], A[nlevels-1]);
-	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
-	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+//	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
+	KSPSetTolerances(ksp[nlevels-1],  PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+//	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
 	KSPSetFromOptions(ksp[nlevels-1]);
 	
 	double bnorm, rnormmin, rnormmax, rnormchk;
@@ -3705,8 +3707,9 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 	PetscObjectSetOptionsPrefix((PetscObject)temp, "coarse_");
 	KSPSetType(ksp[nlevels-1],KSPRICHARDSON);
 	KSPSetOperators(ksp[nlevels-1], A[nlevels-1], A[nlevels-1]);
-	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
-	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+//	KSPSetNormType(ksp[nlevels-1],KSP_NORM_NONE);
+	KSPSetTolerances(ksp[nlevels-1], PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
+//	KSPSetTolerances(ksp[nlevels-1], rtol, PETSC_DEFAULT, PETSC_DEFAULT, v[1]);
 	KSPSetFromOptions(ksp[nlevels-1]);
 	
 	double	bnorm, rnormmin, rnormmax, rnormchk;
