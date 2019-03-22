@@ -191,8 +191,9 @@ void PrintInfo(Grids *grids, Solver *solver) {
 	if (solver->cycle == 0) printf("Cycle:				No MG\n");
 	
 	printf("Number of processes:		%d\n",procs);
-	int	num = (solver->cycle == 1)? solver->numIter-1: solver->numIter;
-	printf("Number of iterations:		%d\n",num);
+//	int	num = (solver->cycle == 1)? solver->numIter-1: solver->numIter;
+//	printf("Number of iterations:		%d\n",num);
+	printf("Number of iterations:		%d\n",solver->numIter);
 	printf("=============================================================\n");
 	}
 

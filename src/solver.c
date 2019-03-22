@@ -1236,21 +1236,36 @@ void AssembleLevelMatA(Grids *grids, Level *level, Mat *A) {
 double RHSfunc2D(double x, double y) {
 	// Gives the f(x,y)
 	
-//	return 2*PI*PI*sin(PI*x)*sin(PI*y); // Poisson
+	return 2*PI*PI*sin(PI*x)*sin(PI*y); // Poisson
+}
+
+double RHSfuncConv2D(double x, double y) {
+	// Gives the f(x,y)
+	
 	return 0.0; // Adv-Diff
 }
 
 double RHSfunc3D(double x, double y, double z) {
 	// Gives the f(x,y)
 	
-//	return 3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z); // Poisson
+	return 3*PI*PI*sin(PI*x)*sin(PI*y)*sin(PI*z); // Poisson
+}
+
+double RHSfuncConv3D(double x, double y, double z) {
+	// Gives the f(x,y)
+	
 	return 0.0; // Adv-Diff
 }
 
+
 double Sol2D(double x, double y) {
-	// Gives the f(x,y)
+	// Gives the u(x,y)
 	
-//	return sin(PI*x)*sin(PI*y); // Poisson
+	return sin(PI*x)*sin(PI*y); // Poisson
+}
+
+double SolConv2D(double x, double y) {
+	// Gives the u(x,y)
 	
 	// Adv-Diff
 	double val = 0.0;
@@ -1262,7 +1277,11 @@ double Sol2D(double x, double y) {
 double Sol3D(double x, double y, double z) {
 	// Gives the f(x,y)
 	
-//	return sin(PI*x)*sin(PI*y)*sin(PI*z); // Poisson
+	return sin(PI*x)*sin(PI*y)*sin(PI*z); // Poisson
+}
+
+double SolConv3D(double x, double y, double z) {
+	// Gives the f(x,y)
 	
 	//Add-Diff
 	double val = 0.0;
@@ -1273,6 +1292,7 @@ double Sol3D(double x, double y, double z) {
 
 void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	
+	int	prob = level->prob;
 	double	eps = level->eps;
 	double	*xcoord = grid->coord[0];
 	double	*ycoord = grid->coord[1];
@@ -1302,7 +1322,11 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	for (int k=0; k<ln[2]; k++) {
 		for (int j=0; j<ln[1]; j++) {
 			row[count] = gstart + j*inc[1] + k*inc[2];
-			val[count] = -1*coeff*Sol3D(xcoord[istart-1], ycoord[jstart+j], zcoord[kstart+k]);
+			if (prob == 0) {
+				val[count] = -1*coeff*Sol3D(xcoord[istart-1], ycoord[jstart+j], zcoord[kstart+k]);
+			} else {
+				val[count] = -1*coeff*SolConv3D(xcoord[istart-1], ycoord[jstart+j], zcoord[kstart+k]);
+			}
 			count++;
 		}
 	}
@@ -1317,7 +1341,11 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	for (int k=0; k<ln[2]; k++) {
 		for (int j=0; j<ln[1]; j++) {
 			row[count] = igstart + j*inc[1] + k*inc[2];
-			val[count] = -1*coeff*Sol3D(xcoord[istart+ln[0]], ycoord[jstart+j], zcoord[kstart+k]);
+			if (prob == 0) {
+				val[count] = -1*coeff*Sol3D(xcoord[istart+ln[0]], ycoord[jstart+j], zcoord[kstart+k]);
+			} else {
+				val[count] = -1*coeff*SolConv3D(xcoord[istart+ln[0]], ycoord[jstart+j], zcoord[kstart+k]);
+			}
 			count++;
 		}
 	}
@@ -1340,7 +1368,11 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	for (int k=0; k<ln[2]; k++) {
 		for (int i=0; i<ln[0]; i++) {
 			row[count] = gstart + i*inc[0] + k*inc[2];
-			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart-1], zcoord[kstart+k]);
+			if (prob == 0) {
+				val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart-1], zcoord[kstart+k]);
+			} else {
+				val[count] = -1*coeff*SolConv3D(xcoord[istart+i], ycoord[jstart-1], zcoord[kstart+k]);
+			}
 			count++;
 		}
 	}
@@ -1355,7 +1387,11 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	for (int k=0; k<ln[2]; k++) {
 		for (int i=0; i<ln[0]; i++) {
 			row[count] = jgstart + i*inc[0] + k*inc[2];
-			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+ln[1]], zcoord[kstart+k]);
+			if (prob == 0) {
+				val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+ln[1]], zcoord[kstart+k]);
+			} else {
+				val[count] = -1*coeff*SolConv3D(xcoord[istart+i], ycoord[jstart+ln[1]], zcoord[kstart+k]);
+			}
 			count++;
 		}
 	}
@@ -1378,7 +1414,11 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	for (int j=0; j<ln[1]; j++) {
 		for (int i=0; i<ln[0]; i++) {
 			row[count] = gstart + i*inc[0] + j*inc[1];
-			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart-1]);
+			if (prob == 0) {
+				val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart-1]);
+			} else {
+				val[count] = -1*coeff*SolConv3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart-1]);
+			}
 			count++;
 		}
 	}
@@ -1393,7 +1433,11 @@ void ApplyBCLevelVecb3D(Grid *grid, Level *level,  Vec *b) {
 	for (int j=0; j<ln[1]; j++) {
 		for (int i=0; i<ln[0]; i++) {
 			row[count] = kgstart + i*inc[0] + j*inc[1];
-			val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+ln[2]]);
+			if (prob == 0) {
+				val[count] = -1*coeff*Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+ln[2]]);
+			} else {
+				val[count] = -1*coeff*SolConv3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+ln[2]]);
+			}
 			count++;
 		}
 	}
@@ -1439,7 +1483,7 @@ void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
 		GetValsForUpwindDirBC(ax, istart+i, n[0], dx, vals);
 		int dir = (ax<0)? -1: 1;
 		if (dir == 1 && istart+i < 3) {
-			double solu = Sol3D(xcoord[0], ycoord[jstart+j], zcoord[kstart+k]);
+			double solu = SolConv3D(xcoord[0], ycoord[jstart+j], zcoord[kstart+k]);
 			double temp = 0.0;
 			if (istart+i == 1) {
 				temp = -1*vals[1]*solu;
@@ -1448,7 +1492,7 @@ void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
 			}
 			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
 		} else if (dir == -1 && istart+i > n[0]-4) {
-			double solu = Sol3D(xcoord[n[0]-1], ycoord[jstart+j], zcoord[kstart+k]);
+			double solu = SolConv3D(xcoord[n[0]-1], ycoord[jstart+j], zcoord[kstart+k]);
 			double temp = 0.0;
 			if (istart+i == n[0]-2) {
 				temp = -1*vals[1]*solu;
@@ -1461,7 +1505,7 @@ void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
 		GetValsForUpwindDirBC(ay, jstart+j, n[1], dy, vals);
 		dir = (ay<0)? -1: 1;
 		if (dir == 1 && jstart+j < 3) {
-			double solu = Sol3D(xcoord[istart+i], ycoord[0], zcoord[kstart+k]);
+			double solu = SolConv3D(xcoord[istart+i], ycoord[0], zcoord[kstart+k]);
 			double temp = 0.0;
 			if (jstart+j == 1) {
 				temp = -1*vals[1]*solu;
@@ -1470,7 +1514,7 @@ void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
 			}
 			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
 		} else if (dir == -1 && jstart+j > n[1]-4) {
-			double solu = Sol3D(xcoord[istart+i], ycoord[n[1]-1], zcoord[kstart+k]);
+			double solu = SolConv3D(xcoord[istart+i], ycoord[n[1]-1], zcoord[kstart+k]);
 			double temp = 0.0;
 			if (jstart+j == n[1]-2) {
 				temp = -1*vals[1]*solu;
@@ -1483,7 +1527,7 @@ void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
 		GetValsForUpwindDirBC(az, kstart+k, n[2], dz, vals);
 		dir = (az<0)? -1: 1;
 		if (dir == 1 && kstart+k < 3) {
-			double solu = Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[0]);
+			double solu = SolConv3D(xcoord[istart+i], ycoord[jstart+j], zcoord[0]);
 			double temp = 0.0;
 			if (kstart+k == 1) {
 				temp = -1*vals[1]*solu;
@@ -1492,7 +1536,7 @@ void ApplyAdvectionBCLevelVecb3D(Grid *grid, int lg, Level *level, Vec *b) {
 			}
 			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
 		} else if (dir == -1 && kstart+k > n[2]-4) {
-			double solu = Sol3D(xcoord[istart+i], ycoord[jstart+j], zcoord[n[2]-1]);
+			double solu = SolConv3D(xcoord[istart+i], ycoord[jstart+j], zcoord[n[2]-1]);
 			double temp = 0.0;
 			if (kstart+k == n[2]-2) {
 				temp = -1*vals[1]*solu;
@@ -1540,7 +1584,7 @@ void ApplyAdvectionBCLevelVecb2D(Grid *grid, int lg, Level *level, Vec *b) {
 		GetValsForUpwindDirBC(ax, istart+i, n[0], dx, vals);
 		int dir = (ax<0)? -1: 1;
 		if (dir == 1 && istart+i < 3) {
-			double solu = Sol2D(xcoord[0], ycoord[jstart+j]);
+			double solu = SolConv2D(xcoord[0], ycoord[jstart+j]);
 			double temp = 0.0;
 			if (istart+i == 1) {
 				temp = -1*vals[1]*solu;
@@ -1549,7 +1593,7 @@ void ApplyAdvectionBCLevelVecb2D(Grid *grid, int lg, Level *level, Vec *b) {
 			}
 			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
 		} else if (dir == -1 && istart+i > n[0]-4) {
-			double solu = Sol2D(xcoord[n[0]-1], ycoord[jstart+j]);
+			double solu = SolConv2D(xcoord[n[0]-1], ycoord[jstart+j]);
 			double temp = 0.0;
 			if (istart+i == n[0]-2) {
 				temp = -1*vals[1]*solu;
@@ -1562,7 +1606,7 @@ void ApplyAdvectionBCLevelVecb2D(Grid *grid, int lg, Level *level, Vec *b) {
 		GetValsForUpwindDirBC(ay, jstart+j, n[1], dy, vals);
 		dir = (ay<0)? -1: 1;
 		if (dir == 1 && jstart+j < 3) {
-			double solu = Sol2D(xcoord[istart+i], ycoord[0]);
+			double solu = SolConv2D(xcoord[istart+i], ycoord[0]);
 			double temp = 0.0;
 			if (jstart+j == 1) {
 				temp = -1*vals[1]*solu;
@@ -1571,7 +1615,7 @@ void ApplyAdvectionBCLevelVecb2D(Grid *grid, int lg, Level *level, Vec *b) {
 			}
 			VecSetValues(*b, 1, &row, &temp, ADD_VALUES);
 		} else if (dir == -1 && jstart+j > n[1]-4) {
-			double solu = Sol2D(xcoord[istart+i], ycoord[n[1]-1]);
+			double solu = SolConv2D(xcoord[istart+i], ycoord[n[1]-1]);
 			double temp = 0.0;
 			if (jstart+j == n[1]-2) {
 				temp = -1*vals[1]*solu;
@@ -1586,6 +1630,7 @@ void ApplyAdvectionBCLevelVecb2D(Grid *grid, int lg, Level *level, Vec *b) {
 
 void ApplyBCLevelVecb2D(Grid *grid, Level *level,  Vec *b) {
 	
+	int	prob = level->prob;
 	double	eps = level->eps;
 	double	*xcoord = grid->coord[0];
 	double	*ycoord = grid->coord[1];
@@ -1611,7 +1656,11 @@ void ApplyBCLevelVecb2D(Grid *grid, Level *level,  Vec *b) {
 	if (bcrank0 < 0) {
 	for (int j=0; j<ln[1]; j++) {
 		row[count] = gstart + j*inc[1];
-		val[count] = -1*coeff*Sol2D(xcoord[istart-1], ycoord[jstart+j]);
+		if (prob == 0) {
+			val[count] = -1*coeff*Sol2D(xcoord[istart-1], ycoord[jstart+j]);
+		} else {
+			val[count] = -1*coeff*SolConv2D(xcoord[istart-1], ycoord[jstart+j]);
+		}
 		count++;
 	}
 	VecSetValues(*b, ln[1], row, val, ADD_VALUES);
@@ -1624,7 +1673,11 @@ void ApplyBCLevelVecb2D(Grid *grid, Level *level,  Vec *b) {
 	count = 0;
 	for (int j=0; j<ln[1]; j++) {
 		row[count] = igstart + j*inc[1];
-		val[count] = -1*coeff*Sol2D(xcoord[istart+ln[0]], ycoord[jstart+j]);
+		if (prob == 0) {
+			val[count] = -1*coeff*Sol2D(xcoord[istart+ln[0]], ycoord[jstart+j]);
+		} else {
+			val[count] = -1*coeff*SolConv2D(xcoord[istart+ln[0]], ycoord[jstart+j]);
+		}
 		count++;
 	}
 	VecSetValues(*b, ln[1], row, val, ADD_VALUES);
@@ -1645,7 +1698,11 @@ void ApplyBCLevelVecb2D(Grid *grid, Level *level,  Vec *b) {
 	if (bcrank0 < 0) {
 	for (int i=0; i<ln[0]; i++) {
 		row[count] = gstart + i*inc[0];
-		val[count] = -1*coeff*Sol2D(xcoord[istart+i], ycoord[jstart-1]);
+		if (prob == 0) {
+			val[count] = -1*coeff*Sol2D(xcoord[istart+i], ycoord[jstart-1]);
+		} else {
+			val[count] = -1*coeff*SolConv2D(xcoord[istart+i], ycoord[jstart-1]);
+		}
 		count++;
 	}
 	VecSetValues(*b, ln[0], row, val, ADD_VALUES);
@@ -1658,7 +1715,11 @@ void ApplyBCLevelVecb2D(Grid *grid, Level *level,  Vec *b) {
 	count = 0;
 	for (int i=0; i<ln[0]; i++) {
 		row[count] = jgstart + i*inc[0];
-		val[count] = -1*coeff*Sol2D(xcoord[istart+i], ycoord[jstart+ln[1]]);
+		if (prob == 0) {
+			val[count] = -1*coeff*Sol2D(xcoord[istart+i], ycoord[jstart+ln[1]]);
+		} else {
+			val[count] = -1*coeff*SolConv2D(xcoord[istart+i], ycoord[jstart+ln[1]]);
+		}
 		count++;
 	}
 	VecSetValues(*b, ln[0], row, val, ADD_VALUES);
@@ -1694,6 +1755,7 @@ void FillLevelVecb(int lg, Grid *grid, Level *level, Vec *b) {
 	int *blockId = grid->topo->blockID;
 	int dimension = grid->topo->dimension;
 
+	int prob = level->prob;
 	int g	= level->gridId[lg];
 	long int *inc = level->inc[lg];
 	int igstart = level->ranges[lg];
@@ -1719,7 +1781,11 @@ void FillLevelVecb(int lg, Grid *grid, Level *level, Vec *b) {
 			for (int j=0; j<ln[1]; j++) {
 				for (int i=0; i<ln[0]; i++) {
 					row[count] = igstart + i*inc[0] + j*inc[1] + k*inc[2];
-					val[count] = RHSfunc3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+					if (prob == 0) {
+						val[count] = RHSfunc3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+					} else {
+						val[count] = RHSfuncConv3D(xcoord[istart+i], ycoord[jstart+j], zcoord[kstart+k]);
+					}
 					count++;
 				}
 			}
@@ -1735,7 +1801,11 @@ void FillLevelVecb(int lg, Grid *grid, Level *level, Vec *b) {
 		for (int j=0; j<ln[1]; j++) {
 			for (int i=0; i<ln[0]; i++) {
 				row[count] = igstart + i*inc[0] + j*inc[1];
-				val[count] = RHSfunc2D(xcoord[istart+i], ycoord[jstart+j]);
+				if (prob == 0) {
+					val[count] = RHSfunc2D(xcoord[istart+i], ycoord[jstart+j]);
+				} else {
+					val[count] = RHSfuncConv2D(xcoord[istart+i], ycoord[jstart+j]);
+				}
 				count++;
 			}
 		}
@@ -2792,6 +2862,14 @@ void GetSol(int lg, Grid *grid, Level *level, Vec *usol) {
 	VecAssemblyEnd(*usol);
 }
 
+void GetVecNorms(Vec *u, double *unorms) {
+	// Get L_inf, L1 and L2 norms of given vector
+	
+	VecNorm(*u, NORM_INFINITY, unorms);
+	VecNorm(*u, NORM_1, unorms+1);
+	VecNorm(*u, NORM_2, unorms+2);
+}
+
 void GetError(Vec *u, Vec *usol, double *error) {
 	// Get L_inf, L1 and L2 error norms
 	// Note: usol is reused to store error!
@@ -2862,12 +2940,38 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 	
 	if (solver->prob == 0) {
 	FILE	*errData = fopen("eData.dat","w");
+	double	*error0 = solver->error0;
 	double	*error = solver->error;
+	printf("\n");
+	for (int i=0;i<3;i++) {
+		printf("init_error[%d] = %.16e\n", i, error0[i]);
+		fprintf(errData,"%.16e\n", error0[i]);
+	}
+	printf("\n");
+	fprintf(errData,"\n");
 	for (int i=0;i<3;i++) {
 		printf("error[%d] = %.16e\n", i, error[i]);
 		fprintf(errData,"%.16e\n", error[i]);
 	}
 	printf("\n");
+	fprintf(errData,"\n");
+
+	double	error_rate, res_rate;
+	int	num = solver->numIter;
+	double	inv_num = 1.0/num;
+	for (int i=0;i<3;i++) {
+		error_rate = pow(error[i]/error0[i], inv_num);
+		printf("error_conv_rate[%d] = %.16e\n", i, error_rate);
+		fprintf(errData,"%.16e\n", error_rate);
+	}
+	printf("\n");
+	fprintf(errData,"\n");
+
+	res_rate = pow(solver->rnorm[num], inv_num);
+	printf("residual_conv_rate = %.16e\n", res_rate);
+	fprintf(errData,"%.16e\n", res_rate);
+	printf("\n");
+
 	fclose(errData);
 	}
 	
@@ -2878,17 +2982,20 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 		fprintf(resData,"%.16e\n", rnorm[i]);
 	}
 
-	int	num = (solver->cycle == 1)? numIter-1: numIter;
-	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], num);
+//	int	num = (solver->cycle == 1)? numIter-1: numIter;
+//	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], num);
+	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], numIter);
 	fclose(resData);
 	
 	int size;
 	MPI_Comm_size(PETSC_COMM_WORLD, &size);
 	
 	if (solver->levels->dimension == 2 
-		&& size == 1 
-		&& solver->levels->nlevels == 1
-		&& solver->levels->level->ngrids == 1) {
+		&& size == 1
+		&& solver->prob == 0
+//		&& solver->levels->nlevels == 1
+//		&& solver->levels->level->ngrids == 1
+		&& solver->writesol == 1) {
 		
 		FILE	*xgrid = fopen("xgrid.dat","w");
 		FILE	*ygrid = fopen("ygrid.dat","w");
@@ -2943,7 +3050,7 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 		&& solver->writesol == 1
 //		&& solver->levels->nlevels == 1
 //		&& solver->levels->level->ngrids == 1
-		&& solver->prob > 0) {
+		&& solver->prob == 0) {
 		
 		FILE	*xgrid = fopen("xgrid.dat","w");
 		FILE	*ygrid = fopen("ygrid.dat","w");
@@ -3022,7 +3129,9 @@ int PostProcessing(Grids *grids, Solver *solver) {
 	VecDuplicate(*ugrid, &usol);
 	GetSol(0, grid, level, &usol); // Get exact solution on finest grid in first level
 
+	double *error0 = solver->error0;
 	double *error = solver->error;
+	GetVecNorms(&usol, error0); // Get initial errors
 	GetError(ugrid, &usol, error);
 //	if (level->ngrids > 1) RestoreGridVecToLevelVec(u, ugrid, &is0);
 	if (level->ngrids > 1) {
@@ -3328,7 +3437,7 @@ int MultigridVcycle(Solver *solver) {
 			KSPSolve(ksp[l], b[l], u[l]);
 			if (l!=nlevels-1) KSPSetInitialGuessNonzero(ksp[l],PETSC_TRUE);
 		}
-		VecNorm(rv[0], NORM_2, &rnormchk);	
+//		VecNorm(rv[0], NORM_2, &rnormchk);	
 		for (int l=nlevels-2;l>=0;l=l-1) {
 			MatMultAdd(pro[l], u[l+1], u[l], u[l]);
 //			MatMult(pro[l],u[l+1],rv[l]);
@@ -3336,9 +3445,9 @@ int MultigridVcycle(Solver *solver) {
 			KSPSolve(ksp[l], b[l], u[l]);
 			if (l!=0) KSPSetInitialGuessNonzero(ksp[l],PETSC_FALSE);
 		}
-//		MatResidual(A[0], b[0], u[0], rv[0]);
+		MatResidual(A[0], b[0], u[0], rv[0]);
 //		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
-//		VecNorm(rv[0], NORM_2, &rnormchk);	
+		VecNorm(rv[0], NORM_2, &rnormchk);	
 		iter = iter + 1;
 		rnorm[iter] = rnormchk;
 	}
@@ -3346,13 +3455,15 @@ int MultigridVcycle(Solver *solver) {
 	clock_t solverT = clock();
 	double endWallTime = MPI_Wtime();
 	PetscBarrier(PETSC_NULL);
-	MatResidual(A[0], b[0], u[0], rv[0]);
-	VecNorm(rv[0], NORM_2, rnorm+iter+1);
+//	MatResidual(A[0], b[0], u[0], rv[0]);
+//	VecNorm(rv[0], NORM_2, rnorm+iter+1);
 	rnormchk = rnorm[0];
-	for (int i=0;i<(iter+2);i++) {
+//	for (int i=0;i<(iter+2);i++) {
+	for (int i=0;i<(iter+1);i++) {
 		rnorm[i] = rnorm[i]/rnormchk;
 	}
-	solver->numIter = iter+1;
+//	solver->numIter = iter+1;
+	solver->numIter = iter;
 
 	for (int i=0;i<nlevels;i++) {
 		PetscPrintf(PETSC_COMM_WORLD,"---------------------------| level = %d |------------------------\n",i);

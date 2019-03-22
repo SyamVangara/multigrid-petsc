@@ -14,7 +14,7 @@
 #-ngrids 2
 # nlevels: [nl]; number of levels for multigrid
 #-nlevels 2
-# cycle: [0: No-MG, 1: V-cycle, 2: Additive, 3: Additive-Scaled]
+# cycle: [0: No-MG, 1: V-cycle, 2: Additive, 3: Additive-Scaled, 4: AdditiveNB, 5: Additive-ScaledNB]
 #-cycle 1
 # v: [vfine,vcoarse]; vfine: number of pre-and-post smoothing steps; vcoarse: number of coarse grid solver iterations
 #-v 3,3

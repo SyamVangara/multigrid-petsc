@@ -70,6 +70,7 @@ typedef struct {
 	int	v[2];
 	double	eps;
 	double	rtol;
+	double	error0[3]; // Initial error
 	double	error[3];
 	double	*rnorm;
 	Levels	*levels;
