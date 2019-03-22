@@ -26,6 +26,8 @@ typedef struct {
 	double	**rNormGrid;
 } D1cntx;
 
+void GetSol(int lg, Grid *grid, Level *level, Vec *usol);
+
 //static int ipow(int base, int exp) {
 //
 //	int result = 1;
@@ -39,6 +41,7 @@ typedef struct {
 //}
 
 void InitializeSolver(Solver *solver) {
+	solver->enorm	= NULL;
 	solver->rnorm	= NULL;
 	solver->levels	= NULL;
 }
@@ -49,7 +52,9 @@ void DestroySolver(Solver *solver) {
 	if (!solver) return;	
 	DestroyLevels(solver->levels);
 	if (solver->levels) free(solver->levels);
+	if (solver->enorm) free(solver->enorm);
 	if (solver->rnorm) free(solver->rnorm);
+	VecDestroy(&(solver->usol));
 }
 
 //void CreatePostProcess(PostProcess *pp) {
@@ -1927,12 +1932,15 @@ int CreateSolver(Grids *grids, Solver *solver) {
 		pERROR_MSG("Set '-rtol value'");
 		return 1;
 	}
+	solver->enorm = malloc((solver->numIter+10)*sizeof(double));
 	solver->rnorm = malloc((solver->numIter+10)*sizeof(double));
 	solver->levels = malloc(sizeof(Levels));
 	solver->levels->prob = solver->prob;
 	solver->levels->eps = solver->eps;
 	ierr = CreateLevels(grids, solver->levels); pCHKERR_RETURN("Levels creation failed");
 	AssembleLevels(grids, solver->levels);
+	VecDuplicate(solver->levels->u[0], &(solver->usol)); // Wrong for cycles: 2,3
+	GetSol(0, grids->grid, solver->levels->level, &(solver->usol)); // Get exact solution on finest grid in first level
 	return 0;
 }
 
@@ -2956,14 +2964,21 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 	printf("\n");
 	fprintf(errData,"\n");
 
-	double	error_rate, res_rate;
+	double	error_rate, error_rate1, res_rate;
 	int	num = solver->numIter;
 	double	inv_num = 1.0/num;
-	for (int i=0;i<3;i++) {
-		error_rate = pow(error[i]/error0[i], inv_num);
-		printf("error_conv_rate[%d] = %.16e\n", i, error_rate);
-		fprintf(errData,"%.16e\n", error_rate);
+	error_rate = pow(error[2]/error0[2], inv_num);
+	if (solver->cycle == 1 || 
+			solver->cycle == 4 ||
+			solver->cycle == 5) {
+		double *enorm = solver->enorm;
+		double temp = 1.0/(num-4);
+		error_rate1 = pow(enorm[num]/enorm[4], temp);
 	}
+	printf("error_conv_rate(l2) =		%.16e\n", error_rate);
+	fprintf(errData,"%.16e\n", error_rate);
+	printf("error_conv_rate(l2)_few =	%.16e\n", error_rate1);
+	fprintf(errData,"%.16e\n", error_rate1);
 	printf("\n");
 	fprintf(errData,"\n");
 
@@ -2973,6 +2988,17 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 	printf("\n");
 
 	fclose(errData);
+	if (solver->cycle == 1 || 
+			solver->cycle == 4 ||
+			solver->cycle == 5) {
+		FILE	*enormData = fopen("eNorm.dat","w");
+		double	*enorm = solver->enorm;
+		int	numIter = solver->numIter;
+		for (int i=0;i<numIter+1;i++) {
+			fprintf(enormData,"%.16e\n", enorm[i]);
+		}
+		fclose(enormData);
+	}
 	}
 	
 	FILE	*resData = fopen("rData.dat","w");
@@ -3106,7 +3132,7 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 int PostProcessing(Grids *grids, Solver *solver) {
 	// Computes error and writes data to files
 	
-	Grid	*grid = grids->grid;
+//	Grid	*grid = grids->grid;
 	Levels	*levels = solver->levels;
 	Level	*level = levels->level; // First level
 
@@ -3114,7 +3140,7 @@ int PostProcessing(Grids *grids, Solver *solver) {
 	int ierr = 0;
 	if (solver->prob == 0) {
 	IS *is = level->is;
-	Vec usol;
+	Vec usol = solver->usol;
 	Vec *ugrid = NULL;
 	Vec *u = levels->u;
 
@@ -3126,8 +3152,8 @@ int PostProcessing(Grids *grids, Solver *solver) {
 		ugrid = malloc(sizeof(Vec));
 		ierr = VecGetSubVector(*u, is[0], ugrid); pCHKERR_RETURN("Getting sub-vector failed");
 	}
-	VecDuplicate(*ugrid, &usol);
-	GetSol(0, grid, level, &usol); // Get exact solution on finest grid in first level
+//	VecDuplicate(*ugrid, &usol);
+//	GetSol(0, grid, level, &usol); // Get exact solution on finest grid in first level
 
 	double *error0 = solver->error0;
 	double *error = solver->error;
@@ -3138,7 +3164,7 @@ int PostProcessing(Grids *grids, Solver *solver) {
 		VecRestoreSubVector(*u, is[0], ugrid);
 		free(ugrid);
 	}
-	VecDestroy(&usol);
+//	VecDestroy(&usol);
 	}
 	int	rank;
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
@@ -3360,6 +3386,7 @@ int MultigridVcycle(Solver *solver) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 	
 	double	rtol	= solver->rtol;
+	double	*enorm	= solver->enorm;
 	double	*rnorm	= solver->rnorm;
 	int	numIter	= solver->numIter;
 	int	*v	= solver->v;
@@ -3368,6 +3395,7 @@ int MultigridVcycle(Solver *solver) {
 	Mat	*A = levels->A;
 	Vec	*b = levels->b;
 	Vec	*u = levels->u;
+	Vec	usol = solver->usol;
 	Mat 	*pro;
 	
 	CreateProMatsFromResMats(dimension, nlevels-1, res, &pro);
@@ -3375,7 +3403,7 @@ int MultigridVcycle(Solver *solver) {
 	KSP	ksp[nlevels];
 	PC	temp;
 //	PC	pc[levels];
-	Vec	rv[nlevels];
+	Vec	rv[nlevels];//, ework;
 //	Vec	r[nlevels];
 	
 	PetscLogStage	stage;
@@ -3413,6 +3441,15 @@ int MultigridVcycle(Solver *solver) {
 	rnormmin = rtol*bnorm;
 
 	VecSet(u[0], 0.0); // Note: This should be moved out of this function?
+//	VecDuplicate(u[0], &(ework));
+	
+//	VecCopy(u[0], ework);
+//	VecAXPY(ework, -1.0, usol);
+//	VecNorm(ework, NORM_2, enorm);
+	VecCopy(u[0], rv[0]);
+	VecAXPY(rv[0], -1.0, usol);
+	VecNorm(rv[0], NORM_2, enorm);
+
 	MatResidual(A[0], b[0], u[0], rv[0]);
 //	MatMult(A[0], u[0], rv[0]);
 //	VecAXPY(rv[0], -1.0, b[0]);
@@ -3447,8 +3484,11 @@ int MultigridVcycle(Solver *solver) {
 		}
 		MatResidual(A[0], b[0], u[0], rv[0]);
 //		KSPBuildResidual(ksp[0],NULL,rv[0],&(r[0]));
-		VecNorm(rv[0], NORM_2, &rnormchk);	
 		iter = iter + 1;
+		VecNorm(rv[0], NORM_2, &rnormchk);	
+		VecCopy(u[0], rv[0]);
+		VecAXPY(rv[0], -1.0, usol);
+		VecNorm(rv[0], NORM_2, enorm+iter);
 		rnorm[iter] = rnormchk;
 	}
 	PetscLogStagePop();
@@ -3476,6 +3516,7 @@ int MultigridVcycle(Solver *solver) {
 	for (int i=0;i<nlevels;i++) {
 		VecDestroy(&(rv[i]));
 	}
+//	VecDestroy(&(ework));
 	for (int i=0;i<nlevels;i++) {
 		KSPDestroy(&(ksp[i]));
 	}
@@ -3513,6 +3554,7 @@ int MultigridAdditiveNB(Solver *solver) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	double	rtol	= solver->rtol;
+	double	*enorm	= solver->enorm;
 	double	*rnorm	= solver->rnorm;
 	int	numIter	= solver->numIter;
 	int	*v	= solver->v;
@@ -3521,6 +3563,7 @@ int MultigridAdditiveNB(Solver *solver) {
 	Mat	*A = levels->A;
 	Vec	*b = levels->b;
 	Vec	*u = levels->u;
+	Vec	usol = solver->usol;
 	Mat 	*pro;
 	
 	CreateProMatsFromResMats(dimension, nlevels-1, res, &pro);
@@ -3565,6 +3608,10 @@ int MultigridAdditiveNB(Solver *solver) {
 	rnormmin = rtol*bnorm;
 
 	VecSet(u[0], 0.0); // Note: This should be moved out of this function?
+	VecCopy(u[0], rfine);
+	VecAXPY(rfine, -1.0, usol);
+	VecNorm(rfine, NORM_2, enorm);
+
 	MatResidual(A[0], b[0], u[0], rfine);
 //	MatMult(A[0], u[0], rv[0]);
 //	VecAXPY(rv[0], -1.0, b[0]);
@@ -3592,9 +3639,12 @@ int MultigridAdditiveNB(Solver *solver) {
 //			VecAXPY(subu[l], 1.0, subb[l]);
 //			VecSet(subu[l+1], 0.0);
 		}
+		iter = iter + 1;
+		VecCopy(u[0], rfine);
+		VecAXPY(rfine, -1.0, usol);
+		VecNorm(rfine, NORM_2, enorm+iter);
 		MatResidual(A[0], b[0], u[0], rfine);
 		VecNorm(rfine, NORM_2, &rnormchk);
-		iter = iter + 1;
 		rnorm[iter] = rnormchk;
 	}
 	PetscLogStagePop();
@@ -3774,6 +3824,7 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 	MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
 
 	double	rtol	= solver->rtol;
+	double	*enorm	= solver->enorm;
 	double	*rnorm	= solver->rnorm;
 	int	numIter	= solver->numIter;
 	int	*v	= solver->v;
@@ -3782,6 +3833,7 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 	Mat	*A = levels->A;
 	Vec	*b = levels->b;
 	Vec	*u = levels->u;
+	Vec	usol = solver->usol;
 	Mat 	*pro;
 	
 	CreateProMatsFromResMats(dimension, nlevels-1, res, &pro);
@@ -3830,6 +3882,11 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 	rnormmin = rtol*bnorm;
 
 	VecSet(u[0], 0.0); // Note: Should this be moved out of this function?
+	
+	VecCopy(u[0], rfine);
+	VecAXPY(rfine, -1.0, usol);
+	VecNorm(rfine, NORM_2, enorm);
+	
 	MatResidual(A[0], b[0], u[0], rfine);
 	VecNorm(rfine, NORM_2, &rnormchk);
 	rnorm[0] = rnormchk;
@@ -3869,10 +3926,13 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 			VecScale(u[l+1], lambda[l]);
 			MatMultAdd(pro[l], u[l+1], u[l], u[l]);
 		}
+		iter = iter + 1;
+		VecCopy(u[0], rfine);
+		VecAXPY(rfine, -1.0, usol);
+		VecNorm(rfine, NORM_2, enorm+iter);
 		MatResidual(A[0], b[0], u[0], rfine);
 		VecTDot(rfine, rfine, r0Dot);
 //		VecNorm(rfine, NORM_2, &rnormchk);
-		iter = iter + 1;
 		rnormchk = sqrt(r0Dot[0]);
 		rnorm[iter] = rnormchk;
 	}

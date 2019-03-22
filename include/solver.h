@@ -72,7 +72,9 @@ typedef struct {
 	double	rtol;
 	double	error0[3]; // Initial error
 	double	error[3];
+	double	*enorm; // Stores error norms for all iterations
 	double	*rnorm;
+	Vec	usol;
 	Levels	*levels;
 } Solver;
 
