@@ -3900,6 +3900,43 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 	PetscLogStageRegister("Solver", &stage);
 	PetscLogStagePush(stage);
 
+// 	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
+//		MatMult(res[0], rfine, b[1]);
+//		for (int l=1;l<nlevels-1;l++) {
+//			MatMult(res[l], b[l], b[l+1]);
+//		}
+////		VecTDot(rfine, rfine, r0Dot);
+// 		for (int l=1; l<nlevels-1; l++) {
+//			VecTDot(b[l], b[l], r0Dot+l);
+// 		}
+//		for (int l=0; l<nlevels; l++) {
+//			KSPSolve(ksp[l], b[l], u[l]);
+//		}
+//		for (int l=0; l<nlevels-1; l++) {
+//			MatResidual(A[l], b[l], u[l], r[l]);
+//		}
+//		VecTDot(rfine, r[0], lambda);
+//		for (int l=1; l<nlevels-1; l++) {
+//			VecTDot(b[l], r[l], lambda+l);
+//		}
+//		for (int l=0;l<nlevels-1;l++) {
+//			lambda[l] = lambda[l]/r0Dot[l];
+//		}
+//		for (int l=nlevels-2;l>=0;l=l-1) {
+//			VecScale(u[l+1], lambda[l]);
+//			MatMultAdd(pro[l], u[l+1], u[l], u[l]);
+//		}
+//		iter = iter + 1;
+//		VecCopy(u[0], rfine);
+//		VecAXPY(rfine, -1.0, usol);
+//		VecNorm(rfine, NORM_2, enorm+iter);
+//		MatResidual(A[0], b[0], u[0], rfine);
+//		VecTDot(rfine, rfine, r0Dot);
+////		VecNorm(rfine, NORM_2, &rnormchk);
+//		rnormchk = sqrt(r0Dot[0]);
+//		rnorm[iter] = rnormchk;
+//	}
+//
  	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
 		MatMult(res[0], rfine, b[1]);
 		for (int l=1;l<nlevels-1;l++) {
@@ -3921,6 +3958,9 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 		}
 		for (int l=0;l<nlevels-1;l++) {
 			lambda[l] = lambda[l]/r0Dot[l];
+		}
+		for (int l=nlevels-2; l>0; l=l-1) {
+			lambda[l] = lambda[l]/lambda[l-1];
 		}
 		for (int l=nlevels-2;l>=0;l=l-1) {
 			VecScale(u[l+1], lambda[l]);

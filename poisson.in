@@ -21,8 +21,9 @@
 
 # Solver options:
 
--levels_pc_type sor 
--coarse_pc_type sor 
+-levels_pc_type sor
+-coarse_ksp_type richardson 
+-coarse_pc_type sor
 -pc_type sor 
 
 #-levels_pc_type bjacobi
