@@ -3937,6 +3937,7 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 //		rnorm[iter] = rnormchk;
 //	}
 //
+	PetscPrintf(PETSC_COMM_WORLD,"lambdas:\n");
  	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
 		MatMult(res[0], rfine, b[1]);
 		for (int l=1;l<nlevels-1;l++) {
@@ -3957,8 +3958,11 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 			VecTDot(b[l], r[l], lambda+l);
 		}
 		for (int l=0;l<nlevels-1;l++) {
+			PetscPrintf(PETSC_COMM_WORLD,"(%.4e, %.4e, ", lambda[l], r0Dot[l]);
 			lambda[l] = lambda[l]/r0Dot[l];
+			PetscPrintf(PETSC_COMM_WORLD,"%.4e)	", lambda[l]);
 		}
+		PetscPrintf(PETSC_COMM_WORLD,"\n");
 		for (int l=nlevels-2; l>0; l=l-1) {
 			lambda[l] = lambda[l]/lambda[l-1];
 		}
@@ -3976,6 +3980,7 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 		rnormchk = sqrt(r0Dot[0]);
 		rnorm[iter] = rnormchk;
 	}
+	PetscPrintf(PETSC_COMM_WORLD,"\n");
 
 	PetscLogStagePop();
 	clock_t solverT = clock();
