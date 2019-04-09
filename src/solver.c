@@ -3883,7 +3883,7 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 	KSPSetFromOptions(ksp[nlevels-1]);
 	
 	double	bnorm, rnormmin, rnormmax, rnormchk;
-	double	lambda[nlevels-1], r0Dot[nlevels-1];
+	double	lambda[nlevels-1], r0Dot[nlevels-1], rbar[nlevels-1];
 	VecNorm(b[0], NORM_2, &bnorm);
 	rnormmax = 100000000*bnorm;
 	rnormmin = rtol*bnorm;
@@ -3944,7 +3944,9 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 //		rnorm[iter] = rnormchk;
 //	}
 //
-	PetscPrintf(PETSC_COMM_WORLD,"lambdas:\n");
+	FILE	*r0Data = fopen("r0Data.dat","w");
+	FILE	*r1Data = fopen("r1Data.dat","w");
+	FILE	*r01Data = fopen("r01Data.dat","w");
  	while (iter<numIter && rnormmax > rnormchk && rnormchk > rnormmin) {
 		MatMult(res[0], rfine, b[1]);
 		for (int l=1;l<nlevels-1;l++) {
@@ -3959,17 +3961,25 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 		}
 		for (int l=0; l<nlevels-1; l++) {
 			MatResidual(A[l], b[l], u[l], r[l]);
+			VecTDot(r[l], r[l], rbar+l);
 		}
 		VecTDot(rfine, r[0], lambda);
 		for (int l=1; l<nlevels-1; l++) {
 			VecTDot(b[l], r[l], lambda+l);
 		}
-		for (int l=0;l<nlevels-1;l++) {
-			PetscPrintf(PETSC_COMM_WORLD,"(%.4e, %.4e, ", lambda[l], r0Dot[l]);
-			lambda[l] = lambda[l]/r0Dot[l];
-			PetscPrintf(PETSC_COMM_WORLD,"%.4e)	", lambda[l]);
+		if (rank == 0) {
+			for (int l=0; l<nlevels-1; l++) {
+				fprintf(r0Data, "%.16e	", r0Dot[l]);
+				fprintf(r1Data, "%.16e	", rbar[l]);
+				fprintf(r01Data, "%.16e	", lambda[l]);
+			}
+			fprintf(r0Data, "\n");
+			fprintf(r1Data, "\n");
+			fprintf(r01Data, "\n");
 		}
-		PetscPrintf(PETSC_COMM_WORLD,"\n");
+		for (int l=0;l<nlevels-1;l++) {
+			lambda[l] = lambda[l]/r0Dot[l];
+		}
 		for (int l=nlevels-2; l>0; l=l-1) {
 			lambda[l] = lambda[l]/lambda[l-1];
 		}
@@ -3987,7 +3997,9 @@ int MultigridAdditiveScaledNB(Solver *solver) {
 		rnormchk = sqrt(r0Dot[0]);
 		rnorm[iter] = rnormchk;
 	}
-	PetscPrintf(PETSC_COMM_WORLD,"\n");
+	fclose(r0Data);
+	fclose(r1Data);
+	fclose(r01Data);
 
 	PetscLogStagePop();
 	clock_t solverT = clock();
