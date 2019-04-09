@@ -3013,6 +3013,13 @@ void WriteToFiles(Grids *grids, Solver *solver) {
 	printf("Relative Residual norm = %.16e after %d iteration(s)\n\n", rnorm[numIter], numIter);
 	fclose(resData);
 	
+	FILE	*hData = fopen("hData.dat","w");
+	int	ngrids = grids->ngrids;
+	for (int i=0;i<ngrids;i++) {
+		fprintf(hData,"%.16e\n", grids->grid[i].h);
+	}
+	fclose(hData);
+	
 	int size;
 	MPI_Comm_size(PETSC_COMM_WORLD, &size);
 	
